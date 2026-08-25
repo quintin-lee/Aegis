@@ -37,21 +37,21 @@ typedef struct aegis_error aegis_error_t;
  * format, overflow, empty) that do not appear in the core status enum.
  */
 typedef enum aegis_err {
-    AEGIS_ERR_NONE      =  0, /**< No error.                               */
-    AEGIS_ERR_UNKNOWN   = -1, /**< Unknown / unclassified error.             */
-    AEGIS_ERR_NOMEM     = -2, /**< Out of memory.                            */
-    AEGIS_ERR_INVALID   = -3, /**< Invalid argument.                         */
-    AEGIS_ERR_NOT_FOUND = -4, /**< Resource not found.                       */
-    AEGIS_ERR_BUSY      = -5, /**< Resource is busy.                         */
-    AEGIS_ERR_TIMEOUT   = -6, /**< Operation timed out.                      */
-    AEGIS_ERR_CANCELLED = -7, /**< Operation was cancelled.                  */
-    AEGIS_ERR_PERM      = -8, /**< Permission denied.                        */
-    AEGIS_ERR_PROVIDER  = -9, /**< Error from an external provider.          */
-    AEGIS_ERR_TOOL      = -10,/**< Error from a tool execution.              */
-    AEGIS_ERR_IO        = -11,/**< I/O error (read / write / network).       */
-    AEGIS_ERR_FORMAT    = -12,/**< Malformed input format.                   */
-    AEGIS_ERR_OVERFLOW  = -13,/**< Value exceeded representable range.       */
-    AEGIS_ERR_EMPTY     = -14,/**< Operation on an empty collection.         */
+    AEGIS_ERR_NONE      = 0,   /**< No error.                               */
+    AEGIS_ERR_UNKNOWN   = -1,  /**< Unknown / unclassified error.             */
+    AEGIS_ERR_NOMEM     = -2,  /**< Out of memory.                            */
+    AEGIS_ERR_INVALID   = -3,  /**< Invalid argument.                         */
+    AEGIS_ERR_NOT_FOUND = -4,  /**< Resource not found.                       */
+    AEGIS_ERR_BUSY      = -5,  /**< Resource is busy.                         */
+    AEGIS_ERR_TIMEOUT   = -6,  /**< Operation timed out.                      */
+    AEGIS_ERR_CANCELLED = -7,  /**< Operation was cancelled.                  */
+    AEGIS_ERR_PERM      = -8,  /**< Permission denied.                        */
+    AEGIS_ERR_PROVIDER  = -9,  /**< Error from an external provider.          */
+    AEGIS_ERR_TOOL      = -10, /**< Error from a tool execution.              */
+    AEGIS_ERR_IO        = -11, /**< I/O error (read / write / network).       */
+    AEGIS_ERR_FORMAT    = -12, /**< Malformed input format.                   */
+    AEGIS_ERR_OVERFLOW  = -13, /**< Value exceeded representable range.       */
+    AEGIS_ERR_EMPTY     = -14, /**< Operation on an empty collection.         */
 } aegis_err_t;
 
 /**
@@ -78,8 +78,7 @@ aegis_err_t aegis_error_new(aegis_error_t** out, aegis_err_t code, const char* f
  * @param[in]  ...       Format arguments.
  * @return AEGIS_OK on success.
  */
-aegis_err_t aegis_error_new_cause(aegis_error_t** out, aegis_err_t code,
-                                  const aegis_error_t* cause,
+aegis_err_t aegis_error_new_cause(aegis_error_t** out, aegis_err_t code, const aegis_error_t* cause,
                                   const char* fmt, ...);
 
 /**

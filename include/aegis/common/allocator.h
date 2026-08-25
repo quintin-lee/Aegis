@@ -46,15 +46,15 @@ typedef struct aegis_alloc_stats {
 /** Allocate size bytes. Returns NULL on failure. */
 typedef void* (*aegis_alloc_fn)(aegis_allocator_t* self, size_t size, void* ctx);
 /** Free a previously allocated block. Safe with NULL ptr. */
-typedef void  (*aegis_free_fn)(aegis_allocator_t* self, void* ptr, void* ctx);
+typedef void (*aegis_free_fn)(aegis_allocator_t* self, void* ptr, void* ctx);
 /** Reallocate block; new_size may be 0 (equivalent to free). */
-typedef void* (*aegis_realloc_fn)(aegis_allocator_t* self, void* ptr,
-                                  size_t old_size, size_t new_size, void* ctx);
+typedef void* (*aegis_realloc_fn)(aegis_allocator_t* self, void* ptr, size_t old_size,
+                                  size_t new_size, void* ctx);
 /** Fill out @p stats; if NULL the call is a no-op. */
-typedef void  (*aegis_stats_fn)(const aegis_allocator_t* self,
-                                aegis_alloc_stats_t* stats, void* ctx);
+typedef void (*aegis_stats_fn)(const aegis_allocator_t* self, aegis_alloc_stats_t* stats,
+                               void* ctx);
 /** Destroy the allocator and release any internal resources. */
-typedef void  (*aegis_destroy_fn)(aegis_allocator_t* self, void* ctx);
+typedef void (*aegis_destroy_fn)(aegis_allocator_t* self, void* ctx);
 
 /**
  * @brief Allocator vtable.
@@ -128,8 +128,7 @@ void aegis_free(const aegis_allocator_t* alloc, void* ptr);
  * @param new_size Desired new size.
  * @return Pointer to resized block, or NULL on failure (original block unchanged).
  */
-void* aegis_realloc(const aegis_allocator_t* alloc, void* ptr,
-                    size_t old_size, size_t new_size);
+void* aegis_realloc(const aegis_allocator_t* alloc, void* ptr, size_t old_size, size_t new_size);
 
 /**
  * @brief Query allocation statistics from the given allocator.

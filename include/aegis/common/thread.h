@@ -37,8 +37,7 @@ typedef void* (*aegis_thread_fn)(void* arg);
  * @param[in]  stack_size Preferred stack size in bytes (0 = system default).
  * @return 0 on success, negative on failure (e.g. resource limit exceeded).
  */
-int aegis_thread_create(aegis_thread_t** out, aegis_thread_fn fn, void* arg,
-                        size_t stack_size);
+int aegis_thread_create(aegis_thread_t** out, aegis_thread_fn fn, void* arg, size_t stack_size);
 
 /**
  * @brief Wait for a thread to finish and destroy it.

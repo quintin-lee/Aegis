@@ -18,12 +18,12 @@ extern "C" {
  * Transition: PENDING → READY → RUNNING → DONE / FAILED / CANCELLED
  */
 typedef enum aegis_task_state {
-    AEGIS_TASK_PENDING,  /**< Scheduled but not yet ready to run.          */
-    AEGIS_TASK_READY,    /**< Dependencies satisfied; eligible for scheduling. */
-    AEGIS_TASK_RUNNING,  /**< Currently being executed by an executor.         */
-    AEGIS_TASK_DONE,     /**< Completed successfully.                          */
-    AEGIS_TASK_FAILED,   /**< Execution failed after retries exhausted.        */
-    AEGIS_TASK_CANCELLED,/**< Cancelled by caller before completion.           */
+    AEGIS_TASK_PENDING,   /**< Scheduled but not yet ready to run.          */
+    AEGIS_TASK_READY,     /**< Dependencies satisfied; eligible for scheduling. */
+    AEGIS_TASK_RUNNING,   /**< Currently being executed by an executor.         */
+    AEGIS_TASK_DONE,      /**< Completed successfully.                          */
+    AEGIS_TASK_FAILED,    /**< Execution failed after retries exhausted.        */
+    AEGIS_TASK_CANCELLED, /**< Cancelled by caller before completion.           */
 } aegis_task_state_t;
 
 /** Opaque task handle. */

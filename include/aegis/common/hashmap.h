@@ -80,8 +80,7 @@ bool aegis_eq_bytes(const void* a, const void* b, size_t len);
  * @param[in]  hash_seed Initial hash seed.
  * @return 0 on success, -1 on allocation failure or invalid arguments.
  */
-int aegis_hashmap_create(aegis_hashmap_t** out, size_t capacity,
-                         aegis_hash_fn hash, aegis_eq_fn eq,
+int aegis_hashmap_create(aegis_hashmap_t** out, size_t capacity, aegis_hash_fn hash, aegis_eq_fn eq,
                          uint64_t hash_seed);
 
 /**
@@ -109,8 +108,7 @@ void aegis_hashmap_destroy(aegis_hashmap_t* map);
  * @param value  Value pointer to associate with @p key.
  * @return 0 on success, -1 on allocation failure or invalid arguments.
  */
-int aegis_hashmap_insert(aegis_hashmap_t* map, const void* key, size_t key_len,
-                         void* value);
+int aegis_hashmap_insert(aegis_hashmap_t* map, const void* key, size_t key_len, void* value);
 
 /**
  * @brief Look up a value by key.

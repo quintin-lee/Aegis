@@ -74,8 +74,7 @@ int aegis_buffer_append_str(aegis_buffer_t* buf, const char* str);
  * @param len    Number of bytes to read.
  * @return 0 on success, -1 if offset+len exceeds buffer length.
  */
-int aegis_buffer_read(const aegis_buffer_t* buf, uint8_t* out,
-                      size_t offset, size_t len);
+int aegis_buffer_read(const aegis_buffer_t* buf, uint8_t* out, size_t offset, size_t len);
 
 /**
  * @brief Return a pointer to the underlying bytes.
