@@ -12,8 +12,9 @@ struct aegis_result {
 aegis_result_t* aegis_result_create_ok(void* payload)
 {
     aegis_result_t* r = calloc(1, sizeof(*r));
-    if (!r)
+    if (!r) {
         return NULL;
+    }
     r->ok      = 1;
     r->payload = payload;
     return r;
@@ -22,8 +23,9 @@ aegis_result_t* aegis_result_create_ok(void* payload)
 aegis_result_t* aegis_result_create_err(aegis_error_t* err)
 {
     aegis_result_t* r = calloc(1, sizeof(*r));
-    if (!r)
+    if (!r) {
         return NULL;
+    }
     r->ok    = 0;
     r->error = err;
     return r;
@@ -40,8 +42,9 @@ aegis_result_t* aegis_result_create_errf(aegis_err_t code, const char* fmt, ...)
     } else {
         aegis_error_new(&err, code, NULL);
     }
-    if (!err)
+    if (!err) {
         return NULL;
+    }
     return aegis_result_create_err(err);
 }
 
@@ -67,8 +70,9 @@ const aegis_error_t* aegis_result_err_get(const aegis_result_t* r)
 
 aegis_error_t* aegis_result_take_err(aegis_result_t* r)
 {
-    if (!r || r->ok)
+    if (!r || r->ok) {
         return NULL;
+    }
     aegis_error_t* e = r->error;
     r->error         = NULL;
     r->ok            = 1;
@@ -77,8 +81,9 @@ aegis_error_t* aegis_result_take_err(aegis_result_t* r)
 
 void aegis_result_destroy(aegis_result_t* r)
 {
-    if (!r)
+    if (!r) {
         return;
+    }
     if (!r->ok && r->error) {
         aegis_error_destroy(r->error);
         r->error = NULL;

@@ -15,19 +15,22 @@ struct aegis_list {
 
 int aegis_list_create(aegis_list_t** out)
 {
-    if (!out)
+    if (!out) {
         return -1;
+    }
     aegis_list_t* v = calloc(1, sizeof(*v));
-    if (!v)
+    if (!v) {
         return -1;
+    }
     *out = v;
     return 0;
 }
 
 void aegis_list_destroy(aegis_list_t* v)
 {
-    if (!v)
+    if (!v) {
         return;
+    }
     struct aegis_list_node* node = v->head;
     while (node) {
         struct aegis_list_node* next = node->next;
@@ -39,18 +42,21 @@ void aegis_list_destroy(aegis_list_t* v)
 
 int aegis_list_push_back(aegis_list_t* v, const void* item)
 {
-    if (!v)
+    if (!v) {
         return -1;
+    }
     struct aegis_list_node* node = malloc(sizeof(*node));
-    if (!node)
+    if (!node) {
         return -1;
+    }
     node->item = (void*)item;
     node->prev = v->tail;
     node->next = NULL;
-    if (v->tail)
+    if (v->tail) {
         v->tail->next = node;
-    else
+    } else {
         v->head = node;
+    }
     v->tail = node;
     v->len++;
     return 0;
@@ -58,18 +64,21 @@ int aegis_list_push_back(aegis_list_t* v, const void* item)
 
 int aegis_list_push_front(aegis_list_t* v, const void* item)
 {
-    if (!v)
+    if (!v) {
         return -1;
+    }
     struct aegis_list_node* node = malloc(sizeof(*node));
-    if (!node)
+    if (!node) {
         return -1;
+    }
     node->item = (void*)item;
     node->prev = NULL;
     node->next = v->head;
-    if (v->head)
+    if (v->head) {
         v->head->prev = node;
-    else
+    } else {
         v->tail = node;
+    }
     v->head = node;
     v->len++;
     return 0;
@@ -77,16 +86,19 @@ int aegis_list_push_front(aegis_list_t* v, const void* item)
 
 int aegis_list_pop_back(aegis_list_t* v, void* out)
 {
-    if (!v || !v->tail)
+    if (!v || !v->tail) {
         return -1;
+    }
     struct aegis_list_node* node = v->tail;
-    if (out)
+    if (out) {
         *(void**)out = node->item;
+    }
     v->tail = node->prev;
-    if (v->tail)
+    if (v->tail) {
         v->tail->next = NULL;
-    else
+    } else {
         v->head = NULL;
+    }
     free(node);
     v->len--;
     return 0;
@@ -94,16 +106,19 @@ int aegis_list_pop_back(aegis_list_t* v, void* out)
 
 int aegis_list_pop_front(aegis_list_t* v, void* out)
 {
-    if (!v || !v->head)
+    if (!v || !v->head) {
         return -1;
+    }
     struct aegis_list_node* node = v->head;
-    if (out)
+    if (out) {
         *(void**)out = node->item;
+    }
     v->head = node->next;
-    if (v->head)
+    if (v->head) {
         v->head->prev = NULL;
-    else
+    } else {
         v->tail = NULL;
+    }
     free(node);
     v->len--;
     return 0;
@@ -111,19 +126,23 @@ int aegis_list_pop_front(aegis_list_t* v, void* out)
 
 int aegis_list_front(const aegis_list_t* v, const void** out)
 {
-    if (!v || !v->head)
+    if (!v || !v->head) {
         return -1;
-    if (out)
+    }
+    if (out) {
         *out = v->head->item;
+    }
     return 0;
 }
 
 int aegis_list_back(const aegis_list_t* v, const void** out)
 {
-    if (!v || !v->tail)
+    if (!v || !v->tail) {
         return -1;
-    if (out)
+    }
+    if (out) {
         *out = v->tail->item;
+    }
     return 0;
 }
 
@@ -139,8 +158,10 @@ bool aegis_list_is_empty(const aegis_list_t* v)
 
 void aegis_list_for_each(aegis_list_t* v, void (*fn)(void* item, void* ctx), void* ctx)
 {
-    if (!v || !fn)
+    if (!v || !fn) {
         return;
-    for (struct aegis_list_node* node = v->head; node; node = node->next)
+    }
+    for (struct aegis_list_node* node = v->head; node; node = node->next) {
         fn(node->item, ctx);
+    }
 }

@@ -11,15 +11,18 @@ struct aegis_mutex {
 
 int aegis_mutex_create(aegis_mutex_t** out, aegis_mutex_kind_t kind)
 {
-    if (!out)
+    if (!out) {
         return -1;
+    }
     aegis_mutex_t* m = calloc(1, sizeof(*m));
-    if (!m)
+    if (!m) {
         return -1;
+    }
     pthread_mutexattr_t attr;
     pthread_mutexattr_init(&attr);
-    if (kind == AEGIS_MUTEX_RECURSIVE)
+    if (kind == AEGIS_MUTEX_RECURSIVE) {
         pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    }
     int rc = pthread_mutex_init(&m->inner, &attr);
     pthread_mutexattr_destroy(&attr);
     if (rc != 0) {
@@ -33,8 +36,9 @@ int aegis_mutex_create(aegis_mutex_t** out, aegis_mutex_kind_t kind)
 
 void aegis_mutex_destroy(aegis_mutex_t* m)
 {
-    if (!m)
+    if (!m) {
         return;
+    }
     pthread_mutex_destroy(&m->inner);
     free(m);
 }
@@ -58,15 +62,17 @@ void aegis_mutex_unlock(aegis_mutex_t* m)
 aegis_mutex_guard_t aegis_mutex_guard_lock(aegis_mutex_t* m)
 {
     aegis_mutex_guard_t g = {m};
-    if (m)
+    if (m) {
         pthread_mutex_lock(&m->inner);
+    }
     return g;
 }
 
 aegis_mutex_t* aegis_mutex_guard_release(aegis_mutex_guard_t* g)
 {
-    if (!g)
+    if (!g) {
         return NULL;
+    }
     aegis_mutex_t* m = g->mutex;
     g->mutex         = NULL;
     return m;

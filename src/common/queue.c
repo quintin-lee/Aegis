@@ -13,11 +13,13 @@ struct aegis_queue {
 
 int aegis_queue_create(aegis_queue_t** out, size_t capacity)
 {
-    if (!out || capacity == 0 || (capacity & (capacity - 1)) != 0)
+    if (!out || capacity == 0 || (capacity & (capacity - 1)) != 0) {
         return -1;
+    }
     aegis_queue_t* q = calloc(1, sizeof(*q));
-    if (!q)
+    if (!q) {
         return -1;
+    }
     q->slots = (void**)calloc(capacity, sizeof(void*));
     if (!q->slots) {
         free(q);
@@ -30,16 +32,18 @@ int aegis_queue_create(aegis_queue_t** out, size_t capacity)
 
 void aegis_queue_destroy(aegis_queue_t* q)
 {
-    if (!q)
+    if (!q) {
         return;
+    }
     free(q->slots);
     free(q);
 }
 
 int aegis_queue_push(aegis_queue_t* q, void* item)
 {
-    if (!q || aegis_queue_is_full(q))
+    if (!q || aegis_queue_is_full(q)) {
         return -1;
+    }
     q->slots[q->tail] = item;
     q->tail           = (q->tail + 1) & (q->capacity - 1);
     q->count++;
@@ -48,10 +52,12 @@ int aegis_queue_push(aegis_queue_t* q, void* item)
 
 int aegis_queue_pop(aegis_queue_t* q, void* out)
 {
-    if (!q || aegis_queue_is_empty(q))
+    if (!q || aegis_queue_is_empty(q)) {
         return -1;
-    if (out)
+    }
+    if (out) {
         *(void**)out = q->slots[q->head];
+    }
     q->slots[q->head] = NULL;
     q->head           = (q->head + 1) & (q->capacity - 1);
     q->count--;
@@ -60,10 +66,12 @@ int aegis_queue_pop(aegis_queue_t* q, void* out)
 
 int aegis_queue_peek(const aegis_queue_t* q, void* out)
 {
-    if (!q || aegis_queue_is_empty(q))
+    if (!q || aegis_queue_is_empty(q)) {
         return -1;
-    if (out)
+    }
+    if (out) {
         *(void**)out = q->slots[q->head];
+    }
     return 0;
 }
 
@@ -84,8 +92,9 @@ bool aegis_queue_is_full(const aegis_queue_t* q)
 
 void aegis_queue_clear(aegis_queue_t* q)
 {
-    if (!q)
+    if (!q) {
         return;
+    }
     memset(q->slots, 0, q->capacity * sizeof(void*));
     q->head = q->tail = q->count = 0;
 }

@@ -29,8 +29,9 @@ aegis_status_t aegis_task_create(aegis_task_t** out, const char* desc)
 
 void aegis_task_destroy(aegis_task_t* task)
 {
-    if (!task)
+    if (!task) {
         return;
+    }
     free(task->description);
     free(task);
 }

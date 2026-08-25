@@ -13,11 +13,13 @@ struct aegis_error {
 
 aegis_err_t aegis_error_new(aegis_error_t** out, aegis_err_t code, const char* fmt, ...)
 {
-    if (!out)
+    if (!out) {
         return (aegis_err_t)-1;
+    }
     aegis_error_t* err = calloc(1, sizeof(*err));
-    if (!err)
+    if (!err) {
         return AEGIS_ERR_NOMEM;
+    }
     err->code  = code;
     err->cause = NULL;
     if (fmt) {
@@ -35,11 +37,13 @@ aegis_err_t aegis_error_new(aegis_error_t** out, aegis_err_t code, const char* f
 aegis_err_t aegis_error_new_cause(aegis_error_t** out, aegis_err_t code, const aegis_error_t* cause,
                                   const char* fmt, ...)
 {
-    if (!out)
+    if (!out) {
         return (aegis_err_t)-1;
+    }
     aegis_error_t* err = calloc(1, sizeof(*err));
-    if (!err)
+    if (!err) {
         return AEGIS_ERR_NOMEM;
+    }
     err->code  = code;
     err->cause = cause;
     if (fmt) {
@@ -56,11 +60,13 @@ aegis_err_t aegis_error_new_cause(aegis_error_t** out, aegis_err_t code, const a
 
 aegis_err_t aegis_error_clone(const aegis_error_t* src, aegis_error_t** out)
 {
-    if (!src || !out)
+    if (!src || !out) {
         return AEGIS_ERR_INVALID;
+    }
     aegis_error_t* copy = calloc(1, sizeof(*copy));
-    if (!copy)
+    if (!copy) {
         return AEGIS_ERR_NOMEM;
+    }
     *copy = *src;
     *out  = copy;
     return AEGIS_ERR_NONE;
@@ -88,15 +94,17 @@ const aegis_error_t* aegis_error_cause(const aegis_error_t* err)
 
 int aegis_error_chain_snprintf(char* buf, size_t maxlen, const aegis_error_t* err)
 {
-    if (!buf || maxlen == 0)
+    if (!buf || maxlen == 0) {
         return 0;
+    }
     buf[0]     = '\0';
     size_t off = 0;
     while (err && off < maxlen) {
         int n = (int)snprintf(buf + off, maxlen - off, "%s%s",
                               off == 0 ? "" : " caused by: ", aegis_error_message(err));
-        if (n < 0)
+        if (n < 0) {
             break;
+        }
         off += (size_t)n;
         err = aegis_error_cause(err);
     }

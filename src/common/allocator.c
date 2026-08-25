@@ -52,8 +52,9 @@ const aegis_allocator_t* aegis_alloc_default(void)
 
 void* aegis_alloc(const aegis_allocator_t* alloc, size_t size)
 {
-    if (!alloc)
+    if (!alloc) {
         return malloc(size);
+    }
     return alloc->alloc((aegis_allocator_t*)alloc, size, alloc->ctx);
 }
 
@@ -68,15 +69,17 @@ void aegis_free(const aegis_allocator_t* alloc, void* ptr)
 
 void* aegis_realloc(const aegis_allocator_t* alloc, void* ptr, size_t old_size, size_t new_size)
 {
-    if (!alloc)
+    if (!alloc) {
         return realloc(ptr, new_size);
+    }
     return alloc->realloc((aegis_allocator_t*)alloc, ptr, old_size, new_size, alloc->ctx);
 }
 
 void aegis_alloc_stats(const aegis_allocator_t* alloc, aegis_alloc_stats_t* stats)
 {
-    if (!alloc || !stats)
+    if (!alloc || !stats) {
         return;
+    }
     alloc->stats(alloc, stats, alloc->ctx);
 }
 
@@ -97,8 +100,9 @@ static void* track_alloc(aegis_allocator_t* self, size_t size, void* ctx)
         tc->st.allocations++;
         tc->st.bytes_allocated += size;
         tc->st.current_bytes += size;
-        if (tc->st.current_bytes > tc->st.peak_bytes)
+        if (tc->st.current_bytes > tc->st.peak_bytes) {
             tc->st.peak_bytes = tc->st.current_bytes;
+        }
     }
     return p;
 }
@@ -126,8 +130,9 @@ static void* track_realloc(aegis_allocator_t* self, void* ptr, size_t old_size, 
 static void track_stats(const aegis_allocator_t* self, aegis_alloc_stats_t* out, void* ctx)
 {
     (void)self;
-    if (out)
+    if (out) {
         *out = ((tracking_ctx_t*)ctx)->st;
+    }
 }
 static void track_destroy(aegis_allocator_t* self, void* ctx)
 {
@@ -161,8 +166,9 @@ aegis_allocator_t aegis_alloc_tracker(const aegis_allocator_t* base)
 
 aegis_allocator_t aegis_alloc_tracker_destroy(aegis_allocator_t tracker)
 {
-    if (!tracker.destroy || !tracker.ctx)
+    if (!tracker.destroy || !tracker.ctx) {
         return tracker;
+    }
     tracking_ctx_t*          tc   = (tracking_ctx_t*)tracker.ctx;
     const aegis_allocator_t* base = tc->base.alloc ? &tc->base : aegis_alloc_default();
     /* Free the base allocator's own allocations (if any) */

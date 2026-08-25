@@ -15,11 +15,13 @@ struct aegis_vector {
 
 int aegis_vector_create(aegis_vector_t** out, size_t elem_size)
 {
-    if (!out || elem_size == 0)
+    if (!out || elem_size == 0) {
         return -1;
+    }
     aegis_vector_t* v = calloc(1, sizeof(*v));
-    if (!v)
+    if (!v) {
         return -1;
+    }
     v->elem_size = elem_size;
     v->cap       = VECTOR_INIT_CAP;
     v->data      = calloc(v->cap, elem_size);
@@ -33,8 +35,9 @@ int aegis_vector_create(aegis_vector_t** out, size_t elem_size)
 
 void aegis_vector_destroy(aegis_vector_t* v)
 {
-    if (!v)
+    if (!v) {
         return;
+    }
     free(v->data);
     free(v);
 }
@@ -42,11 +45,13 @@ void aegis_vector_destroy(aegis_vector_t* v)
 static int vector_grow(aegis_vector_t* v, size_t need)
 {
     size_t new_cap = v->cap;
-    while (new_cap < v->len + need)
+    while (new_cap < v->len + need) {
         new_cap *= 2;
+    }
     void* next = realloc(v->data, new_cap * v->elem_size);
-    if (!next)
+    if (!next) {
         return -1;
+    }
     v->data = next;
     v->cap  = new_cap;
     return 0;
@@ -54,10 +59,12 @@ static int vector_grow(aegis_vector_t* v, size_t need)
 
 int aegis_vector_push(aegis_vector_t* v, const void* item)
 {
-    if (!v || !item)
+    if (!v || !item) {
         return -1;
-    if (vector_grow(v, 1) != 0)
+    }
+    if (vector_grow(v, 1) != 0) {
         return -1;
+    }
     memcpy((uint8_t*)v->data + v->len * v->elem_size, item, v->elem_size);
     v->len++;
     return 0;
@@ -65,8 +72,9 @@ int aegis_vector_push(aegis_vector_t* v, const void* item)
 
 int aegis_vector_pop(aegis_vector_t* v, void* out)
 {
-    if (!v || !out || v->len == 0)
+    if (!v || !out || v->len == 0) {
         return -1;
+    }
     v->len--;
     memcpy(out, (uint8_t*)v->data + v->len * v->elem_size, v->elem_size);
     return 0;
@@ -74,16 +82,18 @@ int aegis_vector_pop(aegis_vector_t* v, void* out)
 
 int aegis_vector_get(const aegis_vector_t* v, size_t idx, void* out)
 {
-    if (!v || !out || idx >= v->len)
+    if (!v || !out || idx >= v->len) {
         return -1;
+    }
     memcpy(out, (uint8_t*)v->data + idx * v->elem_size, v->elem_size);
     return 0;
 }
 
 int aegis_vector_set(aegis_vector_t* v, size_t idx, const void* item)
 {
-    if (!v || !item || idx >= v->len)
+    if (!v || !item || idx >= v->len) {
         return -1;
+    }
     memcpy((uint8_t*)v->data + idx * v->elem_size, item, v->elem_size);
     return 0;
 }
@@ -100,19 +110,23 @@ bool aegis_vector_is_empty(const aegis_vector_t* v)
 
 void aegis_vector_clear(aegis_vector_t* v)
 {
-    if (v)
+    if (v) {
         v->len = 0;
+    }
 }
 
 int aegis_vector_reserve(aegis_vector_t* v, size_t min_cap)
 {
-    if (!v || v->elem_size == 0)
+    if (!v || v->elem_size == 0) {
         return -1;
-    if (v->cap >= min_cap)
+    }
+    if (v->cap >= min_cap) {
         return 0;
+    }
     void* next = realloc(v->data, min_cap * v->elem_size);
-    if (!next)
+    if (!next) {
         return -1;
+    }
     v->data = next;
     v->cap  = min_cap;
     return 0;

@@ -28,8 +28,9 @@ aegis_uuid_t aegis_uuid_generate(void)
         }
     }
     uint64_t t = (uint64_t)aegis_wall_now();
-    for (size_t i = 0; i < sizeof(u); i++)
+    for (size_t i = 0; i < sizeof(u); i++) {
         u.bytes[i] = (uint8_t)((t >> (i * 8)) & 0xFF);
+    }
     u.bytes[6] = (uint8_t)((u.bytes[6] & 0x0F) | 0x40);
     u.bytes[8] = (uint8_t)((u.bytes[8] & 0x3F) | 0x80);
     return u;
@@ -37,24 +38,29 @@ aegis_uuid_t aegis_uuid_generate(void)
 
 static int hex_nibble(char c)
 {
-    if (c >= '0' && c <= '9')
+    if (c >= '0' && c <= '9') {
         return c - '0';
-    if (c >= 'A' && c <= 'F')
+    }
+    if (c >= 'A' && c <= 'F') {
         return c - 'A' + 10;
-    if (c >= 'a' && c <= 'f')
+    }
+    if (c >= 'a' && c <= 'f') {
         return c - 'a' + 10;
+    }
     return -1;
 }
 
 bool aegis_uuid_parse(const char* str, aegis_uuid_t* out)
 {
-    if (!str || !out)
+    if (!str || !out) {
         return false;
+    }
     size_t hlen = strlen(str);
 
     if (hlen == 36) {
-        if (str[8] != '-' || str[13] != '-' || str[18] != '-' || str[23] != '-')
+        if (str[8] != '-' || str[13] != '-' || str[18] != '-' || str[23] != '-') {
             return false;
+        }
         out->bytes[0]  = (uint8_t)((hex_nibble(str[0]) << 4) | hex_nibble(str[1]));
         out->bytes[1]  = (uint8_t)((hex_nibble(str[2]) << 4) | hex_nibble(str[3]));
         out->bytes[2]  = (uint8_t)((hex_nibble(str[4]) << 4) | hex_nibble(str[5]));
@@ -78,8 +84,9 @@ bool aegis_uuid_parse(const char* str, aegis_uuid_t* out)
         for (size_t i = 0; i < 16; i++) {
             int hi = hex_nibble(str[i * 2]);
             int lo = hex_nibble(str[i * 2 + 1]);
-            if (hi < 0 || lo < 0)
+            if (hi < 0 || lo < 0) {
                 return false;
+            }
             out->bytes[i] = (uint8_t)((hi << 4) | lo);
         }
         return true;
@@ -90,8 +97,9 @@ bool aegis_uuid_parse(const char* str, aegis_uuid_t* out)
 
 void aegis_uuid_format(const aegis_uuid_t* u, char* buf, size_t buf_len)
 {
-    if (!u || !buf || buf_len < 37)
+    if (!u || !buf || buf_len < 37) {
         return;
+    }
     const unsigned char* b = (const unsigned char*)u->bytes;
     snprintf(buf, buf_len, "%02x%02x%02x%02x-%02x%02x-%02x%02x-%02x%02x-%02x%02x%02x%02x%02x%02x",
              b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7], b[8], b[9], b[10], b[11], b[12], b[13],
@@ -100,15 +108,17 @@ void aegis_uuid_format(const aegis_uuid_t* u, char* buf, size_t buf_len)
 
 bool aegis_uuid_eq(const aegis_uuid_t* a, const aegis_uuid_t* b)
 {
-    if (!a || !b)
+    if (!a || !b) {
         return a == b;
+    }
     return memcmp(a->bytes, b->bytes, sizeof(aegis_uuid_t)) == 0;
 }
 
 bool aegis_uuid_is_null(const aegis_uuid_t* u)
 {
-    if (!u)
+    if (!u) {
         return true;
+    }
     aegis_uuid_t null_u = aegis_uuid_null();
     return memcmp(u->bytes, null_u.bytes, sizeof(aegis_uuid_t)) == 0;
 }

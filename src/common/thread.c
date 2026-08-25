@@ -10,15 +10,18 @@ struct aegis_thread {
 
 int aegis_thread_create(aegis_thread_t** out, aegis_thread_fn fn, void* arg, size_t stack_size)
 {
-    if (!out || !fn)
+    if (!out || !fn) {
         return -1;
+    }
     aegis_thread_t* t = calloc(1, sizeof(*t));
-    if (!t)
+    if (!t) {
         return -1;
+    }
     pthread_attr_t attr;
     pthread_attr_init(&attr);
-    if (stack_size > 0)
+    if (stack_size > 0) {
         pthread_attr_setstacksize(&attr, stack_size);
+    }
     int rc = pthread_create(&t->handle, &attr, (void* (*)(void*))fn, arg);
     pthread_attr_destroy(&attr);
     if (rc != 0) {
@@ -31,16 +34,18 @@ int aegis_thread_create(aegis_thread_t** out, aegis_thread_fn fn, void* arg, siz
 
 void aegis_thread_join(aegis_thread_t* t)
 {
-    if (!t || t->joined)
+    if (!t || t->joined) {
         return;
+    }
     pthread_join(t->handle, NULL);
     t->joined = 1;
 }
 
 void aegis_thread_destroy(aegis_thread_t* t)
 {
-    if (!t)
+    if (!t) {
         return;
+    }
     free(t);
 }
 
