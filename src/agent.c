@@ -1,3 +1,11 @@
+/**
+ * @file agent.c
+ * @brief Agent lifecycle: creation and destruction.
+ *
+ * The agent struct is intentionally kept minimal at this stage;
+ * scheduler, planner, memory and provider fields are deferred to
+ * later implementation phases.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent.h"
 #include "aegis/status.h"

@@ -1,3 +1,11 @@
+/**
+ * @file mutex.c
+ * @brief POSIX mutex wrapper with RAII guard support.
+ *
+ * Wraps pthread_mutex_t; supports both plain and recursive kinds.
+ * The guard type provides C++-style RAII locking via aegis_mutex_guard_lock()
+ * and aegis_mutex_guard_release().
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/mutex.h"
 #include <pthread.h>

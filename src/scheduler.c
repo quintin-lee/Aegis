@@ -1,3 +1,10 @@
+/**
+ * @file scheduler.c
+ * @brief Opaque scheduler placeholder.
+ *
+ * The scheduler is a stub awaiting full implementation. The internal
+ * struct reserves space for future scheduling state.
+ */
 #include "aegis/scheduler.h"
 #include <stdlib.h>
 

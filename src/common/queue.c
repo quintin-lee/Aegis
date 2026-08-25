@@ -1,3 +1,12 @@
+/**
+ * @file queue.c
+ * @brief Fixed-capacity ring-buffer queue.
+ *
+ * Uses power-of-two capacity with bitmask wrapping for O(1) push/pop.
+ * Items are stored as raw void* pointers; the queue does not own or
+ * free them. aegis_queue_clear() zeroes slots but does not invoke
+ * destructors on contained items.
+ */
 #include "aegis/common/queue.h"
 #include <stdlib.h>
 #include <string.h>

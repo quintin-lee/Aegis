@@ -1,3 +1,12 @@
+/**
+ * @file hashmap.c
+ * @brief Open-addressing hash map with linear probing.
+ *
+ * Keys are stored as borrowed pointers — the caller must ensure keys
+ * outlive the map. Tombstone entries (used == -1) are used on removal
+ * to preserve probe sequences. Capacity is rounded up to the next
+ * power of two at creation time.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/hashmap.h"
 #include <stdlib.h>

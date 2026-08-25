@@ -1,3 +1,11 @@
+/**
+ * @file string.c
+ * @brief Immutable string backed by a growable buffer.
+ *
+ * All mutating operations (append, substring) create new string handles
+ * and leave the original untouched. The underlying buffer is shared
+ * via the aegis_buffer_t handle stored inside the string struct.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/string.h"
 #include "buffer_internal.h"

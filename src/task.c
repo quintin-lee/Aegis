@@ -1,3 +1,11 @@
+/**
+ * @file task.c
+ * @brief Task creation, destruction and state query.
+ *
+ * A task owns its description string (strdup'd on create, freed on destroy).
+ * State transitions are managed externally by the scheduler/executor;
+ * this module only exposes the current state via aegis_task_state().
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/task.h"
 #include <stdlib.h>

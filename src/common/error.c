@@ -1,3 +1,14 @@
+/**
+ * @file error.c
+ * @brief Error object implementation with cause chaining.
+ *
+ * Each aegis_error_t carries a code, a formatted message, and an optional
+ * borrowed cause pointer. Errors are immutable after creation and may be
+ * safely shared across threads.
+ *
+ * Ownership: aegis_error_new transfers ownership of the returned handle;
+ * aegis_error_destroy frees it (but NOT the cause chain, which is borrowed).
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/error.h"
 #include <stdio.h>

@@ -1,3 +1,11 @@
+/**
+ * @file buffer.c
+ * @brief Growable byte buffer backed by a dynamic array.
+ *
+ * Capacity doubles on overflow (amortised O(1) append).
+ * Not thread-safe. Caller owns the buffer handle and is responsible
+ * for calling aegis_buffer_destroy() when done.
+ */
 #include "aegis/common/buffer.h"
 #include <stdlib.h>
 #include <string.h>

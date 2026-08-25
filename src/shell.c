@@ -1,3 +1,10 @@
+/**
+ * @file shell.c
+ * @brief Minimal CLI entry point for the Aegis runtime.
+ *
+ * Creates and destroys a demo agent to exercise the public API.
+ * Intended as a smoke test and quick sanity check; not a production binary.
+ */
 #include "aegis/agent.h"
 #include "aegis/status.h"
 #include <stdio.h>

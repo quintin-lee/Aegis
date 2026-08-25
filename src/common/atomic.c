@@ -1,3 +1,11 @@
+/**
+ * @file atomic.c
+ * @brief Lock-free atomic integer operations via GCC __atomic builtins.
+ *
+ * All operations use SEQ_CST memory ordering for simplicity.
+ * Thread-safe: concurrent access from multiple threads is safe
+ * without external synchronisation.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/atomic.h"
 #include <stdlib.h>

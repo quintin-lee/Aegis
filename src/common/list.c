@@ -1,3 +1,12 @@
+/**
+ * @file list.c
+ * @brief Doubly-linked list implementation.
+ *
+ * Nodes are heap-allocated; items are stored as raw pointers without
+ * copying. The list does not own or free items — the caller is
+ * responsible for item lifetimes. aegis_list_destroy() frees only
+ * internal node structures.
+ */
 #include "aegis/common/list.h"
 #include <stdlib.h>
 

@@ -1,3 +1,12 @@
+/**
+ * @file thread.c
+ * @brief POSIX thread wrapper with explicit lifecycle.
+ *
+ * Threads are created via aegis_thread_create and must be joined
+ * before destruction. aegis_thread_join marks the thread as joined
+ * and prevents double-join. aegis_thread_destroy must only be called
+ * after join (or after the thread has exited independently).
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/thread.h"
 #include <pthread.h>

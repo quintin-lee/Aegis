@@ -1,3 +1,13 @@
+/**
+ * @file result.c
+ * @brief Result<T> heap-allocated handle implementation.
+ *
+ + * Ownership semantics:
+ * - aegis_result_create_ok: payload ownership stays with caller.
+ * - aegis_result_create_err / create_errf: error ownership transfers into result.
+ * - aegis_result_destroy: frees the handle and any owned error.
+ * - aegis_result_take_err: transfers error ownership out of the result.
+ */
 #include "aegis/common/result.h"
 #include <stdarg.h>
 #include <stdlib.h>

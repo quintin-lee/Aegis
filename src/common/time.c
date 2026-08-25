@@ -1,3 +1,11 @@
+/**
+ * @file time.c
+ * @brief Monotonic and wall-clock time via clock_gettime.
+ *
+ * aegis_mono_now() uses CLOCK_MONOTONIC (steady, unaffected by NTP).
+ * aegis_wall_now() uses CLOCK_REALTIME (subject to system clock changes).
+ * aegis_sleep_ns/ms use nanosleep with sub-millisecond precision.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/time.h"
 #include <time.h>

@@ -1,3 +1,14 @@
+/**
+ * @file allocator.c
+ * @brief Pluggable allocator implementation with optional stats tracking.
+ *
+ * Provides:
+ * - a singleton default (system malloc/free/realloc) allocator
+ * - a tracking wrapper that counts allocations and reports byte-level stats
+ *
+ * The tracking allocator's context is heap-allocated and must be freed
+ * via aegis_alloc_tracker_destroy() to avoid leaks.
+ */
 #include "aegis/common/allocator.h"
 #include <stdlib.h>
 #include <string.h>

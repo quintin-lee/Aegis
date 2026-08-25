@@ -1,3 +1,12 @@
+/**
+ * @file vector.c
+ * @brief Generic dynamic array with amortised O(1) append.
+ *
+ * Element size is fixed at creation and stored alongside the handle.
+ * All mutations copy element bytes via memcpy; the caller retains
+ * ownership of the source data. Capacity doubles on overflow starting
+ * from VECTOR_INIT_CAP (4).
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/vector.h"
 #include <stdint.h>

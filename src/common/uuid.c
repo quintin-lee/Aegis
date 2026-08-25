@@ -1,3 +1,12 @@
+/**
+ * @file uuid.c
+ * @brief UUID v4 generation, parsing and formatting.
+ *
+ * Generation uses /dev/urandom on POSIX; falls back to a pseudo-random
+ * sequence seeded from wall-clock time if /dev/urandom is unavailable
+ * (not cryptographically secure in that case).
+ * Parsing accepts hyphenated (8-4-4-4-12) and raw hex (32-char) formats.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/uuid.h"
 #include "aegis/common/time.h"

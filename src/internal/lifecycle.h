@@ -1,3 +1,14 @@
+/**
+ * @file lifecycle.h
+ * @brief Internal helper macros for resource lifecycle management.
+ *
+ * These macros enforce common invariants:
+ * - AEGIS_CHECK_OUT: guard against NULL output pointers before writing
+ * - AEGIS_SAFE_FREE: null-out pointer after free to prevent use-after-free
+ *
+ * WARNING: These macros expand to compound statements; they must be
+ * used inside function bodies, not at file scope.
+ */
 #ifndef AEGIS_INTERNAL_LIFECYCLE_H
 #define AEGIS_INTERNAL_LIFECYCLE_H
 

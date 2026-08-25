@@ -1,3 +1,10 @@
+/**
+ * @file status.c
+ * @brief Status-code-to-string mapping.
+ *
+ * Every aegis_status_t value has a corresponding static string.
+ * The returned pointer is statically allocated and must not be freed.
+ */
 #include "aegis/status.h"
 
 const char* aegis_status_str(aegis_status_t status)
