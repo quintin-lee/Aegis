@@ -91,12 +91,12 @@ aegis_set_warnings(aegis_common)
 
 # ── libaegis-core ────────────────────────────────────────────────────────────
 add_library(aegis_core
-    src/agent.c
-    src/status.c
     src/task.c
     src/scheduler.c
     src/runtime.c
     src/config.c
+    src/event.c
+    src/event_bus.c
 )
 target_include_directories(aegis_core
     PUBLIC
@@ -137,8 +137,6 @@ if(AEGIS_BUILD_TESTS)
         add_test(NAME ${name} COMMAND ${name})
     endmacro()
 
-    aegis_add_test(unit_agent      tests/unit/test_agent.c)
-    aegis_add_test(unit_task       tests/unit/test_task.c)
     aegis_add_test(unit_scheduler  tests/unit/test_scheduler.c)
     aegis_add_test(unit_error      tests/unit/common/test_error.c)
     aegis_add_test(unit_allocator  tests/unit/common/test_allocator.c)
@@ -153,6 +151,9 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_list       tests/unit/common/test_list.c)
     aegis_add_test(unit_runtime        tests/unit/test_runtime.c)
     aegis_add_test(unit_runtime_concurrent tests/unit/test_runtime_concurrent.c)
+    aegis_add_test(unit_agent        tests/unit/test_agent.c)
+    aegis_add_test(unit_agent_concurrent tests/unit/test_agent_concurrent.c)
+    aegis_add_test(unit_event_bus    tests/unit/test_event_bus.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
