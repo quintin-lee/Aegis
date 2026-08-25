@@ -22,7 +22,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(AEGIS_BUILD_TESTS   "Build unit/integration tests"        ON)
 option(AEGIS_BUILD_BENCH   "Build benchmark executables"         OFF)
 option(AEGIS_BUILD_DOCS    "Generate documentation (Doxygen)"    OFF)
-option(AEGIS_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" ON)
+option(AEGIS_FORMAT_CODE "Run clang-format on all sources before build" ON)
 
 # ── Compiler warnings ────────────────────────────────────────────────────────
 function(aegis_set_warnings target)
