@@ -1,17 +1,20 @@
 cmake_minimum_required(VERSION 3.20)
 
-project(aegis
-    VERSION 0.1.0
-)
-
-# ── Version — single source of truth: VERSION file ────────────────────────
+# ── Version — single source of truth ───────────────────────────────────────
+# Read VERSION file BEFORE project() so the value is available for project(VERSION ...)
 file(READ "${PROJECT_SOURCE_DIR}/VERSION" AEGIS_VERSION_STRING)
 string(STRIP "${AEGIS_VERSION_STRING}" AEGIS_VERSION_STRING)
+message(STATUS "aegis ${AEGIS_VERSION_STRING}")
+
+project(aegis
+    VERSION ${AEGIS_VERSION_STRING}
+)
+
+# Parse into major/minor/patch for version.h generation
 string(REPLACE "." ";" _AEGIS_VER_LIST ${AEGIS_VERSION_STRING})
 list(GET _AEGIS_VER_LIST 0 AEGIS_VERSION_MAJOR)
 list(GET _AEGIS_VER_LIST 1 AEGIS_VERSION_MINOR)
 list(GET _AEGIS_VER_LIST 2 AEGIS_VERSION_PATCH)
-message(STATUS "aegis ${AEGIS_VERSION_STRING}")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
