@@ -17,9 +17,16 @@ struct aegis_thread {
     int       joined;
 };
 
+/* Default no-op worker when caller passes NULL fn */
+static void* thread_noop(void* arg)
+{
+    (void)arg;
+    return NULL;
+}
+
 int aegis_thread_create(aegis_thread_t** out, aegis_thread_fn fn, void* arg, size_t stack_size)
 {
-    if (!out || !fn) {
+    if (!out) {
         return -1;
     }
     aegis_thread_t* t = calloc(1, sizeof(*t));
@@ -31,7 +38,8 @@ int aegis_thread_create(aegis_thread_t** out, aegis_thread_fn fn, void* arg, siz
     if (stack_size > 0) {
         pthread_attr_setstacksize(&attr, stack_size);
     }
-    int rc = pthread_create(&t->handle, &attr, (void* (*)(void*))fn, arg);
+    aegis_thread_fn real_fn = fn ? fn : thread_noop;
+    int             rc      = pthread_create(&t->handle, &attr, (void* (*)(void*))real_fn, arg);
     pthread_attr_destroy(&attr);
     if (rc != 0) {
         free(t);

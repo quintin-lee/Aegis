@@ -67,6 +67,8 @@ add_library(aegis_core
     src/status.c
     src/task.c
     src/scheduler.c
+    src/runtime.c
+    src/config.c
 )
 target_include_directories(aegis_core
     PUBLIC
@@ -120,7 +122,8 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_uuid       tests/unit/common/test_uuid.c)
     aegis_add_test(unit_atomic     tests/unit/common/test_atomic.c)
     aegis_add_test(unit_vector     tests/unit/common/test_vector.c)
-    aegis_add_test(unit_list       tests/unit/common/test_list.c)
+    aegis_add_test(unit_runtime        tests/unit/test_runtime.c)
+    aegis_add_test(unit_runtime_concurrent tests/unit/test_runtime_concurrent.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
