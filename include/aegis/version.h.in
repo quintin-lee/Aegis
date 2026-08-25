@@ -1,0 +1,15 @@
+#ifndef AEGIS_VERSION_H
+#define AEGIS_VERSION_H
+
+/**
+ * @file aegis_version.h
+ * @brief Semantic version of the Aegis runtime.
+ *
+ * Auto-generated from VERSION — do not edit manually.
+ */
+#define AEGIS_VERSION_MAJOR  @AEGIS_VERSION_MAJOR@
+#define AEGIS_VERSION_MINOR  @AEGIS_VERSION_MINOR@
+#define AEGIS_VERSION_PATCH  @AEGIS_VERSION_PATCH@
+#define AEGIS_VERSION_STRING "@AEGIS_VERSION_STRING@"
+
+#endif /* AEGIS_VERSION_H */

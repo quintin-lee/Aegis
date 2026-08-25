@@ -2,14 +2,16 @@ cmake_minimum_required(VERSION 3.20)
 
 project(aegis
     VERSION 0.1.0
-    DESCRIPTION "Modular autonomous agent runtime (C11)"
-    LANGUAGES C
 )
 
-# ── Policy ────────────────────────────────────────────────────────────────────
-set(CMAKE_C_STANDARD 11)
-set(CMAKE_C_STANDARD_REQUIRED ON)
-set(CMAKE_C_EXTENSIONS OFF)
+# ── Version — single source of truth: VERSION file ────────────────────────
+file(READ "${PROJECT_SOURCE_DIR}/VERSION" AEGIS_VERSION_STRING)
+string(STRIP "${AEGIS_VERSION_STRING}" AEGIS_VERSION_STRING)
+string(REPLACE "." ";" _AEGIS_VER_LIST ${AEGIS_VERSION_STRING})
+list(GET _AEGIS_VER_LIST 0 AEGIS_VERSION_MAJOR)
+list(GET _AEGIS_VER_LIST 1 AEGIS_VERSION_MINOR)
+list(GET _AEGIS_VER_LIST 2 AEGIS_VERSION_PATCH)
+message(STATUS "aegis ${AEGIS_VERSION_STRING}")
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -138,8 +140,16 @@ install(TARGETS aegis_common aegis_core aegis_shell
     ARCHIVE   DESTINATION ${CMAKE_INSTALL_LIBDIR}
     RUNTIME   DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
-install(DIRECTORY include/aegis DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
+# Generate version.h from template
+configure_file(
+    include/aegis/version.h.in
+    "${PROJECT_BINARY_DIR}/include/aegis/version.h"
+    @ONLY
+)
+target_include_directories(aegis_common
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+)
 # ── CMake package config ─────────────────────────────────────────────────────
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(
