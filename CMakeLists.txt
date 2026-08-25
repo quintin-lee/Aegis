@@ -34,6 +34,34 @@ function(aegis_set_warnings target)
     target_compile_options(${target} PRIVATE ${_WARN_FLAGS})
 endfunction()
 
+# ── clang-format ──────────────────────────────────────────────────────────────
+if(AEGIS_FORMAT_CODE)
+    find_program(CLANG_FORMAT_PROGRAM clang-format)
+    if(CLANG_FORMAT_PROGRAM)
+        message(STATUS "clang-format found: ${CLANG_FORMAT_PROGRAM}")
+
+        # Collect all C/C++ source files
+        file(GLOB_RECURSE AEGIS_ALL_SOURCES
+            CONFIGURE_DEPENDS
+            src/*.c
+            src/**/*.c
+            include/aegis/*.h
+            include/aegis/**/*.h
+            tests/unit/**/*.c
+        )
+
+        add_custom_target(format
+            COMMAND ${CLANG_FORMAT_PROGRAM} -i -style=file ${AEGIS_ALL_SOURCES}
+            COMMENT "Formatting sources with clang-format"
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        )
+    else()
+        message(WARNING "clang-format not found; skipping auto-format (disable with -DAEGIS_FORMAT_CODE=OFF)")
+    endif()
+else()
+    message(STATUS "clang-format auto-format disabled (AEGIS_FORMAT_CODE=OFF)")
+endif()
+
 # ── libaegis-foundation ─────────────────────────────────────────────────────
 add_library(aegis_common
     src/common/error.c
