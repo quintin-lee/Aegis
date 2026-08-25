@@ -1,0 +1,81 @@
+# GitHub Actions CI for Aegis
+
+name: ci
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        compiler: [gcc, clang]
+        sanitize: [none, asan, tsan]
+        exclude:
+          # tsan on clang has known issues with glibc malloc hooks
+          - compiler: clang
+            sanitize: tsan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake gcc g++ clang valgrind
+
+      - name: Configure
+        env:
+          CC: ${{ matrix.compiler }}
+        run: |
+          mkdir -p build
+          if [ "${{ matrix.sanitize }}" != "none" ]; then
+            cmake -S . -B build \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DAEGIS_BUILD_TESTS=ON \
+              -DCMAKE_C_FLAGS="-fsanitize=${{ matrix.sanitize }} -g"
+          else
+            cmake -S . -B build \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DAEGIS_BUILD_TESTS=ON
+          fi
+
+      - name: Build
+        run: cmake --build build -j$(nproc)
+
+      - name: Test (ASan)
+        if: matrix.sanitize == 'asan'
+        run: |
+          LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.8 \
+            ctest --test-dir build --output-on-failure -E bench_
+      - name: Test (TSan)
+        if: matrix.sanitize == 'tsan'
+        run: |
+          LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtsan.so.0 \
+            ctest --test-dir build --output-on-failure -E bench_
+      - name: Test (native)
+        if: matrix.sanitize == 'none'
+        run: ctest --test-dir build --output-on-failure -E bench_
+
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check formatting
+        run: |
+          if command -v clang-format &>/dev/null; then
+            files=$(find . -type f \( -name '*.c' -o -name '*.h' \) \
+              -not -path './build/*' -not -path './.git/*')
+            for f in $files; do
+              clang-format --dry-run --Werror "$f" || {
+                echo "Formatting violation in $f"
+                exit 1
+              }
+            done
+          else
+            echo "clang-format not installed; skipping format check"
+          fi

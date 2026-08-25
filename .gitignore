@@ -1,0 +1,35 @@
+# Build artifacts
+build/
+build-asan/
+build-tsan/
+*.o
+*.a
+*.so
+*.so.*
+*.exe
+*CMakeCache.txt
+*cmake_install.cmake
+Makefile
+compile_commands.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+*.gcov
+*.gcno
+*.gcda
+lcov.info
+coverage/
+
+# Valgrind
+*.log
+*.vglog
