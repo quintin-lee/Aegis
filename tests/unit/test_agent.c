@@ -3,8 +3,9 @@
 #include <assert.h>
 #include <string.h>
 
-int main(void) {
-    aegis_agent_t *a = NULL;
+int main(void)
+{
+    aegis_agent_t* a = NULL;
     assert(aegis_agent_create(&a, "alpha") == AEGIS_OK);
     assert(a != NULL);
     aegis_agent_destroy(a);

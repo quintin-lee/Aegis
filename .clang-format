@@ -1,18 +1,75 @@
-AllInOne: true
-BasedOnStyle: LLVM
+# BasedOnStyle: Google
+# IndentWidth: 4
+# ColumnLimit: 100
+# UseTab: Never
+# IndentCaseLabels: false
+# BreakBeforeBraces: Linux
+# AllowShortFunctionsOnASingleLine: Empty
+# AllowShortIfStatementsOnASingleLine: false
+# AllowShortLoopsOnASingleLine: false
+# PointerAlignment: Left
+# SpaceAfterCStyleCast: false
+# SortIncludes: false
+# RemoveSemicolon: false
+
+# 基础风格
+BasedOnStyle: Google
+
+# 缩进宽度 4 空格
 IndentWidth: 4
+
+# 列宽限制 100 字符（注释对齐会参考此值）
 ColumnLimit: 100
+
+# 使用空格代替 Tab
 UseTab: Never
-ContinuationIndent: 4
+
+# 不在 case 语句下额外缩进
 IndentCaseLabels: false
+
+# 大括号换行风格（Linux：左大括号不换行）
 BreakBeforeBraces: Linux
+
+# 允许空函数体在一行
 AllowShortFunctionsOnASingleLine: Empty
+
+# 禁止 if/for/while 等控制语句单行（即使有括号）
 AllowShortIfStatementsOnASingleLine: false
 AllowShortLoopsOnASingleLine: false
-AllowShortCasesOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+
+# 指针/引用靠左对齐
 PointerAlignment: Left
+
+# C 风格类型转换后不加空格
 SpaceAfterCStyleCast: false
+
+# 不自动排序 #include
 SortIncludes: false
-InsertFinalNewline: true
-RemoveSemicolon: false
-Standard: C11
+
+# ---- 新增：注释对齐 ----
+# 对齐尾随注释（行尾注释）
+# 设置为 true 时，会将同一块中的行尾注释对齐到同一列
+AlignTrailingComments: true
+
+# ---- 新增：变量/声明对齐 ----
+# 对齐连续赋值语句的等号（例如 int a = 1; int bbb = 2;）
+AlignConsecutiveAssignments: true
+
+# 对齐连续声明（变量名对齐，例如 int a; int bbb;）
+# 注意：可能会与指针/引用声明产生冲突，若不喜欢可设为 false
+AlignConsecutiveDeclarations: true
+
+# 对齐连续宏定义（#define 的值）
+AlignConsecutiveMacros: true
+
+# 对齐多行字符串或宏中的反斜杠（转义换行符）
+AlignEscapedNewlines: Left   # 或 DontAlign / Right
+
+# ---- 可选：函数参数对齐 ----
+# 括号打开后，参数对齐方式（Align 表示对齐到括号后第一个参数）
+AlignAfterOpenBracket: Align
+
+# ---- 其他小细节 ----
+# 在 return 语句前换行
+PenaltyReturnTypeOnItsOwnLine: 1000

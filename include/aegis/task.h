@@ -18,9 +18,9 @@ typedef enum aegis_task_state {
 
 typedef struct aegis_task aegis_task_t;
 
-aegis_status_t aegis_task_create(aegis_task_t **out, const char *desc);
-void aegis_task_destroy(aegis_task_t *task);
-aegis_task_state_t aegis_task_state(const aegis_task_t *task);
+aegis_status_t     aegis_task_create(aegis_task_t** out, const char* desc);
+void               aegis_task_destroy(aegis_task_t* task);
+aegis_task_state_t aegis_task_state(const aegis_task_t* task);
 
 #ifdef __cplusplus
 }

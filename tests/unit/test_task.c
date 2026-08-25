@@ -1,8 +1,9 @@
 #include "aegis/task.h"
 #include <assert.h>
 
-int main(void) {
-    aegis_task_t *t = NULL;
+int main(void)
+{
+    aegis_task_t* t = NULL;
     assert(aegis_task_create(&t, "test task") == AEGIS_OK);
     assert(t != NULL);
     assert(aegis_task_state(t) == AEGIS_TASK_PENDING);

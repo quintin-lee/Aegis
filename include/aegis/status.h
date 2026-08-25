@@ -12,7 +12,7 @@ extern "C" {
  *
  * Return value points to a static string; do not free.
  */
-const char *aegis_status_str(aegis_status_t status);
+const char* aegis_status_str(aegis_status_t status);
 
 #ifdef __cplusplus
 }

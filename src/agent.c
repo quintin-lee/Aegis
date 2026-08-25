@@ -6,15 +6,16 @@
 #include <string.h>
 
 struct aegis_agent {
-    char *name;            /* owned */
+    char* name; /* owned */
     /* future: scheduler, planner, memory, providers, etc. */
 };
 
-aegis_status_t aegis_agent_create(aegis_agent_t **out, const char *name) {
+aegis_status_t aegis_agent_create(aegis_agent_t** out, const char* name)
+{
     if (!out || !name || name[0] == '\0') {
         return AEGIS_ERR_INVALID;
     }
-    aegis_agent_t *agent = calloc(1, sizeof(*agent));
+    aegis_agent_t* agent = calloc(1, sizeof(*agent));
     if (!agent) {
         return AEGIS_ERR_NOMEM;
     }
@@ -27,7 +28,8 @@ aegis_status_t aegis_agent_create(aegis_agent_t **out, const char *name) {
     return AEGIS_OK;
 }
 
-void aegis_agent_destroy(aegis_agent_t *agent) {
+void aegis_agent_destroy(aegis_agent_t* agent)
+{
     if (!agent) {
         return;
     }

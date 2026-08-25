@@ -29,14 +29,40 @@ function(aegis_set_warnings target)
     target_compile_options(${target} PRIVATE ${_WARN_FLAGS})
 endfunction()
 
-# ── Library target ───────────────────────────────────────────────────────────
+# ── libaegis-foundation ─────────────────────────────────────────────────────
+add_library(aegis_common
+    src/common/error.c
+    src/common/result.c
+    src/common/allocator.c
+    src/common/queue.c
+    src/common/hashmap.c
+    src/common/buffer.c
+    src/common/string.c
+    src/common/thread.c
+    src/common/mutex.c
+    src/common/uuid.c
+    src/common/atomic.c
+    src/common/vector.c
+    src/common/list.c
+    src/common/time.c
+)
+target_include_directories(aegis_common
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src/internal
+)
+target_link_libraries(aegis_common PRIVATE m pthread)
+aegis_set_warnings(aegis_common)
+
+# ── libaegis-core ────────────────────────────────────────────────────────────
 add_library(aegis_core
     src/agent.c
     src/status.c
     src/task.c
     src/scheduler.c
 )
-
 target_include_directories(aegis_core
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
@@ -44,8 +70,7 @@ target_include_directories(aegis_core
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src/internal
 )
-
-target_link_libraries(aegis_core PRIVATE m pthread)
+target_link_libraries(aegis_core PRIVATE aegis_common)
 aegis_set_warnings(aegis_core)
 
 # ── Executable (CLI shell) ──────────────────────────────────────────────────
@@ -80,6 +105,17 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_agent      tests/unit/test_agent.c)
     aegis_add_test(unit_task       tests/unit/test_task.c)
     aegis_add_test(unit_scheduler  tests/unit/test_scheduler.c)
+    aegis_add_test(unit_error      tests/unit/common/test_error.c)
+    aegis_add_test(unit_allocator  tests/unit/common/test_allocator.c)
+    aegis_add_test(unit_queue      tests/unit/common/test_queue.c)
+    aegis_add_test(unit_hashmap    tests/unit/common/test_hashmap.c)
+    aegis_add_test(unit_buffer     tests/unit/common/test_buffer.c)
+    aegis_add_test(unit_string     tests/unit/common/test_string.c)
+    aegis_add_test(unit_mutex      tests/unit/common/test_mutex.c)
+    aegis_add_test(unit_uuid       tests/unit/common/test_uuid.c)
+    aegis_add_test(unit_atomic     tests/unit/common/test_atomic.c)
+    aegis_add_test(unit_vector     tests/unit/common/test_vector.c)
+    aegis_add_test(unit_list       tests/unit/common/test_list.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
@@ -96,7 +132,7 @@ endif()
 
 # ── Install ──────────────────────────────────────────────────────────────────
 include(GNUInstallDirs)
-install(TARGETS aegis_core aegis_shell
+install(TARGETS aegis_common aegis_core aegis_shell
     EXPORT aegisTargets
     LIBRARY   DESTINATION ${CMAKE_INSTALL_LIBDIR}
     ARCHIVE   DESTINATION ${CMAKE_INSTALL_LIBDIR}
