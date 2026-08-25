@@ -1,12 +1,12 @@
 /**
  * @file test_agent.c
-#include <string.h>
  * @brief Tests for agent state machine and lifecycle.
  */
 #include "aegis/agent.h"
 #include "aegis/event.h"
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 
 /* ── Helper: count state transitions received ─────────────────────────────── */
 

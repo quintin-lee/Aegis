@@ -337,7 +337,7 @@ const char* aegis_agent_name(const aegis_agent_t* agent) {
     return agent->name;
 }
 
-const aegis_event_bus_t* aegis_agent_event_bus(const aegis_agent_t* agent) {
+aegis_event_bus_t* aegis_agent_event_bus(const aegis_agent_t* agent) {
     if (!agent) {
         return NULL;
     }

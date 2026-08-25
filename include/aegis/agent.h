@@ -126,7 +126,7 @@ aegis_status_t aegis_agent_pause(aegis_agent_t* agent);
  *
  * Transitions: PAUSED → RUNNING
  *
- * @param agent Agent handle.
+aegis_event_bus_t* aegis_agent_event_bus(const aegis_agent_t* agent);
  * @return AEGIS_OK on success, or a negative error code.
  */
 aegis_status_t aegis_agent_resume(aegis_agent_t* agent);
@@ -194,7 +194,7 @@ const char* aegis_agent_name(const aegis_agent_t* agent);
  * @param agent Agent handle (borrowed).
  * @return Event bus handle (borrowed; may be NULL).
  */
-const aegis_event_bus_t* aegis_agent_event_bus(const aegis_agent_t* agent);
+aegis_event_bus_t* aegis_agent_event_bus(const aegis_agent_t* agent);
 
 #ifdef __cplusplus
 }
