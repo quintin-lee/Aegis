@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.20)
 
 # ── Version — single source of truth ───────────────────────────────────────
 # Read VERSION file BEFORE project() so the value is available for project(VERSION ...)
-file(READ "${PROJECT_SOURCE_DIR}/VERSION" AEGIS_VERSION_STRING)
+file(READ "${CMAKE_SOURCE_DIR}/VERSION" AEGIS_VERSION_STRING)
 string(STRIP "${AEGIS_VERSION_STRING}" AEGIS_VERSION_STRING)
 message(STATUS "aegis ${AEGIS_VERSION_STRING}")
 
