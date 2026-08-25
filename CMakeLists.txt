@@ -97,6 +97,8 @@ add_library(aegis_core
     src/config.c
     src/event.c
     src/event_bus.c
+    src/agent.c
+    src/goal.c
 )
 target_include_directories(aegis_core
     PUBLIC

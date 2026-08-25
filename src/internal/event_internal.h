@@ -8,6 +8,7 @@
 #define AEGIS_EVENT_INTERNAL_H
 
 #include "aegis/event.h"
+#include "aegis/common/mutex.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -26,16 +27,17 @@ struct aegis_event {
 
 /** Single subscriber entry. */
 typedef struct aegis_event_subscriber {
-    aegis_event_type_t         type;          /**< 0 = match all */
-    aegis_event_handler_fn     handler;       /**< callback */
-    void*                      ctx;           /**< user context */
-    int                        active;        /**< 1 = subscribed, 0 = unsubscribed */
+    aegis_event_type_t         type;    /**< 0 = match all */
+    aegis_event_handler_fn     handler; /**< callback */
+    void*                      ctx;     /**< user context */
+    int                        active;  /**< 1 = subscribed */
 } aegis_event_subscriber_t;
 
 /** Event bus — thread-safe pub/sub dispatcher. */
 struct aegis_event_bus {
     aegis_event_subscriber_t  subscribers[AEGIS_EVENT_BUS_MAX_SUBSCRIBERS];
     size_t                    n_subscribers;
+    aegis_mutex_t*            lock;
 };
 
 #endif /* AEGIS_EVENT_INTERNAL_H */
