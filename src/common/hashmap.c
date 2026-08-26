@@ -4,8 +4,9 @@
  *
  * Keys are stored as borrowed pointers — the caller must ensure keys
  * outlive the map. Tombstone entries (used == -1) are used on removal
- * to preserve probe sequences. Capacity is rounded up to the next
- * power of two at creation time.
+ * to preserve probe sequences. The table grows (rehash) once the
+ * occupied-slot load factor reaches 75%, so insert/get probes always
+ * terminate; rehashing also purges tombstones.
  */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/common/hashmap.h"
@@ -23,7 +24,8 @@ typedef struct Entry {
 struct aegis_hashmap {
     Entry*        entries;
     size_t        capacity;
-    size_t        count;
+    size_t        count;    /**< Live entries. */
+    size_t        occupied; /**< Live entries + tombstones (slots probed past). */
     aegis_hash_fn hash;
     aegis_eq_fn   eq;
     uint64_t      seed;
@@ -81,6 +83,36 @@ void aegis_hashmap_destroy(aegis_hashmap_t* map)
     free(map);
 }
 
+/* Double the table, re-inserting live entries and purging tombstones.
+ * @return 0 on success, -1 on allocation failure or capacity overflow. */
+static int hashmap_rehash(aegis_hashmap_t* map)
+{
+    if (map->capacity > SIZE_MAX / 2) {
+        return -1;
+    }
+    const size_t new_capacity = map->capacity * 2;
+    Entry*       grown        = calloc(new_capacity, sizeof(Entry));
+    if (!grown) {
+        return -1;
+    }
+    for (size_t i = 0; i < map->capacity; i++) {
+        if (map->entries[i].used != 1) {
+            continue;
+        }
+        uint64_t h = map->hash(map->entries[i].key, map->entries[i].key_len, map->seed);
+        size_t   j = (size_t)h & (new_capacity - 1);
+        while (grown[j].used != 0) {
+            j = (j + 1) & (new_capacity - 1);
+        }
+        grown[j] = map->entries[i];
+    }
+    free(map->entries);
+    map->entries  = grown;
+    map->capacity = new_capacity;
+    map->occupied = map->count;
+    return 0;
+}
+
 static size_t hashmap_index(const aegis_hashmap_t* map, uint64_t h)
 {
     return h & (map->capacity - 1);
@@ -90,6 +122,12 @@ int aegis_hashmap_insert(aegis_hashmap_t* map, const void* key, size_t key_len, 
 {
     if (!map) {
         return -1;
+    }
+    /* Keep occupied load below 75% so probe loops always terminate. */
+    if ((map->occupied + 1) * 4 >= map->capacity * 3) {
+        if (hashmap_rehash(map) != 0) {
+            return -1;
+        }
     }
     uint64_t h = map->hash(key, key_len, map->seed);
     size_t   i = hashmap_index(map, h);
@@ -104,7 +142,10 @@ int aegis_hashmap_insert(aegis_hashmap_t* map, const void* key, size_t key_len, 
     map->entries[i].key     = (void*)key;
     map->entries[i].key_len = key_len;
     map->entries[i].value   = value;
-    map->entries[i].used    = 1;
+    if (map->entries[i].used == 0) {
+        map->occupied++;
+    }
+    map->entries[i].used = 1;
     map->count++;
     return 0;
 }
@@ -165,5 +206,6 @@ void aegis_hashmap_clear(aegis_hashmap_t* map)
         return;
     }
     memset(map->entries, 0, map->capacity * sizeof(Entry));
-    map->count = 0;
+    map->count    = 0;
+    map->occupied = 0;
 }
