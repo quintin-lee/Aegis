@@ -124,6 +124,25 @@ aegis_status_t aegis_task_graph_ready_tasks(const aegis_task_graph_t* graph,
                                             aegis_task_t*** out_vector, size_t* out_count);
 
 /**
+ * @brief Snapshot ALL tasks currently in the graph.
+ *
+ * Unlike ready_tasks() this enumerates every task regardless of state,
+ * enabling read-only analysis passes (e.g. reflection) without access
+ * to graph internals.
+ *
+ * The vector contains BORROWED task pointers (the graph retains
+ * ownership of the tasks themselves); release the vector itself with
+ * free().
+ *
+ * @param graph    Task graph (borrowed).
+ * @param[out] out_vector  Receives a malloc'd array of borrowed pointers.
+ * @param[out] out_count   Number of entries in @c out_vector.
+ * @return AEGIS_OK, AEGIS_ERR_INVALID or AEGIS_ERR_NOMEM.
+ */
+aegis_status_t aegis_task_graph_tasks(const aegis_task_graph_t* graph, aegis_task_t*** out_vector,
+                                      size_t* out_count);
+
+/**
  * @brief Get the number of tasks in the graph.
  *
  * @param graph Task graph (borrowed; may be NULL → returns 0).

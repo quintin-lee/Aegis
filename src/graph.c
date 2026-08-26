@@ -402,6 +402,33 @@ size_t aegis_task_graph_task_count(const aegis_task_graph_t* graph)
     return n;
 }
 
+aegis_status_t aegis_task_graph_tasks(const aegis_task_graph_t* graph, aegis_task_t*** out_vector,
+                                      size_t* out_count)
+{
+    if (!graph || !out_vector || !out_count) {
+        return AEGIS_ERR_INVALID;
+    }
+
+    aegis_mutex_lock(graph->lock);
+
+    size_t         n   = graph->n_tasks;
+    aegis_task_t** vec = NULL;
+    if (n > 0) {
+        vec = (aegis_task_t**)calloc(n, sizeof(aegis_task_t*));
+        if (!vec) {
+            aegis_mutex_unlock(graph->lock);
+            return AEGIS_ERR_NOMEM;
+        }
+        memcpy(vec, graph->tasks, n * sizeof(aegis_task_t*));
+    }
+
+    aegis_mutex_unlock(graph->lock);
+
+    *out_vector = vec;
+    *out_count  = n;
+    return AEGIS_OK;
+}
+
 size_t aegis_task_graph_dependency_count(const aegis_task_graph_t* graph)
 {
     if (!graph) {
