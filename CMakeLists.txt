@@ -95,6 +95,10 @@ add_library(aegis_core
     src/scheduler.c
     src/executor.c
     src/cancellation.c
+    src/tool.c
+    src/tool_schema.c
+    src/tool_registry.c
+    src/tool_call.c
     src/runtime.c
     src/config.c
     src/event.c
@@ -168,6 +172,9 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_scheduler_concurrent tests/unit/test_scheduler_concurrent.c)
     aegis_add_test(unit_executor             tests/unit/test_executor.c)
     aegis_add_test(unit_executor_concurrent  tests/unit/test_executor_concurrent.c)
+    aegis_add_test(unit_tool             tests/unit/test_tool.c)
+    aegis_add_test(unit_tool_executor    tests/unit/test_tool_executor.c)
+    aegis_add_test(unit_tool_concurrent  tests/unit/test_tool_concurrent.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
