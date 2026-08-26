@@ -4,6 +4,8 @@
 #include <stdbool.h>
 #include <stdint.h>
 
+#include "aegis/types.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -29,6 +31,30 @@ extern "C" {
 
 /** Opaque cooperative-cancellation token. */
 typedef struct aegis_cancellation_token aegis_cancellation_token_t;
+
+/**
+ * @brief Create an independent, not-cancelled token.
+ *
+ * Tokens created here are self-owned (not managed by any executor);
+ * release them with aegis_cancellation_token_destroy().
+ *
+ * @param[out] out Receives the handle. Ownership: transferred.
+ * @return AEGIS_OK, AEGIS_ERR_INVALID (NULL out), AEGIS_ERR_NOMEM.
+ */
+aegis_status_t aegis_cancellation_token_create(aegis_cancellation_token_t** out);
+
+/**
+ * @brief Request cooperative cancellation of the token. Lock-free,
+ *        idempotent; safe from any thread.
+ */
+void aegis_cancellation_token_request_cancel(aegis_cancellation_token_t* token);
+
+/**
+ * @brief Destroy a token created by aegis_cancellation_token_create().
+ *
+ * Safe to call with NULL (no-op).
+ */
+void aegis_cancellation_token_destroy(aegis_cancellation_token_t* token);
 
 /**
  * @brief Query whether the token has been cancelled or expired.
