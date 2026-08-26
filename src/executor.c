@@ -231,9 +231,14 @@ static void run_job(aegis_executor_t* exec, aegis_job_t* job)
         }
 
         if ((long)attempts > max_tries) {
-            char msg[64];
-            snprintf(msg, sizeof(msg), "work failed with status %d", (int)rc);
-            aegis_task_set_error(job->task, msg);
+            /* Preserve a detailed message left by the work function;
+             * fall back to a generic one when none was set. */
+            const char* prev = aegis_task_error(job->task);
+            if (!prev || prev[0] == '\0') {
+                char msg[64];
+                snprintf(msg, sizeof(msg), "work failed with status %d", (int)rc);
+                aegis_task_set_error(job->task, msg);
+            }
             aegis_task_set_state(job->task, AEGIS_TASK_FAILED);
             finish_job(exec, job, AEGIS_EXEC_FAILED, rc, attempts);
             return;
