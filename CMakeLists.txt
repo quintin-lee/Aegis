@@ -161,6 +161,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_event_bus        tests/unit/test_event_bus.c)
     aegis_add_test(unit_task             tests/unit/test_task.c)
     aegis_add_test(unit_task_graph       tests/unit/test_task_graph.c)
+    aegis_add_test(unit_task_race_regression tests/unit/test_task_race_regression.c)
     aegis_add_test(unit_task_concurrent  tests/unit/test_task_concurrent.c)
 endif()
 
