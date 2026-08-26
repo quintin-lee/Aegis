@@ -78,4 +78,31 @@ struct aegis_task {
  */
 void aegis_task_set_state(aegis_task_t* task, aegis_task_state_t state);
 
+/**
+ * @brief Set or clear the task's error message (thread-safe).
+ *
+ * Internal production setter for runtime components that fail a task
+ * (e.g. executor marking FAILED after retries are exhausted). A NULL
+ * message clears the current one. The message is copied; the caller
+ * retains ownership of the buffer.
+ *
+ * @param task    Task handle (borrowed; NULL is a no-op).
+ * @param message Error text (borrowed; may be NULL to clear).
+ */
+void aegis_task_set_error(aegis_task_t* task, const char* message);
+
+/**
+ * @brief Atomically claim a task for execution (thread-safe).
+ *
+ * Internal production helper for executors: under the task lock, the
+ * state is checked and transitioned in one step, closing the
+ * check-then-act window that would let two executors run the same
+ * task concurrently. On success the task is left RUNNING.
+ *
+ * @param task Task handle (borrowed; NULL returns false).
+ * @return true if the state was PENDING or READY (now RUNNING);
+ *         false if the task was already claimed or terminal.
+ */
+bool aegis_task_try_begin_execution(aegis_task_t* task);
+
 #endif /* AEGIS_TASK_INTERNAL_H */

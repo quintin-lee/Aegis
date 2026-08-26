@@ -373,3 +373,31 @@ void aegis_task_set_state_for_test(aegis_task_t* task, aegis_task_state_t state)
 {
     aegis_task_set_state(task, state);
 }
+
+bool aegis_task_try_begin_execution(aegis_task_t* task)
+{
+    if (!task) {
+        return false;
+    }
+    aegis_mutex_lock(task->lock);
+    const bool submittable = (task->state == AEGIS_TASK_PENDING || task->state == AEGIS_TASK_READY);
+    if (submittable) {
+        task->state = AEGIS_TASK_RUNNING;
+    }
+    aegis_mutex_unlock(task->lock);
+    return submittable;
+}
+
+void aegis_task_set_error(aegis_task_t* task, const char* message)
+{
+    if (!task) {
+        return;
+    }
+    aegis_mutex_lock(task->lock);
+    if (message) {
+        snprintf(task->error_msg, sizeof(task->error_msg), "%s", message);
+    } else {
+        task->error_msg[0] = '\0';
+    }
+    aegis_mutex_unlock(task->lock);
+}
