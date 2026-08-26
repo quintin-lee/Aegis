@@ -270,6 +270,8 @@ static void test_nonexistent_dependency(void) {
 
     assert(aegis_task_graph_add_dependency(g, t1, t2) == AEGIS_ERR_NOT_FOUND);
 
+    /* t2 was never added to graph, destroy it here */
+    aegis_task_destroy(t2);
     aegis_task_graph_destroy(g);
 }
 

@@ -87,11 +87,11 @@ static void* worker(void* arg) {
             free(ready);
         }
 
-        /* Remove a task */
+        /* Remove a task — caller now owns it */
         aegis_task_graph_remove_task(g, tasks[0]);
+        aegis_task_destroy(tasks[0]);
 
         aegis_task_graph_destroy(g);
-        /* Graph destroy now frees all tasks */
 
     next:
         ;
