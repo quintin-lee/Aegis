@@ -37,7 +37,6 @@ static void test_basic_lifecycle(void) {
     assert(aegis_task_graph_dependency_count(g) == 0);
 
     aegis_task_graph_destroy(g);
-    /* Note: destroy does NOT free tasks */
 }
 
 static void test_add_remove_dependency(void) {

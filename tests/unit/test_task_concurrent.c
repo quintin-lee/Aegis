@@ -91,10 +91,7 @@ static void* worker(void* arg) {
         aegis_task_graph_remove_task(g, tasks[0]);
 
         aegis_task_graph_destroy(g);
-        /* Note: tasks are NOT destroyed — they were removed from graph */
-        for (int j = 0; j < 5; j++) {
-            aegis_task_destroy(tasks[j]);
-        }
+        /* Graph destroy now frees all tasks */
 
     next:
         ;

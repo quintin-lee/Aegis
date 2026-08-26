@@ -130,16 +130,19 @@ aegis_status_t aegis_task_graph_create(aegis_task_graph_t** out) {
 void aegis_task_graph_destroy(aegis_task_graph_t* graph) {
     if (!graph) return;
 
-    /* Free all dependencies */
+    /* Free all tasks and dependencies */
     for (size_t i = 0; i < graph->n_tasks; i++) {
         if (graph->tasks[i]) {
-            /* Don't free tasks here — they may be owned elsewhere */
+            aegis_task_destroy(graph->tasks[i]);
+            graph->tasks[i] = NULL;
         }
         for (size_t j = 0; j < graph->n_deps[i]; j++) {
             free(graph->deps[i][j]);
             graph->deps[i][j] = NULL;
         }
     }
+    graph->n_tasks = 0;
+    graph->n_dependencies = 0;
 
     aegis_mutex_destroy(graph->lock);
     free(graph);
