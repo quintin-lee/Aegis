@@ -66,4 +66,16 @@ struct aegis_task {
     aegis_mutex_t* lock;
 };
 
+/**
+ * @brief Set the task state (thread-safe).
+ *
+ * Internal production setter for runtime components that drive the
+ * documented state machine (e.g. scheduler promotion PENDING → READY).
+ * Callers are responsible for transition validity.
+ *
+ * @param task  Task handle (borrowed; NULL is a no-op).
+ * @param state New state.
+ */
+void aegis_task_set_state(aegis_task_t* task, aegis_task_state_t state);
+
 #endif /* AEGIS_TASK_INTERNAL_H */

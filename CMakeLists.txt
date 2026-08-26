@@ -163,6 +163,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_task_graph       tests/unit/test_task_graph.c)
     aegis_add_test(unit_task_race_regression tests/unit/test_task_race_regression.c)
     aegis_add_test(unit_task_concurrent  tests/unit/test_task_concurrent.c)
+    aegis_add_test(unit_scheduler_concurrent tests/unit/test_scheduler_concurrent.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────

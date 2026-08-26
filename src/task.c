@@ -359,7 +359,7 @@ void aegis_task_remove_metadata(aegis_task_t* task, const char* key)
     aegis_task_set_metadata(task, key, NULL);
 }
 
-void aegis_task_set_state_for_test(aegis_task_t* task, aegis_task_state_t state)
+void aegis_task_set_state(aegis_task_t* task, aegis_task_state_t state)
 {
     if (!task) {
         return;
@@ -367,4 +367,9 @@ void aegis_task_set_state_for_test(aegis_task_t* task, aegis_task_state_t state)
     aegis_mutex_lock(task->lock);
     task->state = state;
     aegis_mutex_unlock(task->lock);
+}
+
+void aegis_task_set_state_for_test(aegis_task_t* task, aegis_task_state_t state)
+{
+    aegis_task_set_state(task, state);
 }
