@@ -238,6 +238,8 @@ static void test_remove_task(void) {
     assert(aegis_task_graph_task_count(g) == 1);
     assert(aegis_task_graph_dependency_count(g) == 0);
 
+    /* t1 was removed, caller must destroy it */
+    aegis_task_destroy(t1);
     /* t2 is still in graph, will be freed by graph destroy */
     assert(aegis_task_state(t2) == AEGIS_TASK_PENDING);
 

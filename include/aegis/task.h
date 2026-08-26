@@ -30,14 +30,14 @@ extern "C" {
  * @brief Task type classification.
  */
 typedef enum aegis_task_type {
-    AEGIS_TASK_TYPE_COMPUTATIONAL,  /**< Pure computation, no I/O.          */
-    AEGIS_TASK_TYPE_IO,             /**< File or network I/O operation.      */
-    AEGIS_TASK_TYPE_NETWORK,        /**< Network request (HTTP, RPC, etc.).  */
-    AEGIS_TASK_TYPE_SHELL,          /**< Shell command execution.            */
-    AEGIS_TASK_TYPE_TOOL,           /**< Tool invocation.                    */
-    AEGIS_TASK_TYPE_PROVISION,      /**< Environment or resource provisioning.*/
-    AEGIS_TASK_TYPE_SYNCHRONIZATION,/**< Wait point for multi-branch merge.  */
-    AEGIS_TASK_TYPE_CUSTOM,         /**< User-defined task type.             */
+    AEGIS_TASK_TYPE_COMPUTATIONAL,   /**< Pure computation, no I/O.          */
+    AEGIS_TASK_TYPE_IO,              /**< File or network I/O operation.      */
+    AEGIS_TASK_TYPE_NETWORK,         /**< Network request (HTTP, RPC, etc.).  */
+    AEGIS_TASK_TYPE_SHELL,           /**< Shell command execution.            */
+    AEGIS_TASK_TYPE_TOOL,            /**< Tool invocation.                    */
+    AEGIS_TASK_TYPE_PROVISION,       /**< Environment or resource provisioning.*/
+    AEGIS_TASK_TYPE_SYNCHRONIZATION, /**< Wait point for multi-branch merge.  */
+    AEGIS_TASK_TYPE_CUSTOM,          /**< User-defined task type.             */
 } aegis_task_type_t;
 
 /**
@@ -76,8 +76,8 @@ typedef enum aegis_task_state {
  * @brief Retry policy for a task.
  */
 typedef struct aegis_task_retry_policy {
-    int max_attempts;     /**< Maximum retry attempts (0 = no retries). */
-    int delay_ms;         /**< Delay between retries in milliseconds.   */
+    int  max_attempts;        /**< Maximum retry attempts (0 = no retries). */
+    int  delay_ms;            /**< Delay between retries in milliseconds.   */
     bool exponential_backoff; /**< Use exponential backoff (default off).*/
 } aegis_task_retry_policy_t;
 
@@ -94,8 +94,7 @@ typedef struct aegis_task aegis_task_t;
  * @param[in]  desc      Task description (may be NULL). Borrowed.
  * @return AEGIS_OK on success, or a negative error code.
  */
-aegis_status_t aegis_task_create(aegis_task_t** out, const char* name,
-                                  const char* desc);
+aegis_status_t aegis_task_create(aegis_task_t** out, const char* name, const char* desc);
 
 /**
  * @brief Destroy a task and release all owned resources.
@@ -199,8 +198,7 @@ const char* aegis_task_error(const aegis_task_t* task);
  * @param size     Input data size in bytes.
  * @return AEGIS_OK on success, or AEGIS_ERR_NOMEM.
  */
-aegis_status_t aegis_task_set_input(aegis_task_t* task,
-                                     const void* data, size_t size);
+aegis_status_t aegis_task_set_input(aegis_task_t* task, const void* data, size_t size);
 
 /**
  * @brief Get task input data.
@@ -219,8 +217,7 @@ const void* aegis_task_input(const aegis_task_t* task, size_t* out_size);
  * @param size     Output data size in bytes.
  * @return AEGIS_OK on success, or AEGIS_ERR_NOMEM.
  */
-aegis_status_t aegis_task_set_output(aegis_task_t* task,
-                                      const void* data, size_t size);
+aegis_status_t aegis_task_set_output(aegis_task_t* task, const void* data, size_t size);
 
 /**
  * @brief Get task output data.
@@ -247,8 +244,7 @@ aegis_task_retry_policy_t aegis_task_retry_policy(const aegis_task_t* task);
  * @param task       Task handle.
  * @param policy     Retry policy to apply.
  */
-void aegis_task_set_retry_policy(aegis_task_t* task,
-                                  aegis_task_retry_policy_t policy);
+void aegis_task_set_retry_policy(aegis_task_t* task, aegis_task_retry_policy_t policy);
 
 /* ── Timeout ───────────────────────────────────────────────────────────────── */
 
@@ -278,8 +274,7 @@ void aegis_task_set_timeout_ms(aegis_task_t* task, long timeout_ms);
  * @param value   Metadata value (borrowed, may be NULL to remove).
  * @return AEGIS_OK on success, or a negative error code.
  */
-aegis_status_t aegis_task_set_metadata(aegis_task_t* task,
-                                        const char* key, const char* value);
+aegis_status_t aegis_task_set_metadata(aegis_task_t* task, const char* key, const char* value);
 
 /**
  * @brief Get a metadata value.
@@ -288,8 +283,7 @@ aegis_status_t aegis_task_set_metadata(aegis_task_t* task,
  * @param key  Metadata key (borrowed, must not be NULL).
  * @return Value string (NULL if key not found). Borrowed.
  */
-const char* aegis_task_get_metadata(const aegis_task_t* task,
-                                     const char* key);
+const char* aegis_task_get_metadata(const aegis_task_t* task, const char* key);
 
 /**
  * @brief Remove a metadata key.
@@ -309,7 +303,6 @@ void aegis_task_remove_metadata(aegis_task_t* task, const char* key);
  * For testing purposes only. In production, use scheduler/executor
  * to drive state transitions.
  */
-void aegis_task_set_state_for_test(aegis_task_t* task,
-                                    aegis_task_state_t state);
+void aegis_task_set_state_for_test(aegis_task_t* task, aegis_task_state_t state);
 
 #endif /* AEGIS_TASK_H */

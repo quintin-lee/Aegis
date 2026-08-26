@@ -58,8 +58,7 @@ void aegis_task_graph_destroy(aegis_task_graph_t* graph);
  * @param task   Task to add (ownership: transferred).
  * @return AEGIS_OK on success, or a negative error code.
  */
-aegis_status_t aegis_task_graph_add_task(aegis_task_graph_t* graph,
-                                          aegis_task_t* task);
+aegis_status_t aegis_task_graph_add_task(aegis_task_graph_t* graph, aegis_task_t* task);
 
 /**
  * @brief Remove a task from the graph.
@@ -71,8 +70,7 @@ aegis_status_t aegis_task_graph_add_task(aegis_task_graph_t* graph,
  * @param task   Task to remove (ownership: NOT transferred — caller retains).
  * @return AEGIS_OK on success, or AEGIS_ERR_NOT_FOUND.
  */
-aegis_status_t aegis_task_graph_remove_task(aegis_task_graph_t* graph,
-                                             aegis_task_t* task);
+aegis_status_t aegis_task_graph_remove_task(aegis_task_graph_t* graph, aegis_task_t* task);
 
 /**
  * @brief Look up a task by ID.
@@ -81,8 +79,7 @@ aegis_status_t aegis_task_graph_remove_task(aegis_task_graph_t* graph,
  * @param id     Task ID.
  * @return Task handle (borrowed) or NULL if not found.
  */
-aegis_task_t* aegis_task_graph_get_task(const aegis_task_graph_t* graph,
-                                         uint32_t id);
+aegis_task_t* aegis_task_graph_get_task(const aegis_task_graph_t* graph, uint32_t id);
 
 /* ── Dependency Management ─────────────────────────────────────────────────── */
 
@@ -97,9 +94,8 @@ aegis_task_t* aegis_task_graph_get_task(const aegis_task_graph_t* graph,
  * @param target   Task that depends on source (must exist in graph).
  * @return AEGIS_OK on success, or a negative error code.
  */
-aegis_status_t aegis_task_graph_add_dependency(aegis_task_graph_t* graph,
-                                                aegis_task_t* source,
-                                                aegis_task_t* target);
+aegis_status_t aegis_task_graph_add_dependency(aegis_task_graph_t* graph, aegis_task_t* source,
+                                               aegis_task_t* target);
 
 /**
  * @brief Remove a dependency.
@@ -109,9 +105,8 @@ aegis_status_t aegis_task_graph_add_dependency(aegis_task_graph_t* graph,
  * @param target   Target task of the dependency.
  * @return AEGIS_OK on success, or AEGIS_ERR_NOT_FOUND.
  */
-aegis_status_t aegis_task_graph_remove_dependency(aegis_task_graph_t* graph,
-                                                   aegis_task_t* source,
-                                                   aegis_task_t* target);
+aegis_status_t aegis_task_graph_remove_dependency(aegis_task_graph_t* graph, aegis_task_t* source,
+                                                  aegis_task_t* target);
 
 /* ── Query ─────────────────────────────────────────────────────────────────── */
 
@@ -126,8 +121,7 @@ aegis_status_t aegis_task_graph_remove_dependency(aegis_task_graph_t* graph,
  * @return AEGIS_OK on success.
  */
 aegis_status_t aegis_task_graph_ready_tasks(const aegis_task_graph_t* graph,
-                                             aegis_task_t*** out_vector,
-                                             size_t* out_count);
+                                            aegis_task_t*** out_vector, size_t* out_count);
 
 /**
  * @brief Get the number of tasks in the graph.
