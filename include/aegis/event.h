@@ -76,9 +76,8 @@ typedef struct aegis_event_bus aegis_event_bus_t;
  * @param[in]   payload_size  Size of payload in bytes.
  * @return AEGIS_OK on success, or a negative error code.
  */
-aegis_status_t aegis_event_create(aegis_event_t** out,
-                                   aegis_event_type_t type,
-                                   const aegis_event_payload_t* payload);
+aegis_status_t aegis_event_create(aegis_event_t** out, aegis_event_type_t type,
+                                  const aegis_event_payload_t* payload);
 
 /**
  * @brief Destroy an event and release its storage.
@@ -144,10 +143,8 @@ void aegis_event_bus_destroy(aegis_event_bus_t* bus);
  * @param ctx     Opaque context passed to handler (may be NULL).
  * @return AEGIS_OK on success, or a negative error code.
  */
-aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus,
-                                          aegis_event_type_t type,
-                                          aegis_event_handler_fn handler,
-                                          void* ctx);
+aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus, aegis_event_type_t type,
+                                         aegis_event_handler_fn handler, void* ctx);
 
 /**
  * @brief Unsubscribe a handler from the bus.
@@ -160,10 +157,8 @@ aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus,
  * @param handler Callback to remove (must not be NULL).
  * @param ctx     Context that was passed at subscription.
  */
-void aegis_event_bus_unsubscribe(aegis_event_bus_t* bus,
-                                  aegis_event_type_t type,
-                                  aegis_event_handler_fn handler,
-                                  void* ctx);
+void aegis_event_bus_unsubscribe(aegis_event_bus_t* bus, aegis_event_type_t type,
+                                 aegis_event_handler_fn handler, void* ctx);
 
 /**
  * @brief Publish an event to all matching subscribers.

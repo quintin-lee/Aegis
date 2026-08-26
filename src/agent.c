@@ -25,28 +25,23 @@
 
 /* ── Valid transitions ─────────────────────────────────────────────────────── */
 
-static bool is_terminal(aegis_agent_state_t s) {
-    return s == AEGIS_AGENT_COMPLETED ||
-           s == AEGIS_AGENT_FAILED    ||
-           s == AEGIS_AGENT_CANCELLED ||
+static bool is_terminal(aegis_agent_state_t s)
+{
+    return s == AEGIS_AGENT_COMPLETED || s == AEGIS_AGENT_FAILED || s == AEGIS_AGENT_CANCELLED ||
            s == AEGIS_AGENT_ABORTED;
 }
 
-
 /* ── Helper: emit a state transition event ─────────────────────────────────── */
 
-static void emit_state_change(aegis_agent_t* agent,
-                               aegis_agent_state_t from,
-                               aegis_agent_state_t to) {
+static void emit_state_change(aegis_agent_t* agent, aegis_agent_state_t from,
+                              aegis_agent_state_t to)
+{
     if (!agent || !agent->bus) {
         return;
     }
     (void)from;
 
-    aegis_event_payload_t payload = {
-        .data = &to,
-        .size = sizeof(to)
-    };
+    aegis_event_payload_t payload = {.data = &to, .size = sizeof(to)};
 
     aegis_event_t* ev = NULL;
     if (aegis_event_create(&ev, 0x1000 /* STATE_CHANGE */, &payload) == AEGIS_OK) {
@@ -57,7 +52,8 @@ static void emit_state_change(aegis_agent_t* agent,
 
 /* ── Lifecycle ─────────────────────────────────────────────────────────────── */
 
-aegis_status_t aegis_agent_create(aegis_agent_t** out, const char* name) {
+aegis_status_t aegis_agent_create(aegis_agent_t** out, const char* name)
+{
     AEGIS_CHECK_OUT(out);
 
     if (!name || name[0] == '\0') {
@@ -69,10 +65,10 @@ aegis_status_t aegis_agent_create(aegis_agent_t** out, const char* name) {
         return AEGIS_ERR_NOMEM;
     }
 
-    agent->name         = strdup(name);
-    agent->state        = AEGIS_AGENT_CREATED;
-    agent->bus          = NULL;
-    agent->joined       = NULL;
+    agent->name   = strdup(name);
+    agent->state  = AEGIS_AGENT_CREATED;
+    agent->bus    = NULL;
+    agent->joined = NULL;
 
     if (!agent->name) {
         free(agent);
@@ -107,14 +103,14 @@ aegis_status_t aegis_agent_create(aegis_agent_t** out, const char* name) {
     return AEGIS_OK;
 }
 
-void aegis_agent_destroy(aegis_agent_t* agent) {
+void aegis_agent_destroy(aegis_agent_t* agent)
+{
     if (!agent) {
         return;
     }
 
     aegis_agent_state_t s = aegis_agent_state(agent);
-    if (s == AEGIS_AGENT_RUNNING || s == AEGIS_AGENT_PAUSED ||
-        s == AEGIS_AGENT_INITIALIZING) {
+    if (s == AEGIS_AGENT_RUNNING || s == AEGIS_AGENT_PAUSED || s == AEGIS_AGENT_INITIALIZING) {
         aegis_mutex_lock(agent->lock);
         if (!is_terminal(s)) {
             agent->state = AEGIS_AGENT_ABORTED;
@@ -132,7 +128,8 @@ void aegis_agent_destroy(aegis_agent_t* agent) {
 
 /* ── State access ──────────────────────────────────────────────────────────── */
 
-aegis_agent_state_t aegis_agent_state(const aegis_agent_t* agent) {
+aegis_agent_state_t aegis_agent_state(const aegis_agent_t* agent)
+{
     if (!agent) {
         return AEGIS_AGENT_CREATED;
     }
@@ -144,7 +141,8 @@ aegis_agent_state_t aegis_agent_state(const aegis_agent_t* agent) {
 
 /* ── State transitions ─────────────────────────────────────────────────────── */
 
-aegis_status_t aegis_agent_init(aegis_agent_t* agent) {
+aegis_status_t aegis_agent_init(aegis_agent_t* agent)
+{
     if (!agent) {
         return AEGIS_ERR_INVALID;
     }
@@ -174,7 +172,8 @@ aegis_status_t aegis_agent_init(aegis_agent_t* agent) {
     return AEGIS_OK;
 }
 
-aegis_status_t aegis_agent_start(aegis_agent_t* agent) {
+aegis_status_t aegis_agent_start(aegis_agent_t* agent)
+{
     if (!agent) {
         return AEGIS_ERR_INVALID;
     }
@@ -198,7 +197,8 @@ aegis_status_t aegis_agent_start(aegis_agent_t* agent) {
     return AEGIS_OK;
 }
 
-aegis_status_t aegis_agent_pause(aegis_agent_t* agent) {
+aegis_status_t aegis_agent_pause(aegis_agent_t* agent)
+{
     if (!agent) {
         return AEGIS_ERR_INVALID;
     }
@@ -217,7 +217,8 @@ aegis_status_t aegis_agent_pause(aegis_agent_t* agent) {
     return AEGIS_OK;
 }
 
-aegis_status_t aegis_agent_resume(aegis_agent_t* agent) {
+aegis_status_t aegis_agent_resume(aegis_agent_t* agent)
+{
     if (!agent) {
         return AEGIS_ERR_INVALID;
     }
@@ -236,15 +237,15 @@ aegis_status_t aegis_agent_resume(aegis_agent_t* agent) {
     return AEGIS_OK;
 }
 
-aegis_status_t aegis_agent_cancel(aegis_agent_t* agent) {
+aegis_status_t aegis_agent_cancel(aegis_agent_t* agent)
+{
     if (!agent) {
         return AEGIS_ERR_INVALID;
     }
 
     aegis_mutex_lock(agent->lock);
 
-    if (agent->state != AEGIS_AGENT_RUNNING &&
-        agent->state != AEGIS_AGENT_PAUSED) {
+    if (agent->state != AEGIS_AGENT_RUNNING && agent->state != AEGIS_AGENT_PAUSED) {
         aegis_mutex_unlock(agent->lock);
         return AEGIS_ERR_INVALID;
     }
@@ -253,11 +254,8 @@ aegis_status_t aegis_agent_cancel(aegis_agent_t* agent) {
     aegis_mutex_unlock(agent->lock);
 
     /* Emit cancellation event */
-    aegis_event_payload_t payload = {
-        .data = &agent->state,
-        .size = sizeof(agent->state)
-    };
-    aegis_event_t* ev = NULL;
+    aegis_event_payload_t payload = {.data = &agent->state, .size = sizeof(agent->state)};
+    aegis_event_t*        ev      = NULL;
     if (aegis_event_create(&ev, 0x2000 /* CANCEL_REQUESTED */, &payload) == AEGIS_OK) {
         aegis_event_bus_publish(agent->bus, ev);
         aegis_event_destroy(ev);
@@ -273,7 +271,8 @@ aegis_status_t aegis_agent_cancel(aegis_agent_t* agent) {
     return AEGIS_OK;
 }
 
-aegis_status_t aegis_agent_join(aegis_agent_t* agent, long timeout_ms) {
+aegis_status_t aegis_agent_join(aegis_agent_t* agent, long timeout_ms)
+{
     if (!agent) {
         return AEGIS_ERR_INVALID;
     }
@@ -304,7 +303,8 @@ aegis_status_t aegis_agent_join(aegis_agent_t* agent, long timeout_ms) {
 
 /* ── Goal ──────────────────────────────────────────────────────────────────── */
 
-void aegis_agent_set_goal(aegis_agent_t* agent, const char* goal) {
+void aegis_agent_set_goal(aegis_agent_t* agent, const char* goal)
+{
     if (!agent) {
         return;
     }
@@ -318,7 +318,8 @@ void aegis_agent_set_goal(aegis_agent_t* agent, const char* goal) {
     aegis_mutex_unlock(agent->lock);
 }
 
-const char* aegis_agent_get_goal(const aegis_agent_t* agent) {
+const char* aegis_agent_get_goal(const aegis_agent_t* agent)
+{
     if (!agent) {
         return NULL;
     }
@@ -330,14 +331,16 @@ const char* aegis_agent_get_goal(const aegis_agent_t* agent) {
 
 /* ── Properties ────────────────────────────────────────────────────────────── */
 
-const char* aegis_agent_name(const aegis_agent_t* agent) {
+const char* aegis_agent_name(const aegis_agent_t* agent)
+{
     if (!agent) {
         return NULL;
     }
     return agent->name;
 }
 
-aegis_event_bus_t* aegis_agent_event_bus(const aegis_agent_t* agent) {
+aegis_event_bus_t* aegis_agent_event_bus(const aegis_agent_t* agent)
+{
     if (!agent) {
         return NULL;
     }

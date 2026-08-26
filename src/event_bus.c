@@ -17,7 +17,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-aegis_status_t aegis_event_bus_create(aegis_event_bus_t** out) {
+aegis_status_t aegis_event_bus_create(aegis_event_bus_t** out)
+{
     AEGIS_CHECK_OUT(out);
 
     aegis_event_bus_t* bus = (aegis_event_bus_t*)calloc(1, sizeof(*bus));
@@ -35,7 +36,8 @@ aegis_status_t aegis_event_bus_create(aegis_event_bus_t** out) {
     return AEGIS_OK;
 }
 
-void aegis_event_bus_destroy(aegis_event_bus_t* bus) {
+void aegis_event_bus_destroy(aegis_event_bus_t* bus)
+{
     if (!bus) {
         return;
     }
@@ -43,10 +45,9 @@ void aegis_event_bus_destroy(aegis_event_bus_t* bus) {
     free(bus);
 }
 
-aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus,
-                                          aegis_event_type_t type,
-                                          aegis_event_handler_fn handler,
-                                          void* ctx) {
+aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus, aegis_event_type_t type,
+                                         aegis_event_handler_fn handler, void* ctx)
+{
     if (!bus || !handler) {
         return AEGIS_ERR_INVALID;
     }
@@ -58,7 +59,7 @@ aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus,
         return AEGIS_ERR_BUSY;
     }
 
-    size_t idx = bus->n_subscribers++;
+    size_t idx                    = bus->n_subscribers++;
     bus->subscribers[idx].type    = type;
     bus->subscribers[idx].handler = handler;
     bus->subscribers[idx].ctx     = ctx;
@@ -68,10 +69,9 @@ aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus,
     return AEGIS_OK;
 }
 
-void aegis_event_bus_unsubscribe(aegis_event_bus_t* bus,
-                                  aegis_event_type_t type,
-                                  aegis_event_handler_fn handler,
-                                  void* ctx) {
+void aegis_event_bus_unsubscribe(aegis_event_bus_t* bus, aegis_event_type_t type,
+                                 aegis_event_handler_fn handler, void* ctx)
+{
     if (!bus || !handler) {
         return;
     }
@@ -79,10 +79,8 @@ void aegis_event_bus_unsubscribe(aegis_event_bus_t* bus,
     aegis_mutex_lock(bus->lock);
 
     for (size_t i = 0; i < bus->n_subscribers; i++) {
-        if (bus->subscribers[i].active &&
-            bus->subscribers[i].handler == handler &&
-            bus->subscribers[i].ctx == ctx &&
-            bus->subscribers[i].type == type) {
+        if (bus->subscribers[i].active && bus->subscribers[i].handler == handler &&
+            bus->subscribers[i].ctx == ctx && bus->subscribers[i].type == type) {
             bus->subscribers[i].active = 0;
             break;
         }
@@ -91,7 +89,8 @@ void aegis_event_bus_unsubscribe(aegis_event_bus_t* bus,
     aegis_mutex_unlock(bus->lock);
 }
 
-void aegis_event_bus_publish(aegis_event_bus_t* bus, const aegis_event_t* ev) {
+void aegis_event_bus_publish(aegis_event_bus_t* bus, const aegis_event_t* ev)
+{
     if (!bus || !ev) {
         return;
     }
@@ -99,13 +98,12 @@ void aegis_event_bus_publish(aegis_event_bus_t* bus, const aegis_event_t* ev) {
     /* Snapshot active subscribers under lock, then dispatch outside lock
      * to avoid deadlock if a subscriber calls unsubscribe() during dispatch. */
     aegis_event_subscriber_t snapshot[AEGIS_EVENT_BUS_MAX_SUBSCRIBERS];
-    size_t n = 0;
+    size_t                   n = 0;
 
     aegis_mutex_lock(bus->lock);
     for (size_t i = 0; i < bus->n_subscribers; i++) {
         if (bus->subscribers[i].active &&
-            (bus->subscribers[i].type == 0 ||
-             bus->subscribers[i].type == ev->type)) {
+            (bus->subscribers[i].type == 0 || bus->subscribers[i].type == ev->type)) {
             if (n < AEGIS_EVENT_BUS_MAX_SUBSCRIBERS) {
                 snapshot[n++] = bus->subscribers[i];
             }
@@ -118,7 +116,8 @@ void aegis_event_bus_publish(aegis_event_bus_t* bus, const aegis_event_t* ev) {
     }
 }
 
-size_t aegis_event_bus_subscriber_count(const aegis_event_bus_t* bus) {
+size_t aegis_event_bus_subscriber_count(const aegis_event_bus_t* bus)
+{
     if (!bus) {
         return 0;
     }

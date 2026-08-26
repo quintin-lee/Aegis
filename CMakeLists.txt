@@ -100,6 +100,8 @@ add_library(aegis_core
     src/agent.c
     src/goal.c
     src/status.c
+    src/dependency.c
+    src/graph.c
 )
 target_include_directories(aegis_core
     PUBLIC
@@ -156,7 +158,10 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_runtime_concurrent tests/unit/test_runtime_concurrent.c)
     aegis_add_test(unit_agent        tests/unit/test_agent.c)
     aegis_add_test(unit_agent_concurrent tests/unit/test_agent_concurrent.c)
-    aegis_add_test(unit_event_bus    tests/unit/test_event_bus.c)
+    aegis_add_test(unit_event_bus        tests/unit/test_event_bus.c)
+    aegis_add_test(unit_task             tests/unit/test_task.c)
+    aegis_add_test(unit_task_graph       tests/unit/test_task_graph.c)
+    aegis_add_test(unit_task_concurrent  tests/unit/test_task_concurrent.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
