@@ -10,13 +10,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdatomic.h>
 
-/* Global task ID counter */
-static uint32_t g_next_task_id = 1;
+/* Global task ID counter — atomic to avoid data races when tasks are
+ * created concurrently from multiple threads. */
+static _Atomic uint32_t g_next_task_id = 1;
 
 static uint32_t next_task_id(void)
 {
-    return g_next_task_id++;
+    return atomic_fetch_add(&g_next_task_id, 1);
 }
 
 aegis_status_t aegis_task_create(aegis_task_t** out, const char* name, const char* desc)
