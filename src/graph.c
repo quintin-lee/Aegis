@@ -383,7 +383,7 @@ aegis_status_t aegis_task_graph_ready_tasks(const aegis_task_graph_t* graph,
     /* Count ready tasks */
     size_t count = 0;
     for (size_t i = 0; i < graph->n_tasks; i++) {
-        if (graph->tasks[i] && graph->tasks[i]->state == AEGIS_TASK_READY) {
+        if (graph->tasks[i] && aegis_task_state(graph->tasks[i]) == AEGIS_TASK_READY) {
             count++;
         }
     }
@@ -397,7 +397,7 @@ aegis_status_t aegis_task_graph_ready_tasks(const aegis_task_graph_t* graph,
 
     size_t idx = 0;
     for (size_t i = 0; i < graph->n_tasks; i++) {
-        if (graph->tasks[i] && graph->tasks[i]->state == AEGIS_TASK_READY) {
+        if (graph->tasks[i] && aegis_task_state(graph->tasks[i]) == AEGIS_TASK_READY) {
             vec[idx++] = graph->tasks[i];
         }
     }
