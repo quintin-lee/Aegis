@@ -46,74 +46,56 @@ static bool has_dependency(const aegis_task_graph_t* g, uint32_t source, uint32_
 }
 
 /** Check if adding edge source→target would create a cycle.
- * Uses DFS from target to see if we can reach source. */
+ * BFS from target, following edges (dep->source → owning task), to see
+ * if we can reach source. Scans dependency lists directly instead of
+ * materializing an adjacency matrix: the fixed-size local buffers below
+ * total ~9 KiB, safe for the default 8 MiB stack. (A square
+ * [MAX_TASKS][MAX_TASKS] index matrix would need 8 MiB and overflow it.) */
 static bool would_create_cycle(aegis_task_graph_t* g, uint32_t source, uint32_t target)
 {
     if (source == target) {
         return true; /* self-loop */
     }
 
-    /* Build an adjacency list using task indices for safe array access.
-     * adj[i] contains the indices of tasks that depend on task i. */
-    size_t adj[AEGIS_GRAPH_MAX_TASKS][AEGIS_GRAPH_MAX_TASKS];
-    size_t adj_count[AEGIS_GRAPH_MAX_TASKS] = {0};
-
+    /* Locate the target's index. add_dependency() guarantees both tasks
+     * exist in the graph before calling here. */
+    size_t start = g->n_tasks;
     for (size_t i = 0; i < g->n_tasks; i++) {
-        if (!g->tasks[i]) {
-            continue;
-        }
-        for (size_t j = 0; j < g->n_deps[i]; j++) {
-            aegis_dependency_t* dep = g->deps[i][j];
-            if (!dep) {
-                continue;
-            }
-            /* dep->source is the task that must complete first
-             * dep->target is the task that depends on it.
-             * Edge: source -> target (source must complete before target) */
-            /* Find source index */
-            for (size_t si = 0; si < g->n_tasks; si++) {
-                if (g->tasks[si] && g->tasks[si]->id == dep->source) {
-                    if (adj_count[si] < AEGIS_GRAPH_MAX_TASKS) {
-                        adj[si][adj_count[si]++] = i;
-                    }
-                    break;
-                }
-            }
+        if (g->tasks[i] && g->tasks[i]->id == target) {
+            start = i;
+            break;
         }
     }
-
-    /* BFS from target's index to see if we can reach source's index */
-    size_t target_idx = 0, source_idx = 0;
-    for (size_t i = 0; i < g->n_tasks; i++) {
-        if (g->tasks[i]) {
-            if (g->tasks[i]->id == target) {
-                target_idx = i;
-            }
-            if (g->tasks[i]->id == source) {
-                source_idx = i;
-            }
-        }
+    if (start >= g->n_tasks) {
+        return false; /* target not present: no path can exist */
     }
 
     bool   visited[AEGIS_GRAPH_MAX_TASKS] = {false};
     size_t q[AEGIS_GRAPH_MAX_TASKS];
     size_t q_head = 0, q_tail = 0;
 
-    q[q_tail++]         = target_idx;
-    visited[target_idx] = true;
+    q[q_tail++]    = start;
+    visited[start] = true;
 
     while (q_head < q_tail) {
         size_t curr = q[q_head++];
-        if (curr == source_idx) {
-            return true;
-        }
 
-        for (size_t k = 0; k < adj_count[curr]; k++) {
-            size_t next = adj[curr][k];
-            if (!visited[next]) {
-                visited[next] = true;
-                if (q_tail < sizeof(q) / sizeof(q[0])) {
-                    q[q_tail++] = next;
+        /* Every task i holding a dep with source == curr's id is a
+         * successor: edge curr -> i. Deps are stored on the dependent
+         * task's row, so scan each task's own dep list. */
+        for (size_t i = 0; i < g->n_tasks; i++) {
+            if (visited[i] || !g->tasks[i]) {
+                continue;
+            }
+            for (size_t j = 0; j < g->n_deps[i]; j++) {
+                const aegis_dependency_t* dep = g->deps[i][j];
+                if (dep && dep->source == g->tasks[curr]->id) {
+                    if (g->tasks[i]->id == source) {
+                        return true;
+                    }
+                    visited[i]  = true;
+                    q[q_tail++] = i;
+                    break;
                 }
             }
         }
