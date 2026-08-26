@@ -48,38 +48,57 @@ static bool would_create_cycle(aegis_task_graph_t* g,
                                 uint32_t source, uint32_t target) {
     if (source == target) return true; /* self-loop */
 
-    /* Check if there's already a path from target to source.
-     * If so, adding target→source would create a cycle.
-     *
-     * In our representation: dep {source, target} in task T's deps means
-     * "T depends on source". So to find outgoing edges FROM current,
-     * we scan all tasks for deps where dep->source == current.id. */
+    /* Build an adjacency list using task indices for safe array access.
+     * adj[i] contains the indices of tasks that depend on task i. */
+    size_t adj[AEGIS_GRAPH_MAX_TASKS][AEGIS_GRAPH_MAX_TASKS];
+    size_t adj_count[AEGIS_GRAPH_MAX_TASKS] = {0};
+
+    for (size_t i = 0; i < g->n_tasks; i++) {
+        if (!g->tasks[i]) continue;
+        for (size_t j = 0; j < g->n_deps[i]; j++) {
+            aegis_dependency_t* dep = g->deps[i][j];
+            if (!dep) continue;
+            /* dep->source is the task that must complete first
+             * dep->target is the task that depends on it.
+             * Edge: source -> target (source must complete before target) */
+            /* Find source index */
+            for (size_t si = 0; si < g->n_tasks; si++) {
+                if (g->tasks[si] && g->tasks[si]->id == dep->source) {
+                    if (adj_count[si] < AEGIS_GRAPH_MAX_TASKS) {
+                        adj[si][adj_count[si]++] = i;
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    /* BFS from target's index to see if we can reach source's index */
+    size_t target_idx = 0, source_idx = 0;
+    for (size_t i = 0; i < g->n_tasks; i++) {
+        if (g->tasks[i]) {
+            if (g->tasks[i]->id == target) target_idx = i;
+            if (g->tasks[i]->id == source) source_idx = i;
+        }
+    }
+
     bool visited[AEGIS_GRAPH_MAX_TASKS] = {false};
-    uint32_t queue[AEGIS_GRAPH_MAX_TASKS];
+    size_t q[AEGIS_GRAPH_MAX_TASKS];
     size_t q_head = 0, q_tail = 0;
 
-    queue[q_tail++] = target;
-    visited[target] = true;
+    q[q_tail++] = target_idx;
+    visited[target_idx] = true;
 
     while (q_head < q_tail) {
-        uint32_t current = queue[q_head++];
+        size_t curr = q[q_head++];
+        if (curr == source_idx) return true;
 
-        /* Find all tasks that current points to (i.e., tasks that have
-         * current as their source dependency) */
-        for (size_t i = 0; i < g->n_tasks; i++) {
-            if (!g->tasks[i]) continue;
-            for (size_t j = 0; j < g->n_deps[i]; j++) {
-                aegis_dependency_t* dep = g->deps[i][j];
-                if (!dep) continue;
-                if (dep->source == current) {
-                    uint32_t next = dep->target;
-                    if (next == source) return true; /* cycle! */
-                    if (!visited[next]) {
-                        visited[next] = true;
-                        if (q_tail < sizeof(queue)/sizeof(queue[0])) {
-                            queue[q_tail++] = next;
-                        }
-                    }
+        for (size_t k = 0; k < adj_count[curr]; k++) {
+            size_t next = adj[curr][k];
+            if (!visited[next]) {
+                visited[next] = true;
+                if (q_tail < sizeof(q)/sizeof(q[0])) {
+                    q[q_tail++] = next;
                 }
             }
         }
