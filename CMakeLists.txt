@@ -99,6 +99,11 @@ add_library(aegis_core
     src/tool_schema.c
     src/tool_registry.c
     src/tool_call.c
+    src/provider.c
+    src/provider_registry.c
+    src/llm.c
+    src/embedding.c
+    src/storage.c
     src/runtime.c
     src/config.c
     src/event.c
@@ -175,6 +180,9 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_tool             tests/unit/test_tool.c)
     aegis_add_test(unit_tool_executor    tests/unit/test_tool_executor.c)
     aegis_add_test(unit_tool_concurrent  tests/unit/test_tool_concurrent.c)
+    aegis_add_test(unit_provider             tests/unit/test_provider.c)
+    aegis_add_test(unit_provider_interfaces  tests/unit/test_provider_interfaces.c)
+    aegis_add_test(unit_provider_concurrent  tests/unit/test_provider_concurrent.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
