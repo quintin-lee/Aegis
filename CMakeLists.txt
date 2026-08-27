@@ -142,7 +142,8 @@ add_library(aegis_core
     src/status.c
     src/dependency.c
     src/critic.c
-    src/graph.c
+    src/memory.c
+    src/memory_mock.c
 )
 target_include_directories(aegis_core
     PUBLIC
@@ -224,8 +225,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_provider_concurrent  tests/unit/test_provider_concurrent.c)
     aegis_add_test(unit_planner              tests/unit/test_planner.c)
     aegis_add_test(unit_planner_llm          tests/unit/test_planner_llm.c)
-    aegis_add_test(unit_strategy             tests/unit/test_strategy.c)
-    aegis_add_test(unit_critic             tests/unit/test_critic.c)
+    aegis_add_test(unit_memory             tests/unit/test_memory.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
