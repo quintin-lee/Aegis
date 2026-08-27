@@ -48,6 +48,8 @@ static void test_llm_mock_basic(void)
 
     aegis_llm_response_destroy(&resp);
     aegis_cancellation_token_destroy(token);
+    aegis_provider_unregister(reg, "llm-mock");
+    aegis_llm_mock_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
 }
 
@@ -73,6 +75,8 @@ static void test_llm_mock_cancelled(void)
     assert(resp.data == NULL);
 
     aegis_cancellation_token_destroy(token);
+    aegis_provider_unregister(reg, "llm-mock");
+    aegis_llm_mock_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
 }
 
@@ -160,6 +164,8 @@ static void test_llm_mock_error_mapping(void)
     assert(resp.data == NULL);
 
     aegis_cancellation_token_destroy(token);
+    aegis_provider_unregister(reg, "llm-mock");
+    aegis_llm_mock_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
 }
 
@@ -172,7 +178,6 @@ int main(void)
     test_llm_mock_cancelled();
     test_llm_mock_error_mapping();
 
-    printf("provider_llm: all tests passed
-");
+    printf("provider_llm: all tests passed\n");
     return 0;
 }
