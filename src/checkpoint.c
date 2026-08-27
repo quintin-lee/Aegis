@@ -3,6 +3,7 @@
  * @brief Agent state persistence: save/restore with versioning and integrity.
  */
 #define _POSIX_C_SOURCE 200809L
+#include <pthread.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include "aegis/checkpoint.h"
@@ -24,14 +25,11 @@
 
 /* ── CRC32 ─────────────────────────────────────────────────────────────────── */
 
-static uint32_t crc32_table[256];
-static int      crc32_table_init = 0;
+static uint32_t           crc32_table[256];
+static pthread_once_t     crc32_once = PTHREAD_ONCE_INIT;
 
-static void crc32_init_table(void)
+static void crc32_init_table_once(void)
 {
-    if (crc32_table_init) {
-        return;
-    }
     for (uint32_t i = 0; i < 256; i++) {
         uint32_t crc = i;
         for (int j = 0; j < 8; j++) {
@@ -39,12 +37,11 @@ static void crc32_init_table(void)
         }
         crc32_table[i] = crc;
     }
-    crc32_table_init = 1;
 }
 
 static uint32_t crc32_compute(const uint8_t* data, size_t len, uint32_t crc)
 {
-    crc32_init_table();
+    pthread_once(&crc32_once, crc32_init_table_once);
     crc = 0xFFFFFFFFu;
     for (size_t i = 0; i < len; i++) {
         crc ^= data[i];
@@ -256,8 +253,7 @@ aegis_status_t aegis_checkpoint_serialize(const aegis_checkpoint_t* ckpt, char**
     }
     *out = NULL;
 
-    size_t est = 256 + strlen(ckpt->agent_state) +
-                 (ckpt->goal ? strlen(ckpt->goal) : 0) +
+    size_t est = 256 + strlen(ckpt->agent_state) + (ckpt->goal ? strlen(ckpt->goal) : 0) +
                  (ckpt->plan_text ? strlen(ckpt->plan_text) + 20 : 0);
     for (size_t i = 0; i < ckpt->n_tasks; i++) {
         est += 128;

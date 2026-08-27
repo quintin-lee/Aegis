@@ -88,6 +88,37 @@ static void test_generic_remove_not_found(void)
     assert(aegis_memory_remove(mem, "nope", &out) == AEGIS_ERR_NOT_FOUND);
     aegis_memory_destroy(mem);
 }
+static void test_generic_remove_borrow(void)
+{
+    aegis_memory_t* mem = NULL;
+    expect_ok(aegis_memory_create(&mem), "create");
+
+    /* Insert 3 items, then remove middle one with out=NULL.
+     * This must not double-free: shift-pop frees evict, NOT drop. */
+    aegis_memory_item_t* a = make_item("a", "data_a", AEGIS_MEMORY_ITEM_PLAN, 3);
+    aegis_memory_item_t* b = make_item("b", "data_b", AEGIS_MEMORY_ITEM_PLAN, 5);
+    aegis_memory_item_t* c = make_item("c", "data_c", AEGIS_MEMORY_ITEM_PLAN, 1);
+    expect_ok(aegis_memory_put(mem, a), "put a");
+    expect_ok(aegis_memory_put(mem, b), "put b");
+    expect_ok(aegis_memory_put(mem, c), "put c");
+    assert(aegis_memory_count(mem) == 3);
+
+    /* Remove middle item — pass NULL to trigger free_item path */
+    expect_ok(aegis_memory_remove(mem, "b", NULL), "remove b");
+    assert(aegis_memory_count(mem) == 2);
+
+    /* Verify remaining items are still valid (borrowed pointers —
+     * do NOT free them; the store owns them). */
+    aegis_memory_item_t* got = NULL;
+    expect_ok(aegis_memory_get(mem, "a", &got), "get a");
+    assert(got != NULL && strcmp(got->content, "data_a") == 0);
+
+    got = NULL;
+    expect_ok(aegis_memory_get(mem, "c", &got), "get c");
+    assert(got != NULL && strcmp(got->content, "data_c") == 0);
+
+    aegis_memory_destroy(mem);
+}
 
 static void test_generic_search_by_type(void)
 {
@@ -356,6 +387,7 @@ int main(void)
     printf("starting generic_put_get();... "); fflush(stdout); test_generic_put_get();; printf("ok\n");
     printf("starting generic_remove();... "); fflush(stdout); test_generic_remove();; printf("ok\n");
     printf("starting generic_remove_not_found();... "); fflush(stdout); test_generic_remove_not_found();; printf("ok\n");
+    printf("starting generic_remove_borrow();... "); fflush(stdout); test_generic_remove_borrow();; printf("ok\n");
     printf("starting generic_search_by_type();... "); fflush(stdout); test_generic_search_by_type();; printf("ok\n");
     printf("starting generic_overwrite();... "); fflush(stdout); test_generic_overwrite();; printf("ok\n");
     printf("starting working_capacity_eviction();... "); fflush(stdout); test_working_capacity_eviction();; printf("ok\n");

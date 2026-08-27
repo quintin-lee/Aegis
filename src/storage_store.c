@@ -191,7 +191,13 @@ aegis_status_t aegis_storage_transaction_commit(aegis_storage_transaction_t*    
     }
     /* Commits are no-ops at this layer — the caller applies them via
      * the provider dispatch. The transaction is consumed. */
-    txn->n_ops = 0;
+    for (size_t i = 0; i < txn->n_ops; i++) {
+        free(txn->keys[i]);
+        free(txn->values[i]);
+    }
+    txn->keys[0]   = NULL;
+    txn->values[0] = NULL;
+    txn->n_ops     = 0;
     return AEGIS_OK;
 }
 

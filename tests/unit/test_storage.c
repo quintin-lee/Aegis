@@ -89,7 +89,8 @@ static void test_transaction_commit(void)
 
     expect_ok(aegis_storage_transaction_put(txn, "k", 1, "v", 1), "put");
     expect_ok(aegis_storage_transaction_commit(txn, NULL), "commit");
-    /* txn is consumed after commit. */
+    /* txn is consumed after commit — destroy to free remaining buffer metadata. */
+    aegis_storage_transaction_destroy(txn);
 }
 
 static void test_transaction_commit_cancelled(void)

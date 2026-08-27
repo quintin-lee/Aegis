@@ -158,12 +158,17 @@ aegis_status_t aegis_memory_put(aegis_memory_t* mem, aegis_memory_item_t* item)
             free_item(existing);
             int rc = aegis_vector_set(mem->items, i, &cloned);
             (void)rc;
+            free_item(item);
             return AEGIS_OK;
         }
     }
     int rc = aegis_vector_push(mem->items, &cloned);
-    (void)rc;
-    return (rc == 0) ? AEGIS_OK : AEGIS_ERR_NOMEM;
+    if (rc != 0) {
+        free_item(cloned);
+        return AEGIS_ERR_NOMEM;
+    }
+    free_item(item);
+    return AEGIS_OK;
 }
 
 aegis_status_t aegis_memory_get(const aegis_memory_t* mem, const char* id,
@@ -243,19 +248,25 @@ aegis_status_t aegis_memory_remove(aegis_memory_t* mem, const char* id, aegis_me
         aegis_memory_item_t* item = NULL;
         aegis_vector_get(mem->items, i, &item);
         if (item && strcmp(item->id, id) == 0) {
-            if (out) {
-                *out = item;
-            } else {
-                free_item(item);
+            /* Shift elements after i down by one, then pop the tail.
+             * Save evict BEFORE the shift. After shifting, zero the
+             * vacated tail slot to prevent a dangling pointer. */
+            aegis_memory_item_t* evict = item;
+            for (size_t j = i; j + 1 < n; j++) {
+                aegis_memory_item_t* nxt = NULL;
+                aegis_vector_get(mem->items, j + 1, &nxt);
+                aegis_vector_set(mem->items, j, &nxt);
             }
-            /* Swap with last, then pop. */
-            aegis_memory_item_t* last = NULL;
-            aegis_vector_get(mem->items, n - 1, &last);
-            aegis_vector_set(mem->items, i, &last);
+            /* Zero the vacated tail slot before pop writes into it. */
+            aegis_memory_item_t null_item = {0};
+            aegis_vector_set(mem->items, n - 1, &null_item);
             aegis_memory_item_t* drop = NULL;
             aegis_vector_pop(mem->items, &drop);
-            if (!out) {
-                free_item(drop);
+            (void)drop;
+            if (out) {
+                *out = evict;
+            } else {
+                free_item(evict);
             }
             return AEGIS_OK;
         }
@@ -330,6 +341,7 @@ aegis_status_t aegis_working_memory_put(aegis_working_memory_t* mem, aegis_memor
             free_item(existing);
             int rc = aegis_vector_set(mem->items, i, &cloned);
             (void)rc;
+            free_item(item);
             return AEGIS_OK;
         }
     }
@@ -338,6 +350,7 @@ aegis_status_t aegis_working_memory_put(aegis_working_memory_t* mem, aegis_memor
         free_item(cloned);
         return AEGIS_ERR_NOMEM;
     }
+    free_item(item);
     /* Evict lowest-priority item if over capacity. */
     if (mem->max_capacity > 0) {
         n = aegis_vector_len(mem->items);
@@ -473,7 +486,12 @@ aegis_status_t aegis_episodic_memory_append(aegis_episodic_memory_t* mem, aegis_
         return AEGIS_ERR_NOMEM;
     }
     int rc = aegis_vector_push(mem->items, &cloned);
-    return (rc == 0) ? AEGIS_OK : AEGIS_ERR_NOMEM;
+    if (rc != 0) {
+        free_item(cloned);
+        return AEGIS_ERR_NOMEM;
+    }
+    free_item(item);
+    return AEGIS_OK;
 }
 
 aegis_status_t aegis_episodic_memory_range(const aegis_episodic_memory_t* mem, uint64_t start_ms,
@@ -576,11 +594,17 @@ aegis_status_t aegis_semantic_memory_put(aegis_semantic_memory_t* mem, aegis_mem
             free_item(existing);
             int rc = aegis_vector_set(mem->items, i, &cloned);
             (void)rc;
+            free_item(item);
             return AEGIS_OK;
         }
     }
     int rc = aegis_vector_push(mem->items, &cloned);
-    return (rc == 0) ? AEGIS_OK : AEGIS_ERR_NOMEM;
+    if (rc != 0) {
+        free_item(cloned);
+        return AEGIS_ERR_NOMEM;
+    }
+    free_item(item);
+    return AEGIS_OK;
 }
 
 aegis_status_t aegis_semantic_memory_get(const aegis_semantic_memory_t* mem, const char* id,
@@ -663,11 +687,17 @@ aegis_status_t aegis_procedural_memory_put(aegis_procedural_memory_t* mem,
             free_item(existing);
             int rc = aegis_vector_set(mem->items, i, &cloned);
             (void)rc;
+            free_item(item);
             return AEGIS_OK;
         }
     }
     int rc = aegis_vector_push(mem->items, &cloned);
-    return (rc == 0) ? AEGIS_OK : AEGIS_ERR_NOMEM;
+    if (rc != 0) {
+        free_item(cloned);
+        return AEGIS_ERR_NOMEM;
+    }
+    free_item(item);
+    return AEGIS_OK;
 }
 
 aegis_status_t aegis_procedural_memory_search(const aegis_procedural_memory_t* mem,
