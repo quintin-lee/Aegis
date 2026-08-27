@@ -156,6 +156,7 @@ add_library(aegis_core
     src/providers/llm_mock.c
     src/providers/storage_sqlite.c
     src/providers/embedding_hash.c
+    src/autonomous_agent.c
 )
 target_include_directories(aegis_core
     PUBLIC
@@ -250,6 +251,8 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_provider_llm       tests/unit/test_provider_llm.c)
     aegis_add_test(unit_provider_storage   tests/unit/test_provider_storage.c)
     aegis_add_test(unit_provider_embedding tests/unit/test_provider_embedding.c)
+    aegis_add_test(system_autonomous        tests/system/test_autonomous_closed_loop.c)
+    target_link_libraries(system_autonomous PRIVATE pthread)
 endif()
 
 # ── Mock plugin shared object ────────────────────────────────────────────────
