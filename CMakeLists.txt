@@ -142,6 +142,7 @@ add_library(aegis_core
     src/status.c
     src/dependency.c
     src/critic.c
+    src/graph.c
     src/memory.c
     src/memory_mock.c
 )
