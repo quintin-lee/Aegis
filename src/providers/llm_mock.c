@@ -29,10 +29,14 @@
 /* ── Provider context ──────────────────────────────────────────────────────── */
 
 typedef struct llm_mock_ctx {
-    char* response_prefix; /**< Owned. */
-    int   delay_ms;        /**< Artificial delay. */
-    int   call_count;      /**< Number of calls made. */
-    int   fail_after;      /**< 0 = never fail; N = fail on Nth call. */
+    char*  response_prefix; /**< Owned. */
+    int    delay_ms;        /**< Artificial delay. */
+    int    call_count;      /**< Number of calls made. */
+    int    fail_after;      /**< 0 = never fail; N = fail on Nth call. */
+    char** canned;          /**< Owned canned responses (verbatim, no prefix). */
+    size_t canned_len;      /**< Number of canned entries. */
+    size_t canned_idx;      /**< Next canned index. */
+    bool   canned_repeat;   /**< When true, last entry repeats after exhaustion. */
 } llm_mock_ctx_t;
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
@@ -101,6 +105,28 @@ static aegis_status_t llm_mock_complete(void* ctx, const aegis_llm_request_t* re
     mock->call_count++;
     if (mock->fail_after > 0 && mock->call_count >= mock->fail_after) {
         return AEGIS_ERR_PROVIDER;
+    }
+
+    /* Canned sequence takes precedence: return verbatim next entry. */
+    if (mock->canned && mock->canned_len > 0) {
+        const char* chosen = NULL;
+        if (mock->canned_idx < mock->canned_len) {
+            chosen = mock->canned[mock->canned_idx++];
+        } else if (mock->canned_repeat) {
+            chosen = mock->canned[mock->canned_len - 1];
+        }
+        if (chosen) {
+            size_t clen = strlen(chosen);
+            char*  buf  = malloc(clen + 1);
+            if (!buf) {
+                return AEGIS_ERR_NOMEM;
+            }
+            memcpy(buf, chosen, clen + 1);
+            out->data = buf;
+            out->len  = clen;
+            return AEGIS_OK;
+        }
+        /* Sequence exhausted and not repeating -> fall through to echo. */
     }
 
     /* Build response: prefix + prompt. */
@@ -193,11 +219,73 @@ void aegis_llm_mock_set_fail_after(llm_mock_ctx_t* ctx, int fail_after)
     }
 }
 
+aegis_status_t aegis_llm_mock_set_responses(llm_mock_ctx_t* ctx, const char* const* responses,
+                                            size_t count)
+{
+    if (!ctx) {
+        return AEGIS_ERR_INVALID;
+    }
+    if (ctx->canned) {
+        for (size_t i = 0; i < ctx->canned_len; i++) {
+            free(ctx->canned[i]);
+        }
+        free(ctx->canned);
+        ctx->canned        = NULL;
+        ctx->canned_len    = 0;
+        ctx->canned_idx    = 0;
+        ctx->canned_repeat = false;
+    }
+    if (!responses || count == 0) {
+        return AEGIS_OK;
+    }
+    char** dup = calloc(count, sizeof(char*));
+    if (!dup) {
+        return AEGIS_ERR_NOMEM;
+    }
+    for (size_t i = 0; i < count; i++) {
+        const char* src = responses[i] ? responses[i] : "";
+        dup[i]          = strdup(src);
+        if (!dup[i]) {
+            for (size_t j = 0; j < i; j++) {
+                free(dup[j]);
+            }
+            free(dup);
+            return AEGIS_ERR_NOMEM;
+        }
+    }
+    ctx->canned     = dup;
+    ctx->canned_len = count;
+    ctx->canned_idx = 0;
+    return AEGIS_OK;
+}
+
+aegis_status_t aegis_llm_mock_set_response(llm_mock_ctx_t* ctx, const char* response)
+{
+    if (!ctx) {
+        return AEGIS_ERR_INVALID;
+    }
+    if (!response) {
+        return aegis_llm_mock_set_responses(ctx, NULL, 0);
+    }
+    const char*    arr[1] = {response};
+    aegis_status_t rc     = aegis_llm_mock_set_responses(ctx, arr, 1);
+    if (rc == AEGIS_OK) {
+        ctx->canned_repeat = true;
+    }
+    return rc;
+}
+
 void aegis_llm_mock_destroy(llm_mock_ctx_t* ctx, const aegis_llm_ops_t* ops)
 {
     free((void*)ops);
     if (!ctx) {
         return;
+    }
+    if (ctx->canned) {
+        for (size_t i = 0; i < ctx->canned_len; i++) {
+            free(ctx->canned[i]);
+        }
+        free(ctx->canned);
     }
     free(ctx->response_prefix);
     free(ctx);

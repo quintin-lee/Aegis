@@ -44,6 +44,34 @@ void aegis_llm_mock_destroy(llm_mock_ctx_t* ctx, const aegis_llm_ops_t* ops);
  */
 void aegis_llm_mock_set_fail_after(llm_mock_ctx_t* ctx, int fail_after);
 
+/**
+ * @brief Install a sequence of canned responses returned in order.
+ *
+ * When a sequence is installed, llm_complete() returns the next canned
+ * response verbatim (ignoring the prompt) until exhausted, then falls back
+ * to echo mode. Each response is borrowed for registration and copied
+ * internally. Pass NULL/0 to clear.
+ *
+ * @param ctx       Mock context (borrowed).
+ * @param responses Array of NUL-terminated strings (borrowed).
+ * @param count     Number of entries (0 to clear).
+ * @return AEGIS_OK or AEGIS_ERR_NOMEM.
+ */
+aegis_status_t aegis_llm_mock_set_responses(llm_mock_ctx_t* ctx, const char* const* responses,
+                                            size_t count);
+
+/**
+ * @brief Install a single canned response returned for every call.
+ *
+ * Convenience for single-response scenarios; equivalent to a length-1
+ * sequence that repeats forever.
+ *
+ * @param ctx      Mock context (borrowed).
+ * @param response NUL-terminated response (borrowed, may be NULL to clear).
+ * @return AEGIS_OK or AEGIS_ERR_NOMEM.
+ */
+aegis_status_t aegis_llm_mock_set_response(llm_mock_ctx_t* ctx, const char* response);
+
 #ifdef __cplusplus
 }
 #endif
