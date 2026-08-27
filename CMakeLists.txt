@@ -152,6 +152,7 @@ add_library(aegis_core
     src/log.c
     src/metrics.c
     src/trace.c
+    src/plugin.c
 )
 target_include_directories(aegis_core
     PUBLIC
