@@ -40,6 +40,15 @@ struct aegis_plan {
     size_t           step_cap;
 };
 
+/** Planner instance state (shared by planner.c / replanner.c). */
+struct aegis_planner {
+    const aegis_provider_registry_t* registry;      /**< Borrowed. */
+    char*                            provider_name; /**< Owned copy. */
+    /* Optional replaceable-strategy binding (both NULL = built-in DSL path). */
+    const aegis_strategy_registry_t* strategies;    /**< Borrowed, may be NULL. */
+    char*                            strategy_name; /**< Owned copy, may be NULL. */
+};
+
 /** Look up a step by id (linear scan; plan scale is small). Returns NULL when absent. */
 const aegis_plan_step_t* aegis_plan_find_step(const aegis_plan_t* plan, int64_t id);
 
@@ -55,13 +64,19 @@ aegis_status_t aegis_planner_add_step_owned(aegis_plan_t* plan, int64_t id, char
                                             const void* input, size_t input_len,
                                             const int64_t* deps, size_t dep_count);
 
-/* Shared LLM round-trip used by planner.c and replanner.c: send @p prompt
- * through the planner's configured provider, parse the strict line-DSL
- * response into a NEW plan for @p goal and validate it. On any failure
- * nothing is returned and *out is untouched. */
-aegis_status_t aegis_planner_generate(const aegis_planner_t* planner, const char* prompt,
+/* Shared LLM round-trip used by planner.c, replanner.c and bundled
+ * strategies: send @p prompt through @p registry/@p provider_name, parse
+ * the strict line-DSL response into a NEW plan for @p goal and validate
+ * it. On any failure nothing is returned and *out is untouched.
+ * Dispatch errors propagate verbatim. */
+aegis_status_t aegis_planner_generate(const aegis_provider_registry_t* registry,
+                                      const char* provider_name, const char* prompt,
                                       const char* goal,
                                       const aegis_cancellation_token_t* token,
                                       aegis_plan_t** out);
+
+/* Compose the shared DSL instruction block plus a labeled body section:
+ * "<instructions><body><goal>\n". Output is malloc'd, caller frees. */
+aegis_status_t aegis_planner_compose_prompt(const char* body, const char* goal, char** out);
 
 #endif /* AEGIS_PLANNER_INTERNAL_H */

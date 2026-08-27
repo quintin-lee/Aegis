@@ -108,6 +108,8 @@ add_library(aegis_core
     src/planner.c
     src/replanner.c
     src/reflection.c
+    src/strategy_registry.c
+    src/providers/strategies/plan_execute.c
     src/runtime.c
     src/config.c
     src/event.c
@@ -189,6 +191,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_provider_concurrent  tests/unit/test_provider_concurrent.c)
     aegis_add_test(unit_planner              tests/unit/test_planner.c)
     aegis_add_test(unit_planner_llm          tests/unit/test_planner_llm.c)
+    aegis_add_test(unit_strategy             tests/unit/test_strategy.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────

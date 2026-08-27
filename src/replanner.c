@@ -12,6 +12,7 @@
 #include "aegis/plan.h"
 #include "aegis/planner.h"
 #include "aegis/replanner.h"
+#include "aegis/strategy.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -32,6 +33,28 @@ aegis_status_t aegis_replan(const aegis_planner_t* planner, const aegis_plan_t* 
         return AEGIS_ERR_INVALID;
     }
 
+    const char* goal = aegis_plan_goal(old_plan);
+
+    /* Strategy-bound planners route the revision through their strategy.
+     * Version stamping stays here: strategies only produce plans. */
+    if (planner->strategy_name) {
+        if (!planner->strategies) {
+            return AEGIS_ERR_INVALID;
+        }
+        aegis_strategy_view_t view;
+        aegis_status_t rc = aegis_strategy_find(planner->strategies, planner->strategy_name, &view);
+        if (rc != AEGIS_OK) {
+            return rc; /* NOT_FOUND propagates verbatim. */
+        }
+        aegis_strategy_input_t input = {goal, old_plan, feedback};
+        rc                           = view.def.plan(view.def.user, &input, token, out);
+        if (rc != AEGIS_OK) {
+            return rc;
+        }
+        aegis_plan_set_version(*out, aegis_plan_version(old_plan) + 1u);
+        return AEGIS_OK;
+    }
+
     char*          serialized = NULL;
     aegis_status_t rc         = aegis_plan_serialize(old_plan, &serialized);
     if (rc != AEGIS_OK) {
@@ -49,7 +72,8 @@ aegis_status_t aegis_replan(const aegis_planner_t* planner, const aegis_plan_t* 
     free(serialized);
 
     /* New plan carries the same goal text as the old one. */
-    rc = aegis_planner_generate(planner, prompt, aegis_plan_goal(old_plan), token, out);
+    rc =
+        aegis_planner_generate(planner->registry, planner->provider_name, prompt, goal, token, out);
     free(prompt);
     if (rc != AEGIS_OK) {
         return rc;

@@ -13,6 +13,7 @@
 #include "aegis/cancellation.h"
 #include "aegis/llm.h"
 #include "aegis/planner.h"
+#include "aegis/strategy.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,11 +23,7 @@
 #define PLANNER_TEMPERATURE 0.2
 
 /* ── Lifecycle ─────────────────────────────────────────────────────────────── */
-
-struct aegis_planner {
-    const aegis_provider_registry_t* registry;      /* Borrowed. */
-    char*                            provider_name; /* Owned copy. */
-};
+/* struct aegis_planner lives in planner_internal.h (shared with replanner). */
 
 aegis_status_t aegis_planner_create(aegis_planner_t** out, const aegis_planner_config_t* cfg)
 {
@@ -54,6 +51,7 @@ void aegis_planner_destroy(aegis_planner_t* planner)
         return;
     }
     free(planner->provider_name);
+    free(planner->strategy_name);
     free(planner);
 }
 
@@ -72,6 +70,14 @@ static const char k_instructions[] =
 
 static aegis_status_t build_prompt(const char* body, const char* goal, char** out)
 {
+    return aegis_planner_compose_prompt(body, goal, out);
+}
+
+aegis_status_t aegis_planner_compose_prompt(const char* body, const char* goal, char** out)
+{
+    if (!body || !goal || !out) {
+        return AEGIS_ERR_INVALID;
+    }
     size_t need   = strlen(k_instructions) + strlen(body) + strlen(goal) + 4;
     char*  prompt = malloc(need);
     if (!prompt) {
@@ -302,11 +308,12 @@ static aegis_status_t parse_response_into(const char* text, aegis_plan_t* plan)
 
 /* ── Shared generate path (planner + replanner) ───────────────────────────── */
 
-aegis_status_t aegis_planner_generate(const aegis_planner_t* planner, const char* prompt,
+aegis_status_t aegis_planner_generate(const aegis_provider_registry_t* registry,
+                                      const char* provider_name, const char* prompt,
                                       const char* goal, const aegis_cancellation_token_t* token,
                                       aegis_plan_t** out)
 {
-    if (!planner || !prompt || !goal || goal[0] == '\0' || !out) {
+    if (!registry || !provider_name || !prompt || !goal || goal[0] == '\0' || !out) {
         return AEGIS_ERR_INVALID;
     }
 
@@ -318,8 +325,7 @@ aegis_status_t aegis_planner_generate(const aegis_planner_t* planner, const char
 
     aegis_llm_response_t resp;
     memset(&resp, 0, sizeof(resp));
-    aegis_status_t rc =
-        aegis_llm_complete(planner->registry, planner->provider_name, &req, token, &resp);
+    aegis_status_t rc = aegis_llm_complete(registry, provider_name, &req, token, &resp);
     if (rc != AEGIS_OK) {
         return rc; /* Propagate verbatim (NOT_FOUND/PERM/CANCELLED/...). */
     }
@@ -359,6 +365,65 @@ aegis_status_t aegis_planner_generate(const aegis_planner_t* planner, const char
     return AEGIS_OK;
 }
 
+/* ── Strategy binding ──────────────────────────────────────────────────────── */
+
+aegis_status_t aegis_planner_attach_strategies(aegis_planner_t*                 planner,
+                                               const aegis_strategy_registry_t* strategies)
+{
+    if (!planner || !strategies) {
+        return AEGIS_ERR_INVALID;
+    }
+    planner->strategies = strategies; /* Borrowed. */
+    return AEGIS_OK;
+}
+
+aegis_status_t aegis_planner_use_strategy(aegis_planner_t* planner, const char* name)
+{
+    if (!planner) {
+        return AEGIS_ERR_INVALID;
+    }
+    /* Single-threaded builder semantics: plain swap is safe. */
+    if (name && name[0] != '\0' && !planner->strategies) {
+        return AEGIS_ERR_INVALID; /* Nothing attached to resolve against. */
+    }
+    char* copy = NULL;
+    if (name && name[0] != '\0') {
+        copy = strdup(name);
+        if (!copy) {
+            return AEGIS_ERR_NOMEM;
+        }
+    }
+    free(planner->strategy_name);
+    planner->strategy_name = copy; /* NULL clears the binding -> built-in path. */
+    return AEGIS_OK;
+}
+
+/* Dispatch through the bound strategy, if any. Returns
+ * AEGIS_ERR_NOT_FOUND when a strategy is selected but not registered,
+ * AEGIS_ERR_INVALID when selected without an attached registry.
+ * Returns false when no strategy is bound (caller uses built-in path). */
+static bool dispatch_via_strategy(const aegis_planner_t* planner, const char* goal,
+                                  const aegis_plan_t* previous_plan, const char* feedback,
+                                  const aegis_cancellation_token_t* token, aegis_plan_t** out,
+                                  aegis_status_t* rc)
+{
+    if (!planner->strategy_name) {
+        return false;
+    }
+    if (!planner->strategies) {
+        *rc = AEGIS_ERR_INVALID; /* Strategy chosen but nothing to resolve it with. */
+        return true;
+    }
+    aegis_strategy_view_t view;
+    *rc = aegis_strategy_find(planner->strategies, planner->strategy_name, &view);
+    if (*rc != AEGIS_OK) {
+        return true; /* NOT_FOUND propagates verbatim. */
+    }
+    aegis_strategy_input_t input = {goal, previous_plan, feedback};
+    *rc                          = view.def.plan(view.def.user, &input, token, out);
+    return true;
+}
+
 /* ── Public plan() ─────────────────────────────────────────────────────────── */
 
 aegis_status_t aegis_planner_plan(const aegis_planner_t* planner, const char* goal,
@@ -367,12 +432,19 @@ aegis_status_t aegis_planner_plan(const aegis_planner_t* planner, const char* go
     if (!planner || !goal || goal[0] == '\0' || !out) {
         return AEGIS_ERR_INVALID;
     }
-    char*          prompt = NULL;
-    aegis_status_t rc     = build_prompt("GOAL:\n", goal, &prompt);
+
+    aegis_status_t rc = AEGIS_OK;
+    if (dispatch_via_strategy(planner, goal, NULL, NULL, token, out, &rc)) {
+        return rc;
+    }
+
+    char* prompt = NULL;
+    rc           = build_prompt("GOAL:\n", goal, &prompt);
     if (rc != AEGIS_OK) {
         return rc;
     }
-    rc = aegis_planner_generate(planner, prompt, goal, token, out);
+    rc =
+        aegis_planner_generate(planner->registry, planner->provider_name, prompt, goal, token, out);
     free(prompt);
     return rc;
 }

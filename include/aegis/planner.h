@@ -29,6 +29,7 @@
 #include "aegis/plan.h"
 #include "aegis/provider.h"
 #include "aegis/status.h"
+#include "aegis/strategy.h"
 #include "aegis/types.h"
 
 #ifdef __cplusplus
@@ -80,6 +81,34 @@ void aegis_planner_destroy(aegis_planner_t* planner);
  */
 aegis_status_t aegis_planner_plan(const aegis_planner_t* planner, const char* goal,
                                   const aegis_cancellation_token_t* token, aegis_plan_t** out);
+
+/**
+ * @brief Attach the strategy registry the planner resolves strategies in.
+ *
+ * Borrowed; must outlive every planning call that uses it. Attaching
+ * does not change behavior until a strategy is selected via
+ * aegis_planner_use_strategy().
+ *
+ * @return AEGIS_OK or AEGIS_ERR_INVALID (NULL args).
+ */
+aegis_status_t aegis_planner_attach_strategies(aegis_planner_t*                 planner,
+                                               const aegis_strategy_registry_t* strategies);
+
+/**
+ * @brief Select the replaceable planning strategy by registry name.
+ *
+ * Once set, aegis_planner_plan() and aegis_replan() route through the
+ * named strategy instead of the built-in DSL path. Pass NULL to return
+ * to the built-in path.
+ *
+ * Resolution happens per call: an unknown name fails the planning
+ * attempt with AEGIS_ERR_NOT_FOUND. Selecting a strategy without an
+ * attached registry fails with AEGIS_ERR_INVALID.
+ *
+ * @param name Strategy name, or NULL for built-in (copied when non-NULL).
+ * @return AEGIS_OK, AEGIS_ERR_INVALID, AEGIS_ERR_NOMEM.
+ */
+aegis_status_t aegis_planner_use_strategy(aegis_planner_t* planner, const char* name);
 
 #ifdef __cplusplus
 }
