@@ -179,6 +179,15 @@ if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
     add_dependencies(aegis_shell pre_build_format)
 endif()
 
+# ── Aegis CLI (Application layer, public API only) ──────────────────────────
+add_executable(aegis src/cli.c)
+target_link_libraries(aegis PRIVATE aegis_core)
+target_compile_definitions(aegis PRIVATE AEGIS_VERSION_STRING="${AEGIS_VERSION_STRING}")
+aegis_set_warnings(aegis)
+if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
+    add_dependencies(aegis pre_build_format)
+endif()
+
 # ── Tests ────────────────────────────────────────────────────────────────────
 if(AEGIS_BUILD_TESTS)
     enable_testing()
@@ -253,6 +262,13 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_provider_embedding tests/unit/test_provider_embedding.c)
     aegis_add_test(system_autonomous        tests/system/test_autonomous_closed_loop.c)
     target_link_libraries(system_autonomous PRIVATE pthread)
+    add_executable(integration_cli tests/integration/test_cli.c)
+    target_link_libraries(integration_cli PRIVATE aegis_core)
+    aegis_set_warnings(integration_cli)
+    add_test(NAME integration_cli COMMAND integration_cli)
+    if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
+        add_dependencies(integration_cli pre_build_format)
+    endif()
 endif()
 
 # ── Mock plugin shared object ────────────────────────────────────────────────
