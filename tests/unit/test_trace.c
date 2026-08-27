@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static void expect_ok(aegis_status_t rc, const char* msg)
 {
