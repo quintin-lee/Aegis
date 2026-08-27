@@ -82,12 +82,10 @@ static void test_embedding_hash_empty(void)
     for (size_t i = 0; i < res.dim; i++) {
         assert(res.vector[i] == 0.0f);
     }
-    aegis_embedding_result_destroy(&res);
+        aegis_embedding_result_destroy(&res);
 
     aegis_cancellation_token_destroy(token);
-    aegis_provider_shutdown(reg, "embedding-hash");
     aegis_provider_registry_destroy(reg);
-    aegis_embedding_hash_destroy(ctx, ops);
 }
 
 static void test_embedding_hash_different_inputs(void)
