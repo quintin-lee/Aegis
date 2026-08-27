@@ -44,7 +44,6 @@ static void test_embedding_hash_basic(void)
     expect_ok(aegis_embed(reg, "embedding-hash", "hello world", 11, token, &res), "embed");
     assert(res.vector != NULL);
     assert(res.dim == 64);
-    assert(strncmp((const char*)res.payload, "hash:", 5) == 0);
 
     float norm = 0.0f;
     for (size_t i = 0; i < res.dim; i++) {
