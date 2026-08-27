@@ -450,9 +450,9 @@ done:
     if (plan) {
         aegis_plan_destroy(plan);
     }
-    // recreate scheduler if we destroyed it last iteration and need it for future runs
+    // Recreate scheduler if we destroyed it last iteration.
     if (!aa->scheduler) {
-        aegis_scheduler_create(&aa->scheduler);
+        (void)aegis_scheduler_create(&aa->scheduler);
     }
 
     if (out_result) {
@@ -461,5 +461,7 @@ done:
         out_result->tasks_executed            = tasks_executed;
         out_result->recovered_from_checkpoint = aa->recovered;
     }
+    // Reset run-state flags so the agent can be reused for another goal.
+    aa->recovered = false;
     return final;
 }
