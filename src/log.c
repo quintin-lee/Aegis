@@ -17,14 +17,7 @@ static void*             g_sink_user = NULL;
 static aegis_log_level_t g_min_level = AEGIS_LOG_DEBUG;
 static pthread_mutex_t   g_log_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-/* Thread-local format buffer — 4KB per thread. */
-#if defined(__clang__) || defined(__GNUC__)
-#define TLS __thread
-#else
-#define TLS
-#endif
-
-static TLS char g_log_buf[4096];
+/* Per-call format buffer — 4KB stack buffer. */
 
 /* ── Sink accessors ────────────────────────────────────────────────────────── */
 
@@ -108,18 +101,19 @@ void aegis_log_impl(aegis_log_level_t level, const char* module, const char* ctx
         return;
     }
 
-    /* Format message into thread-local buffer. */
+    /* Format message into local buffer. */
+    char    log_buf[4096];
     va_list ap;
     va_start(ap, fmt);
-    vsnprintf(g_log_buf, sizeof(g_log_buf), fmt, ap);
+    vsnprintf(log_buf, sizeof(log_buf), fmt, ap);
     va_end(ap);
-    g_log_buf[sizeof(g_log_buf) - 1] = '\0';
+    log_buf[sizeof(log_buf) - 1] = '\0';
 
     /* Build a single formatted string for the sink. */
     static const char* prefix_fmt = "[%s] [%s] %s%s%s";
     static char        prefixed[512];
     int n = snprintf(prefixed, sizeof(prefixed), prefix_fmt, aegis_log_level_str(level),
-                     module ? module : "?", ctx ? ctx : "", ctx ? ": " : "", g_log_buf);
+                     module ? module : "?", ctx ? ctx : "", ctx ? ": " : "", log_buf);
     if (n < 0 || (size_t)n >= sizeof(prefixed)) {
         prefixed[sizeof(prefixed) - 1] = '\0';
     }
