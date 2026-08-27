@@ -88,6 +88,11 @@ static void test_level_string(void)
     assert(strcmp(aegis_log_level_str((aegis_log_level_t)99), "?????") == 0);
 }
 
+static void* test_noop(void* arg) {
+    (void)arg;
+    return NULL;
+}
+
 static void test_concurrent_logs(void)
 {
     aegis_log_set_sink(test_sink, NULL);
@@ -97,8 +102,10 @@ static void test_concurrent_logs(void)
     /* Concurrent log calls from multiple threads. */
     pthread_t threads[4];
     for (int i = 0; i < 4; i++) {
-        pthread_create(&threads[i], NULL,
-                       (void*(*)(void*))NULL, NULL); /* placeholder */
+        pthread_create(&threads[i], NULL, test_noop, NULL);
+    }
+    for (int i = 0; i < 4; i++) {
+        pthread_join(threads[i], NULL);
     }
     /* Just verify no crash under concurrent log calls. */
     for (int i = 0; i < 100; i++) {
