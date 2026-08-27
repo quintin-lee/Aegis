@@ -39,12 +39,12 @@
 #define AEGIS_VERSION_STRING "0.1.0"
 #endif
 
-#define DEFAULT_GOAL "hello world"
+#define DEFAULT_GOAL       "hello world"
 #define DEFAULT_CHECKPOINT ".aegis/checkpoint.bin"
-#define DEFAULT_LLM "llm-mock"
-#define DEFAULT_MAX_ITER 5u
-#define DEFAULT_CONFIG "aegis.conf"
-#define PIDFILE ".aegis/run.pid"
+#define DEFAULT_LLM        "llm-mock"
+#define DEFAULT_MAX_ITER   5u
+#define DEFAULT_CONFIG     "aegis.conf"
+#define PIDFILE            ".aegis/run.pid"
 
 typedef struct cli_config {
     char     goal[512];
@@ -55,42 +55,55 @@ typedef struct cli_config {
     uint64_t timeout_ms;
 } cli_config_t;
 
-static void cli_config_default(cli_config_t *c) {
+static void cli_config_default(cli_config_t* c)
+{
     memset(c, 0, sizeof(*c));
     snprintf(c->goal, sizeof(c->goal), "%s", DEFAULT_GOAL);
     snprintf(c->checkpoint_path, sizeof(c->checkpoint_path), "%s", DEFAULT_CHECKPOINT);
     snprintf(c->llm_provider, sizeof(c->llm_provider), "%s", DEFAULT_LLM);
     snprintf(c->config_path, sizeof(c->config_path), "%s", DEFAULT_CONFIG);
     c->max_iterations = DEFAULT_MAX_ITER;
-    c->timeout_ms = 0;
+    c->timeout_ms     = 0;
 }
 
-static void trim(char *s) {
+static void trim(char* s)
+{
     size_t n = strlen(s);
     while (n > 0 && (s[n - 1] == '\n' || s[n - 1] == '\r' || s[n - 1] == ' ' || s[n - 1] == '\t')) {
         s[--n] = '\0';
     }
-    char *p = s;
-    while (*p == ' ' || *p == '\t') p++;
-    if (p != s) memmove(s, p, strlen(p) + 1);
+    char* p = s;
+    while (*p == ' ' || *p == '\t') {
+        p++;
+    }
+    if (p != s) {
+        memmove(s, p, strlen(p) + 1);
+    }
 }
 
-static int cli_config_load(cli_config_t *c, const char *path) {
-    FILE *fp = fopen(path, "r");
+static int cli_config_load(cli_config_t* c, const char* path)
+{
+    FILE* fp = fopen(path, "r");
     if (!fp) {
-        if (errno == ENOENT) return 0; // not found -> keep defaults
+        if (errno == ENOENT) {
+            return 0;  // not found -> keep defaults
+        }
         fprintf(stderr, "error: cannot open config '%s': %s\n", path, strerror(errno));
         return -1;
     }
     char line[1024];
     while (fgets(line, sizeof(line), fp)) {
         trim(line);
-        if (line[0] == '\0' || line[0] == '#') continue;
-        char *eq = strchr(line, '=');
-        if (!eq) continue;
-        *eq = '\0';
-        char *k = line;
-        char *v = eq + 1;
+        if (line[0] == '\0' || line[0] == '#') {
+            continue;
+        }
+        char* eq = strchr(line, '=');
+        if (!eq) {
+            continue;
+        }
+        *eq     = '\0';
+        char* k = line;
+        char* v = eq + 1;
         trim(k);
         trim(v);
         if (strcmp(k, "goal") == 0) {
@@ -101,7 +114,9 @@ static int cli_config_load(cli_config_t *c, const char *path) {
             snprintf(c->llm_provider, sizeof(c->llm_provider), "%s", v);
         } else if (strcmp(k, "max_iterations") == 0) {
             c->max_iterations = (uint32_t)strtoul(v, NULL, 10);
-            if (c->max_iterations == 0) c->max_iterations = DEFAULT_MAX_ITER;
+            if (c->max_iterations == 0) {
+                c->max_iterations = DEFAULT_MAX_ITER;
+            }
         } else if (strcmp(k, "timeout_ms") == 0) {
             c->timeout_ms = (uint64_t)strtoull(v, NULL, 10);
         } else if (strcmp(k, "config_path") == 0) {
@@ -112,8 +127,9 @@ static int cli_config_load(cli_config_t *c, const char *path) {
     return 0;
 }
 
-static int cli_config_save(const cli_config_t *c, const char *path) {
-    FILE *fp = fopen(path, "w");
+static int cli_config_save(const cli_config_t* c, const char* path)
+{
+    FILE* fp = fopen(path, "w");
     if (!fp) {
         fprintf(stderr, "error: cannot write config '%s': %s\n", path, strerror(errno));
         return -1;
@@ -128,10 +144,11 @@ static int cli_config_save(const cli_config_t *c, const char *path) {
     return 0;
 }
 
-static int mkdir_p(const char *path) {
+static int mkdir_p(const char* path)
+{
     char tmp[1024];
     snprintf(tmp, sizeof(tmp), "%s", path);
-    for (char *p = tmp + 1; *p; p++) {
+    for (char* p = tmp + 1; *p; p++) {
         if (*p == '/') {
             *p = '\0';
             mkdir(tmp, 0755);
@@ -144,17 +161,23 @@ static int mkdir_p(const char *path) {
     return 0;
 }
 
-static void ensure_parent_dir(const char *filepath) {
+static void ensure_parent_dir(const char* filepath)
+{
     char dir[1024];
     snprintf(dir, sizeof(dir), "%s", filepath);
-    char *slash = strrchr(dir, '/');
-    if (!slash) return;
+    char* slash = strrchr(dir, '/');
+    if (!slash) {
+        return;
+    }
     *slash = '\0';
-    if (dir[0] == '\0') return;
+    if (dir[0] == '\0') {
+        return;
+    }
     mkdir_p(dir);
 }
 
-static void print_usage(FILE *out) {
+static void print_usage(FILE* out)
+{
     fprintf(out,
             "Usage: aegis <command> [options]\n"
             "\n"
@@ -175,15 +198,17 @@ static void print_usage(FILE *out) {
             "  goal, checkpoint_path, llm_provider, max_iterations, timeout_ms\n");
 }
 
-static void print_version(void) {
+static void print_version(void)
+{
     printf("aegis %s\n", AEGIS_VERSION_STRING);
 }
 
 /* ── init ──────────────────────────────────────────────────────────────────── */
 
-static int cmd_init(int argc, char **argv) {
-    const char *base = ".";
-    int force = 0;
+static int cmd_init(int argc, char** argv)
+{
+    const char* base  = ".";
+    int         force = 0;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "--path") == 0 && i + 1 < argc) {
             base = argv[++i];
@@ -211,7 +236,8 @@ static int cmd_init(int argc, char **argv) {
         }
     }
     if (!force && access(config_path, F_OK) == 0) {
-        fprintf(stderr, "error: config already exists at '%s' (use --force to overwrite)\n", config_path);
+        fprintf(stderr, "error: config already exists at '%s' (use --force to overwrite)\n",
+                config_path);
         return 1;
     }
     char dot_aegis[1024];
@@ -226,31 +252,38 @@ static int cmd_init(int argc, char **argv) {
     cli_config_default(&cfg);
     // adjust checkpoint path when base != .
     if (strcmp(base, ".") != 0) {
-        snprintf(cfg.checkpoint_path, sizeof(cfg.checkpoint_path), "%s/.aegis/checkpoint.bin", base);
+        snprintf(cfg.checkpoint_path, sizeof(cfg.checkpoint_path), "%s/.aegis/checkpoint.bin",
+                 base);
     }
-    if (cli_config_save(&cfg, config_path) != 0) return 1;
+    if (cli_config_save(&cfg, config_path) != 0) {
+        return 1;
+    }
     printf("init ok: config '%s' created\n", config_path);
     return 0;
 }
 
 /* ── run ───────────────────────────────────────────────────────────────────── */
 
-static int cmd_run(int argc, char **argv) {
+static int cmd_run(int argc, char** argv)
+{
     cli_config_t cfg;
     cli_config_default(&cfg);
-    const char *explicit_goal = NULL;
-    const char *config_path = NULL;
-    const char *timeout_str = NULL;
-    const char *iter_str = NULL;
+    const char* explicit_goal = NULL;
+    const char* config_path   = NULL;
+    const char* timeout_str   = NULL;
+    const char* iter_str      = NULL;
 
     // first pass: find --config
     for (int i = 0; i < argc; i++) {
-        if ((strcmp(argv[i], "--config") == 0 && i + 1 < argc) || strncmp(argv[i], "--config=", 9) == 0) {
+        if ((strcmp(argv[i], "--config") == 0 && i + 1 < argc) ||
+            strncmp(argv[i], "--config=", 9) == 0) {
             config_path = (strncmp(argv[i], "--config=", 9) == 0) ? argv[i] + 9 : argv[i + 1];
             snprintf(cfg.config_path, sizeof(cfg.config_path), "%s", config_path);
         }
     }
-    if (cli_config_load(&cfg, cfg.config_path) != 0) return 1;
+    if (cli_config_load(&cfg, cfg.config_path) != 0) {
+        return 1;
+    }
 
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "--goal") == 0 && i + 1 < argc) {
@@ -258,7 +291,7 @@ static int cmd_run(int argc, char **argv) {
         } else if (strncmp(argv[i], "--goal=", 7) == 0) {
             explicit_goal = argv[i] + 7;
         } else if (strcmp(argv[i], "--config") == 0 && i + 1 < argc) {
-            i++; // already handled
+            i++;  // already handled
         } else if (strncmp(argv[i], "--config=", 9) == 0) {
             // handled
         } else if (strcmp(argv[i], "--max-iterations") == 0 && i + 1 < argc) {
@@ -270,11 +303,15 @@ static int cmd_run(int argc, char **argv) {
         } else if (strncmp(argv[i], "--timeout=", 10) == 0) {
             timeout_str = argv[i] + 10;
         } else if (strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0) {
-            printf("Usage: aegis run [--goal TEXT] [--config PATH] [--max-iterations N] [--timeout MS]\n");
+            printf(
+                "Usage: aegis run [--goal TEXT] [--config PATH] [--max-iterations N] [--timeout "
+                "MS]\n");
             return 0;
         } else {
             fprintf(stderr, "error: unknown option for run: '%s'\n", argv[i]);
-            fprintf(stderr, "Usage: aegis run [--goal TEXT] [--config PATH] [--max-iterations N] [--timeout MS]\n");
+            fprintf(stderr,
+                    "Usage: aegis run [--goal TEXT] [--config PATH] [--max-iterations N] "
+                    "[--timeout MS]\n");
             return 1;
         }
     }
@@ -298,7 +335,8 @@ static int cmd_run(int argc, char **argv) {
         cfg.timeout_ms = (uint64_t)v;
     }
     if (cfg.goal[0] == '\0') {
-        fprintf(stderr, "error: goal is required (provide --goal or set goal in config '%s')\n", cfg.config_path);
+        fprintf(stderr, "error: goal is required (provide --goal or set goal in config '%s')\n",
+                cfg.config_path);
         return 1;
     }
 
@@ -306,15 +344,15 @@ static int cmd_run(int argc, char **argv) {
     ensure_parent_dir(cfg.checkpoint_path);
 
     // delegate to autonomous_agent (no Runtime duplication)
-    aegis_provider_registry_t *reg = NULL;
-    aegis_status_t rc = aegis_provider_registry_create(&reg);
+    aegis_provider_registry_t* reg = NULL;
+    aegis_status_t             rc  = aegis_provider_registry_create(&reg);
     if (rc != AEGIS_OK) {
         fprintf(stderr, "error: provider registry create failed: %s\n", aegis_status_str(rc));
         return 1;
     }
-    llm_mock_ctx_t *mock_ctx = NULL;
-    const aegis_llm_ops_t *ops = NULL;
-    aegis_provider_def_t def;
+    llm_mock_ctx_t*        mock_ctx = NULL;
+    const aegis_llm_ops_t* ops      = NULL;
+    aegis_provider_def_t   def;
     rc = aegis_llm_mock_create(&mock_ctx, &ops, &def);
     if (rc != AEGIS_OK) {
         fprintf(stderr, "error: llm mock create failed: %s\n", aegis_status_str(rc));
@@ -322,8 +360,9 @@ static int cmd_run(int argc, char **argv) {
         return 1;
     }
     // provide a default canned DSL so run succeeds without external LLM
-    const char *default_resp = "STEP|-1|computational||step1|do step1\n"
-                               "STEP|-1|computational||step2|do step2\n";
+    const char* default_resp =
+        "STEP|-1|computational||step1|do step1\n"
+        "STEP|-1|computational||step2|do step2\n";
     aegis_llm_mock_set_response(mock_ctx, default_resp);
 
     rc = aegis_provider_register(reg, &def);
@@ -344,22 +383,22 @@ static int cmd_run(int argc, char **argv) {
 
     // write pidfile for cancel
     ensure_parent_dir(PIDFILE);
-    FILE *pf = fopen(PIDFILE, "w");
+    FILE* pf = fopen(PIDFILE, "w");
     if (pf) {
         fprintf(pf, "%d\n", (int)getpid());
         fclose(pf);
     }
 
     aegis_autonomous_agent_config_t acfg = {
-        .provider_registry = reg,
-        .llm_provider_name = def.name,
-        .checkpoint_path = cfg.checkpoint_path,
-        .cancel_token = NULL,
-        .max_iterations = cfg.max_iterations,
+        .provider_registry       = reg,
+        .llm_provider_name       = def.name,
+        .checkpoint_path         = cfg.checkpoint_path,
+        .cancel_token            = NULL,
+        .max_iterations          = cfg.max_iterations,
         .default_task_timeout_ns = cfg.timeout_ms * 1000000ULL,
     };
-    aegis_autonomous_agent_t *aa = NULL;
-    rc = aegis_autonomous_agent_create(&aa, &acfg);
+    aegis_autonomous_agent_t* aa = NULL;
+    rc                           = aegis_autonomous_agent_create(&aa, &acfg);
     if (rc != AEGIS_OK) {
         fprintf(stderr, "error: autonomous agent create failed: %s\n", aegis_status_str(rc));
         unlink(PIDFILE);
@@ -379,8 +418,8 @@ static int cmd_run(int argc, char **argv) {
     unlink(PIDFILE);
 
     if (rc == AEGIS_OK) {
-        printf("run ok: tasks=%u iterations=%u status=%s\n", result.tasks_executed, result.iterations,
-               aegis_status_str(result.final_status));
+        printf("run ok: tasks=%u iterations=%u status=%s\n", result.tasks_executed,
+               result.iterations, aegis_status_str(result.final_status));
         return 0;
     }
     if (rc == AEGIS_ERR_CANCELLED) {
@@ -397,8 +436,9 @@ static int cmd_run(int argc, char **argv) {
 
 /* ── status ────────────────────────────────────────────────────────────────── */
 
-static int cmd_status(int argc, char **argv) {
-    const char *config_path = DEFAULT_CONFIG;
+static int cmd_status(int argc, char** argv)
+{
+    const char* config_path = DEFAULT_CONFIG;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "--config") == 0 && i + 1 < argc) {
             config_path = argv[++i];
@@ -415,24 +455,28 @@ static int cmd_status(int argc, char **argv) {
     cli_config_t cfg;
     cli_config_default(&cfg);
     snprintf(cfg.config_path, sizeof(cfg.config_path), "%s", config_path);
-    cli_config_load(&cfg, cfg.config_path); // ignore missing
+    cli_config_load(&cfg, cfg.config_path);  // ignore missing
 
-    const char *ckpt_path = cfg.checkpoint_path;
+    const char* ckpt_path = cfg.checkpoint_path;
     // allow env override for tests
-    const char *env = getenv("AEGIS_CHECKPOINT");
-    if (env && env[0] != '\0') ckpt_path = env;
+    const char* env = getenv("AEGIS_CHECKPOINT");
+    if (env && env[0] != '\0') {
+        ckpt_path = env;
+    }
 
-    aegis_checkpoint_t *ckpt = NULL;
-    aegis_checkpoint_status_t st = AEGIS_CHECKPOINT_MISSING;
-    aegis_status_t rc = aegis_checkpoint_read(ckpt_path, &ckpt, &st);
+    aegis_checkpoint_t*       ckpt = NULL;
+    aegis_checkpoint_status_t st   = AEGIS_CHECKPOINT_MISSING;
+    aegis_status_t            rc   = aegis_checkpoint_read(ckpt_path, &ckpt, &st);
     if (rc == AEGIS_ERR_NOT_FOUND || st == AEGIS_CHECKPOINT_MISSING) {
         printf("status: no checkpoint at '%s'\n", ckpt_path);
         return 0;
     }
     if (rc != AEGIS_OK) {
-        fprintf(stderr, "error: checkpoint corrupted at '%s': %s (%s)\n", ckpt_path, aegis_status_str(rc),
-                aegis_checkpoint_status_str(st));
-        if (ckpt) aegis_checkpoint_destroy(ckpt);
+        fprintf(stderr, "error: checkpoint corrupted at '%s': %s (%s)\n", ckpt_path,
+                aegis_status_str(rc), aegis_checkpoint_status_str(st));
+        if (ckpt) {
+            aegis_checkpoint_destroy(ckpt);
+        }
         return 1;
     }
     printf("checkpoint: %s\n", ckpt_path);
@@ -442,8 +486,11 @@ static int cmd_status(int argc, char **argv) {
     printf("plan_version: %u\n", aegis_checkpoint_plan_version(ckpt));
     printf("tasks: %zu\n", aegis_checkpoint_task_count(ckpt));
     for (size_t i = 0; i < aegis_checkpoint_task_count(ckpt); i++) {
-        const aegis_checkpoint_task_snapshot_t *t = aegis_checkpoint_task_snapshot(ckpt, i);
-        if (t) printf("  task[%zu] id=%u name=%s state=%d\n", i, t->task_id, t->task_name, t->task_state);
+        const aegis_checkpoint_task_snapshot_t* t = aegis_checkpoint_task_snapshot(ckpt, i);
+        if (t) {
+            printf("  task[%zu] id=%u name=%s state=%d\n", i, t->task_id, t->task_name,
+                   t->task_state);
+        }
     }
     // pidfile hint
     if (access(PIDFILE, F_OK) == 0) {
@@ -457,8 +504,9 @@ static int cmd_status(int argc, char **argv) {
 
 /* ── cancel ────────────────────────────────────────────────────────────────── */
 
-static int cmd_cancel(int argc, char **argv) {
-    const char *config_path = DEFAULT_CONFIG;
+static int cmd_cancel(int argc, char** argv)
+{
+    const char* config_path = DEFAULT_CONFIG;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "--config") == 0 && i + 1 < argc) {
             config_path = argv[++i];
@@ -477,7 +525,7 @@ static int cmd_cancel(int argc, char **argv) {
         fprintf(stderr, "error: no running agent found (no pidfile at '%s')\n", PIDFILE);
         return 1;
     }
-    FILE *pf = fopen(PIDFILE, "r");
+    FILE* pf = fopen(PIDFILE, "r");
     if (!pf) {
         fprintf(stderr, "error: cannot read pidfile '%s': %s\n", PIDFILE, strerror(errno));
         return 1;
@@ -495,8 +543,9 @@ static int cmd_cancel(int argc, char **argv) {
         printf("cancelled: no process %d (already exited)\n", pid);
         return 0;
     }
-    // Best-effort: send SIGTERM, then unlink. autonomous_agent will observe cancellation via signal? For now pidfile removal is sufficient for CLI contract.
-    // We also write a cancel sentinel that a running loop could poll via file existence (future).
+    // Best-effort: send SIGTERM, then unlink. autonomous_agent will observe cancellation via
+    // signal? For now pidfile removal is sufficient for CLI contract. We also write a cancel
+    // sentinel that a running loop could poll via file existence (future).
     unlink(PIDFILE);
     // Try to terminate
     kill(pid, 15);
@@ -506,9 +555,10 @@ static int cmd_cancel(int argc, char **argv) {
 
 /* ── inspect ───────────────────────────────────────────────────────────────── */
 
-static int cmd_inspect(int argc, char **argv) {
-    const char *config_path = DEFAULT_CONFIG;
-    const char *ckpt_path = NULL;
+static int cmd_inspect(int argc, char** argv)
+{
+    const char* config_path = DEFAULT_CONFIG;
+    const char* ckpt_path   = NULL;
     for (int i = 0; i < argc; i++) {
         if (strcmp(argv[i], "--config") == 0 && i + 1 < argc) {
             config_path = argv[++i];
@@ -531,28 +581,32 @@ static int cmd_inspect(int argc, char **argv) {
         cli_config_default(&cfg);
         snprintf(cfg.config_path, sizeof(cfg.config_path), "%s", config_path);
         cli_config_load(&cfg, cfg.config_path);
-        ckpt_path = cfg.checkpoint_path;
-        const char *env = getenv("AEGIS_CHECKPOINT");
-        if (env && env[0] != '\0') ckpt_path = env;
+        ckpt_path       = cfg.checkpoint_path;
+        const char* env = getenv("AEGIS_CHECKPOINT");
+        if (env && env[0] != '\0') {
+            ckpt_path = env;
+        }
         // copy to static buffer to avoid dangling pointer to cfg
         static char buf[1024];
         snprintf(buf, sizeof(buf), "%s", ckpt_path);
         ckpt_path = buf;
     }
-    aegis_checkpoint_t *ckpt = NULL;
-    aegis_checkpoint_status_t st = AEGIS_CHECKPOINT_MISSING;
-    aegis_status_t rc = aegis_checkpoint_read(ckpt_path, &ckpt, &st);
+    aegis_checkpoint_t*       ckpt = NULL;
+    aegis_checkpoint_status_t st   = AEGIS_CHECKPOINT_MISSING;
+    aegis_status_t            rc   = aegis_checkpoint_read(ckpt_path, &ckpt, &st);
     if (rc == AEGIS_ERR_NOT_FOUND || st == AEGIS_CHECKPOINT_MISSING) {
         fprintf(stderr, "error: no checkpoint at '%s'\n", ckpt_path);
         return 1;
     }
     if (rc != AEGIS_OK) {
-        fprintf(stderr, "error: checkpoint corrupted at '%s': %s (%s)\n", ckpt_path, aegis_status_str(rc),
-                aegis_checkpoint_status_str(st));
-        if (ckpt) aegis_checkpoint_destroy(ckpt);
+        fprintf(stderr, "error: checkpoint corrupted at '%s': %s (%s)\n", ckpt_path,
+                aegis_status_str(rc), aegis_checkpoint_status_str(st));
+        if (ckpt) {
+            aegis_checkpoint_destroy(ckpt);
+        }
         return 1;
     }
-    char *dump = NULL;
+    char* dump = NULL;
     if (aegis_checkpoint_serialize(ckpt, &dump) == AEGIS_OK && dump) {
         printf("%s", dump);
         free(dump);
@@ -561,8 +615,10 @@ static int cmd_inspect(int argc, char **argv) {
         printf("version: %u\n", aegis_checkpoint_version(ckpt));
         printf("agent_state: %s\n", aegis_checkpoint_agent_state(ckpt));
         printf("goal: %s\n", aegis_checkpoint_goal(ckpt));
-        const char *pt = aegis_checkpoint_plan_text(ckpt);
-        if (pt) printf("plan:\n%s\n", pt);
+        const char* pt = aegis_checkpoint_plan_text(ckpt);
+        if (pt) {
+            printf("plan:\n%s\n", pt);
+        }
     }
     aegis_checkpoint_destroy(ckpt);
     return 0;
@@ -570,12 +626,13 @@ static int cmd_inspect(int argc, char **argv) {
 
 /* ── main ──────────────────────────────────────────────────────────────────── */
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv)
+{
     if (argc < 2) {
         print_usage(stderr);
         return 1;
     }
-    const char *cmd = argv[1];
+    const char* cmd = argv[1];
     if (strcmp(cmd, "--help") == 0 || strcmp(cmd, "-h") == 0 || strcmp(cmd, "help") == 0) {
         print_usage(stdout);
         return 0;
@@ -584,13 +641,23 @@ int main(int argc, char **argv) {
         print_version();
         return 0;
     }
-    int sub_argc = argc - 2;
-    char **sub_argv = argv + 2;
-    if (strcmp(cmd, "init") == 0) return cmd_init(sub_argc, sub_argv);
-    if (strcmp(cmd, "run") == 0) return cmd_run(sub_argc, sub_argv);
-    if (strcmp(cmd, "status") == 0) return cmd_status(sub_argc, sub_argv);
-    if (strcmp(cmd, "cancel") == 0) return cmd_cancel(sub_argc, sub_argv);
-    if (strcmp(cmd, "inspect") == 0) return cmd_inspect(sub_argc, sub_argv);
+    int    sub_argc = argc - 2;
+    char** sub_argv = argv + 2;
+    if (strcmp(cmd, "init") == 0) {
+        return cmd_init(sub_argc, sub_argv);
+    }
+    if (strcmp(cmd, "run") == 0) {
+        return cmd_run(sub_argc, sub_argv);
+    }
+    if (strcmp(cmd, "status") == 0) {
+        return cmd_status(sub_argc, sub_argv);
+    }
+    if (strcmp(cmd, "cancel") == 0) {
+        return cmd_cancel(sub_argc, sub_argv);
+    }
+    if (strcmp(cmd, "inspect") == 0) {
+        return cmd_inspect(sub_argc, sub_argv);
+    }
     fprintf(stderr, "error: unknown command '%s'\n", cmd);
     print_usage(stderr);
     return 1;

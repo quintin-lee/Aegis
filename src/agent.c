@@ -261,7 +261,9 @@ aegis_status_t aegis_agent_cancel(aegis_agent_t* agent)
         aegis_event_destroy(ev);
     }
 
-    /* Simulate cancellation completion */
+    /* Complete cancellation synchronously (no background work in test).
+     * In production, the event loop would drive CANCELLING → CANCELLED
+     * after draining in-flight tasks. */
     aegis_mutex_lock(agent->lock);
     agent->state = AEGIS_AGENT_CANCELLED;
     emit_state_change(agent, AEGIS_AGENT_CANCELLING, AEGIS_AGENT_CANCELLED);
