@@ -10,6 +10,7 @@
 #include "aegis/reflection.h"
 #include "aegis/replanner.h"
 #include "aegis/scheduler.h"
+#include "aegis/tool.h"
 #include "aegis/task.h"
 
 #include <stdlib.h>
@@ -327,8 +328,25 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                 long ms = (long)(aa->cfg.default_task_timeout_ns / 1000000ULL);
                 aegis_task_set_timeout_ms(task, ms);
             }
+            // Dispatch tool-type tasks through the tool registry when available;
+            // otherwise fall back to default_work (stub).
             uint32_t tid = aegis_task_id(task);
-            rc           = aegis_executor_submit(aa->executor, task, default_work, NULL);
+            if (aegis_task_type(task) == AEGIS_TASK_TYPE_TOOL && aa->cfg.tool_registry != NULL) {
+                const char* tool_name = aegis_task_name(task);
+                aegis_tool_args_t* args = NULL;
+                rc = aegis_tool_args_create(&args);
+                if (rc == AEGIS_OK) {
+                    rc = aegis_tool_submit(aa->executor, (aegis_tool_registry_t *)aa->cfg.tool_registry,
+                                           task, tool_name, args);
+                    if (rc != AEGIS_OK) {
+                        /* Tool not found or validation failed — fall back to stub. */
+                        aegis_tool_args_destroy(args);
+                        rc = aegis_executor_submit(aa->executor, task, default_work, NULL);
+                    }
+                }
+            } else {
+                rc = aegis_executor_submit(aa->executor, task, default_work, NULL);
+            }
             if (rc != AEGIS_OK) {
                 // notify scheduler even on submit failure to avoid leak
                 aegis_scheduler_notify_complete(aa->scheduler, task);
