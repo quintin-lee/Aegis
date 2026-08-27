@@ -122,7 +122,6 @@ static void test_llm_mock_uninitialized(void)
 
     assert(aegis_llm_complete(reg, "llm-mock", &req, token, &resp) == AEGIS_ERR_PERM);
 
-    aegis_llm_mock_destroy(ctx, ops);
     aegis_cancellation_token_destroy(token);
     aegis_provider_registry_destroy(reg);
 }
