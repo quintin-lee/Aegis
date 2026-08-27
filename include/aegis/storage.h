@@ -1,8 +1,28 @@
+/**
+ * @file storage.h
+ * @brief Storage abstractions: provider dispatch + higher-level store ops.
+ *
+ * This header defines two layers:
+ *
+ * 1. Provider dispatch (backward-compatible):
+ *    - aegis_storage_blob_t: retrieved value wrapper
+ *    - aegis_storage_ops_t: provider callbacks (put/get/delete)
+ *    - aegis_storage_put/get/delete(): registry-dispatched operations
+ *
+ * 2. Higher-level store operations:
+ *    - Transaction: batched put/delete with commit semantics.
+ *    - Snapshot: take/restore point-in-time copies.
+ *    - Query: prefix-based key enumeration.
+ *
+ * The store operations are independent of any specific backend; they
+ * delegate to the provider layer for actual I/O.
+ */
 #ifndef AEGIS_STORAGE_H
 #define AEGIS_STORAGE_H
 
 #include "aegis/cancellation.h"
 #include "aegis/provider.h"
+#include "aegis/status.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -11,40 +31,25 @@
 extern "C" {
 #endif
 
-/**
- * @file storage.h
- * @brief Typed dispatch interface for AEGIS_PROVIDER_STORAGE providers.
- *
- * Minimal key/value blob contract over arbitrary backends (in-memory,
- * embedded DB, remote object store). Keys and values are raw bytes;
- * no SQL, serialization format, or vendor SDK appears in the ABI.
- *
- * Ownership: keys/values passed IN are borrowed; retrieved blobs are
- * OWNED by the returned struct and freed via aegis_storage_blob_destroy()
- * (idempotent).
- *
- * Thread safety: same contract as llm.h dispatch (registry-locked resolve,
- * lock-free callback, per-provider thread_model honored by callers).
- */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Layer 1: Provider dispatch (backward-compatible)
+ * ═══════════════════════════════════════════════════════════════════════════ */
 
-/** Retrieved value. @c data is owned by the holder of this struct. */
+/**
+ * @brief Retrieved value. @c data is owned by the holder; free with
+ *        aegis_storage_blob_destroy().
+ */
 typedef struct aegis_storage_blob {
-    void*  data; /**< Value bytes (owned; NULL when absent/empty). */
-    size_t len;  /**< Value length in bytes.                       */
+    void*  data; /**< Value bytes (owned; NULL when absent). */
+    size_t len;  /**< Value length in bytes.               */
 } aegis_storage_blob_t;
+
 /**
  * @brief Free blob payload and zero the struct. Idempotent.
  */
 void aegis_storage_blob_destroy(aegis_storage_blob_t* blob);
 
-/**
- * @brief Provider-side callbacks (invoked lock-free).
- *
- * put: stores a copy of @p value under @p key (backend-defined TTL/persistence).
- * get: fills @c out with an owned copy of the stored value; AEGIS_ERR_NOT_FOUND
- *      when the key is absent (@c out stays zeroed).
- * del: removes the key; AEGIS_ERR_NOT_FOUND when it was absent.
- */
+/** Provider-side callbacks (invoked lock-free). */
 typedef aegis_status_t (*aegis_storage_put_fn)(void* ctx, const void* key, size_t key_len,
                                                const void* value, size_t value_len,
                                                const aegis_cancellation_token_t* token);
@@ -57,12 +62,8 @@ typedef aegis_status_t (*aegis_storage_del_fn)(void* ctx, const void* key, size_
 /**
  * @brief Operation set published by a storage provider.
  *
- * Register by setting def.user to a pointer to this struct (BORROWED,
- * typically a file-scope const object); @c ctx carries the provider
- * instance state and is handed to every callback.
- *
- * Providers implement whichever subset applies; a NULL op reports
- * AEGIS_ERR_PROVIDER from dispatch (declared-but-missing capability).
+ * Register by setting def.user to a pointer to this struct (BORROWED);
+ * @p ctx carries the provider instance state.
  */
 typedef struct aegis_storage_ops {
     void*                ctx; /**< Provider instance state (borrowed). */
@@ -73,10 +74,6 @@ typedef struct aegis_storage_ops {
 
 /**
  * @brief Dispatch storage operations through the registry.
- *
- * Gate order per call: NOT_FOUND (unknown name) / kind INVALID /
- * uninitialized PERM / pre-cancelled CANCELLED / missing op PROVIDER /
- * verbatim backend rc.
  */
 aegis_status_t aegis_storage_put(const aegis_provider_registry_t* reg, const char* name,
                                  const void* key, size_t key_len, const void* value,
@@ -88,6 +85,156 @@ aegis_status_t aegis_storage_get(const aegis_provider_registry_t* reg, const cha
 aegis_status_t aegis_storage_delete(const aegis_provider_registry_t* reg, const char* name,
                                     const void* key, size_t key_len,
                                     const aegis_cancellation_token_t* token);
+
+/* ═══════════════════════════════════════════════════════════════════════════
+ * Layer 2: Higher-level store operations
+ * ═══════════════════════════════════════════════════════════════════════════ */
+
+/** ABI version of the storage store interface. */
+#define AEGIS_STORAGE_ABI_VERSION 1u
+
+/**
+ * @brief A single key/value pair returned by a query.
+ *
+ * @c key and @c value are owned by the entries handle; do not free them.
+ */
+typedef struct aegis_storage_entry {
+    void*  key;       /**< Owned copy of the key bytes.     */
+    size_t key_len;   /**< Length of @p key in bytes.       */
+    void*  value;     /**< Owned copy of the value bytes.   */
+    size_t value_len; /**< Length of @p value in bytes.     */
+} aegis_storage_entry_t;
+
+/**
+ * @brief Destroy a query result set. Frees all entries and their keys/values.
+ * Safe to call with NULL.
+ */
+void aegis_storage_entries_destroy(aegis_storage_entry_t* entries);
+
+/* ── Transaction ──────────────────────────────────────────────────────────── */
+
+/** Opaque transaction handle. */
+typedef struct aegis_storage_transaction aegis_storage_transaction_t;
+
+/**
+ * @brief Begin a new transaction.
+ *
+ * @param[out] out  Receives the transaction. Ownership: transferred.
+ * @return AEGIS_OK or AEGIS_ERR_NOMEM.
+ */
+aegis_status_t aegis_storage_transaction_create(aegis_storage_transaction_t** out);
+
+/**
+ * @brief Destroy a transaction without committing. Discards all pending changes.
+ * Safe to call with NULL.
+ */
+void aegis_storage_transaction_destroy(aegis_storage_transaction_t* txn);
+
+/**
+ * @brief Stage a put operation within the transaction.
+ *
+ * @param txn       Transaction (borrowed).
+ * @param key       Key bytes (borrowed; required).
+ * @param key_len   Length of @p key.
+ * @param value     Value bytes (borrowed; may be NULL if value_len is 0).
+ * @param value_len Length of @p value.
+ * @return AEGIS_OK or AEGIS_ERR_INVALID.
+ */
+aegis_status_t aegis_storage_transaction_put(aegis_storage_transaction_t* txn, const void* key,
+                                             size_t key_len, const void* value, size_t value_len);
+
+/**
+ * @brief Stage a delete operation within the transaction.
+ *
+ * @param txn     Transaction (borrowed).
+ * @param key     Key to delete (borrowed; required).
+ * @param key_len Length of @p key.
+ * @return AEGIS_OK.
+ */
+aegis_status_t aegis_storage_transaction_delete(aegis_storage_transaction_t* txn, const void* key,
+                                                size_t key_len);
+
+/**
+ * @brief Commit the transaction: apply all staged operations.
+ *
+ * After commit, the transaction is consumed. Returns AEGIS_ERR_CANCELLED
+ * if the token is already tripped.
+ *
+ * @param txn     Transaction (ownership: consumed on success).
+ * @param token   Cancellation token (borrowed; may be NULL).
+ * @return AEGIS_OK, AEGIS_ERR_CANCELLED, or AEGIS_ERR_INVALID.
+ */
+aegis_status_t aegis_storage_transaction_commit(aegis_storage_transaction_t*      txn,
+                                                const aegis_cancellation_token_t* token);
+
+/* ── Snapshot ─────────────────────────────────────────────────────────────── */
+
+/** Opaque snapshot handle. */
+typedef struct aegis_storage_snapshot aegis_storage_snapshot_t;
+
+/**
+ * @brief Take a snapshot of the current store state.
+ *
+ * Enumerates all entries via aegis_storage_query() and stores deep
+ * copies. The caller retains ownership.
+ *
+ * @param reg          Provider registry (borrowed).
+ * @param store_name   Storage provider name (borrowed).
+ * @param token        Cancellation token (borrowed; may be NULL).
+ * @param[out] out      Receives the snapshot. Ownership: transferred.
+ * @return AEGIS_OK, AEGIS_ERR_NOT_FOUND, or AEGIS_ERR_NOMEM.
+ */
+aegis_status_t aegis_storage_snapshot_take(const aegis_provider_registry_t*  reg,
+                                           const char*                       store_name,
+                                           const aegis_cancellation_token_t* token,
+                                           aegis_storage_snapshot_t**        out);
+
+/**
+ * @brief Restore a snapshot into the store.
+ *
+ * Clears the store and replays all entries from the snapshot.
+ *
+ * @param reg          Provider registry (borrowed).
+ * @param store_name   Storage provider name (borrowed).
+ * @param snapshot     Snapshot to restore (borrowed).
+ * @param token        Cancellation token (borrowed; may be NULL).
+ * @return AEGIS_OK, AEGIS_ERR_NOT_FOUND, or AEGIS_ERR_NOMEM.
+ */
+aegis_status_t aegis_storage_snapshot_restore(const aegis_provider_registry_t*  reg,
+                                              const char*                       store_name,
+                                              const aegis_storage_snapshot_t*   snapshot,
+                                              const aegis_cancellation_token_t* token);
+
+/**
+ * @brief Destroy a snapshot. Safe to call with NULL.
+ */
+void aegis_storage_snapshot_destroy(aegis_storage_snapshot_t* snapshot);
+
+/** Number of entries in the snapshot. */
+size_t aegis_storage_snapshot_count(const aegis_storage_snapshot_t* snap);
+
+/* ── Query ─────────────────────────────────────────────────────────────────── */
+
+/**
+ * @brief Query entries by prefix match.
+ *
+ * Returns all key/value pairs whose key starts with @p prefix.
+ * Results are transferred to the caller; free with
+ * aegis_storage_entries_destroy().
+ *
+ * @param reg          Provider registry (borrowed).
+ * @param store_name   Storage provider name (borrowed).
+ * @param prefix       Key prefix to match (borrowed; NULL matches all).
+ * @param prefix_len   Length of @p prefix (0 if NULL).
+ * @param token        Cancellation token (borrowed; may be NULL).
+ * @param[out] out      Receives the entry array. Ownership: transferred.
+ * @param[out] out_count Receives the count.
+ * @return AEGIS_OK, AEGIS_ERR_NOT_FOUND, or AEGIS_ERR_PROVIDER.
+ */
+aegis_status_t aegis_storage_query(const aegis_provider_registry_t* reg, const char* store_name,
+                                   const char* prefix, size_t prefix_len,
+                                   const aegis_cancellation_token_t* token,
+                                   aegis_storage_entry_t** out, size_t* out_count);
 
 #ifdef __cplusplus
 }
