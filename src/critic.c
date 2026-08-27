@@ -126,10 +126,10 @@ aegis_status_t aegis_critic_evaluate_builtin(aegis_critic_t* critic, const char*
         /* Partial progress: some work completed, some did not.
          * Cancelled or skipped tasks signal an interrupted execution — replan needed. */
         if (n_cancelled > 0 || n_skipped > 0) {
-            int n = snprintf(critic->feedback, sizeof(critic->feedback),
-                             "Execution interrupted: %zu succeeded, %zu cancelled, "
-                             "%zu skipped. A new plan is needed.",
-                             n_success, n_cancelled, n_skipped);
+            int n         = snprintf(critic->feedback, sizeof(critic->feedback),
+                                     "Execution interrupted: %zu succeeded, %zu cancelled, "
+                                     "%zu skipped. A new plan is needed.",
+                                     n_success, n_cancelled, n_skipped);
             out->feedback = (n < 0) ? "" : critic->feedback;
             out->result   = AEGIS_CRITIQUE_REPLAN_REQUIRED;
             return AEGIS_OK;

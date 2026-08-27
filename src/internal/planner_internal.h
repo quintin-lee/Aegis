@@ -18,26 +18,26 @@
 
 /** One planned step with owned storage. */
 typedef struct aegis_plan_step {
-    int64_t           id;
-    char*             name;      /**< Owned. */
-    char*             desc;      /**< Owned, may be NULL. */
-    aegis_task_type_t type;
-    int               priority;
-    char*             tool_name; /**< Owned, may be NULL. */
-    void*             input;     /**< Owned copy, may be NULL. */
-    size_t            input_len;
-    long              timeout_ms;
+    int64_t                   id;
+    char*                     name; /**< Owned. */
+    char*                     desc; /**< Owned, may be NULL. */
+    aegis_task_type_t         type;
+    int                       priority;
+    char*                     tool_name; /**< Owned, may be NULL. */
+    void*                     input;     /**< Owned copy, may be NULL. */
+    size_t                    input_len;
+    long                      timeout_ms;
     aegis_task_retry_policy_t retry;
-    int64_t           deps[AEGIS_PLAN_MAX_DEPS];
-    size_t            dep_count;
+    int64_t                   deps[AEGIS_PLAN_MAX_DEPS];
+    size_t                    dep_count;
 } aegis_plan_step_t;
 
 struct aegis_plan {
-    char*            goal;   /**< Owned. */
-    uint32_t         version;
-    aegis_plan_step_t* steps;   /**< Owned array. */
-    size_t           step_count;
-    size_t           step_cap;
+    char*              goal; /**< Owned. */
+    uint32_t           version;
+    aegis_plan_step_t* steps; /**< Owned array. */
+    size_t             step_count;
+    size_t             step_cap;
 };
 
 /** Planner instance state (shared by planner.c / replanner.c). */
@@ -59,8 +59,7 @@ int64_t aegis_plan_next_free_id(const aegis_plan_t* plan);
  * taking ownership of the given heap strings (they may be NULL for desc). */
 aegis_status_t aegis_planner_add_step_owned(aegis_plan_t* plan, int64_t id, char* name, char* desc,
                                             aegis_task_type_t type, int priority, long timeout_ms,
-                                            aegis_task_retry_policy_t retry,
-                                            const char* tool_name,
+                                            aegis_task_retry_policy_t retry, const char* tool_name,
                                             const void* input, size_t input_len,
                                             const int64_t* deps, size_t dep_count);
 
@@ -71,8 +70,7 @@ aegis_status_t aegis_planner_add_step_owned(aegis_plan_t* plan, int64_t id, char
  * Dispatch errors propagate verbatim. */
 aegis_status_t aegis_planner_generate(const aegis_provider_registry_t* registry,
                                       const char* provider_name, const char* prompt,
-                                      const char* goal,
-                                      const aegis_cancellation_token_t* token,
+                                      const char* goal, const aegis_cancellation_token_t* token,
                                       aegis_plan_t** out);
 
 /* Compose the shared DSL instruction block plus a labeled body section:

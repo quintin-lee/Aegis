@@ -22,8 +22,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int          g_failures = 0;
-static pthread_mutex_t g_lock  = PTHREAD_MUTEX_INITIALIZER;
+static int             g_failures = 0;
+static pthread_mutex_t g_lock     = PTHREAD_MUTEX_INITIALIZER;
 
 static void fail(const char* fmt, ...)
 {
@@ -45,12 +45,12 @@ typedef struct {
     atomic_int done;       /**< 1 once driven to SUCCESS by its executor. */
 } slot_t;
 
-static slot_t* g_slots     = NULL;
+static slot_t* g_slots      = NULL;
 static size_t  g_slot_count = 0;
 /* Task ids come from a PROCESS-GLOBAL allocator, so a fresh fixture's
  * first id is arbitrary (earlier tests consume ids too). All slot
  * indexes are computed relative to the fixture's base id. */
-static uint32_t g_id_base   = 0;
+static uint32_t g_id_base = 0;
 
 static void init_slots(size_t n, uint32_t id_base)
 {
@@ -77,8 +77,8 @@ static slot_t* slot_for(const aegis_task_t* t)
 enum { HAMMER_TASKS = 64, HAMMER_THREADS = 8, HAMMER_ITERS = 200 };
 
 typedef struct {
-    int                 tid;
-    aegis_scheduler_t*  sched;
+    int                tid;
+    aegis_scheduler_t* sched;
 } hammer_arg_t;
 
 static void* hammer_worker(void* p)
@@ -124,7 +124,7 @@ static void* hammer_worker(void* p)
 
 static void test_concurrent_hammer(void)
 {
-    aegis_scheduler_t* s  = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -141,7 +141,7 @@ static void test_concurrent_hammer(void)
         }
     }
 
-    pthread_t threads[HAMMER_THREADS];
+    pthread_t    threads[HAMMER_THREADS];
     hammer_arg_t args[HAMMER_THREADS];
     for (int i = 0; i < HAMMER_THREADS; i++) {
         args[i].tid   = i;
@@ -176,16 +176,16 @@ static void test_concurrent_hammer(void)
 enum { CHAIN_LEN = 300, CHAIN_THREADS = 8 };
 
 typedef struct {
-    int                 tid;
-    aegis_scheduler_t*  sched;
-    atomic_int*         completed;
+    int                tid;
+    aegis_scheduler_t* sched;
+    atomic_int*        completed;
 } chain_arg_t;
 
 static void* chain_worker(void* p)
 {
-    chain_arg_t* arg = (chain_arg_t*)p;
-    long guard        = 0;
-    const long GUARD_MAX = 2L * 1000 * 1000; /* livelock tripwire (fast-fail) */
+    chain_arg_t* arg       = (chain_arg_t*)p;
+    long         guard     = 0;
+    const long   GUARD_MAX = 2L * 1000 * 1000; /* livelock tripwire (fast-fail) */
 
     while (atomic_load(arg->completed) < CHAIN_LEN) {
         if (++guard > GUARD_MAX) {
@@ -198,8 +198,8 @@ static void* chain_worker(void* p)
 
         aegis_task_t* t = NULL;
         while (aegis_scheduler_next(arg->sched, &t) == AEGIS_OK) {
-            slot_t*  slot = slot_for(t);
-            size_t   idx  = (size_t)(aegis_task_id(t) - g_id_base);
+            slot_t* slot = slot_for(t);
+            size_t  idx  = (size_t)(aegis_task_id(t) - g_id_base);
 
             int prev = atomic_fetch_add(&slot->held, 1);
             if (prev != 0) {
@@ -208,8 +208,7 @@ static void* chain_worker(void* p)
 
             /* Dependency gating: predecessor must have COMPLETED. */
             if (idx > 0 && atomic_load(&g_slots[idx - 1].done) != 1) {
-                fail("chain: task %u dispatched before predecessor completed\n",
-                     aegis_task_id(t));
+                fail("chain: task %u dispatched before predecessor completed\n", aegis_task_id(t));
             }
 
             atomic_fetch_add(&slot->dispatches, 1);
@@ -232,14 +231,14 @@ static void* chain_worker(void* p)
 
 static void test_dependency_chain_stress(void)
 {
-    aegis_scheduler_t* s  = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
     assert(aegis_scheduler_attach(s, g) == AEGIS_OK);
 
     aegis_task_t* tasks[CHAIN_LEN];
-    char name[32];
+    char          name[32];
     for (int i = 0; i < CHAIN_LEN; i++) {
         snprintf(name, sizeof(name), "c%d", i);
         assert(aegis_task_create(&tasks[i], name, NULL) == AEGIS_OK);
@@ -256,7 +255,7 @@ static void test_dependency_chain_stress(void)
     atomic_int completed;
     atomic_init(&completed, 0);
 
-    pthread_t threads[CHAIN_THREADS];
+    pthread_t   threads[CHAIN_THREADS];
     chain_arg_t args[CHAIN_THREADS];
     for (int i = 0; i < CHAIN_THREADS; i++) {
         args[i].tid       = i;

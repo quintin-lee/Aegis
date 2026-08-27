@@ -20,18 +20,17 @@ typedef struct mock_llm_state {
     uint32_t last_max_tokens;
 } mock_llm_state_t;
 
-static aegis_status_t mock_llm_complete(void* ctx,
-                                        const aegis_llm_request_t* req,
+static aegis_status_t mock_llm_complete(void* ctx, const aegis_llm_request_t* req,
                                         const aegis_cancellation_token_t* token,
-                                        aegis_llm_response_t* out)
+                                        aegis_llm_response_t*             out)
 {
     (void)token;
     mock_llm_state_t* st = ctx;
     st->calls++;
     st->last_max_tokens = req->max_tokens;
 
-    size_t  len  = req->prompt_len + 4;
-    char*   buf  = malloc(len);
+    size_t len = req->prompt_len + 4;
+    char*  buf = malloc(len);
     if (!buf) {
         return AEGIS_ERR_NOMEM;
     }
@@ -46,10 +45,9 @@ static aegis_status_t mock_llm_complete(void* ctx,
 
 static const aegis_llm_ops_t k_mock_llm_ops = {NULL, mock_llm_complete};
 
-static aegis_status_t failing_llm_complete(void* ctx,
-                                           const aegis_llm_request_t* req,
+static aegis_status_t failing_llm_complete(void* ctx, const aegis_llm_request_t* req,
                                            const aegis_cancellation_token_t* token,
-                                           aegis_llm_response_t* out)
+                                           aegis_llm_response_t*             out)
 {
     (void)ctx;
     (void)req;
@@ -60,11 +58,9 @@ static aegis_status_t failing_llm_complete(void* ctx,
 
 /* ── Mock embedding: dim-3 vector {n, n*2, n*3}, n = first byte or 1 ──────── */
 
-static aegis_status_t mock_embed(void* ctx,
-                                 const char* text,
-                                 size_t text_len,
+static aegis_status_t mock_embed(void* ctx, const char* text, size_t text_len,
                                  const aegis_cancellation_token_t* token,
-                                 aegis_embedding_result_t* out)
+                                 aegis_embedding_result_t*         out)
 {
     (void)ctx;
     (void)token;
@@ -76,9 +72,9 @@ static aegis_status_t mock_embed(void* ctx,
     if (!v) {
         return AEGIS_ERR_NOMEM;
     }
-    v[0] = base;
-    v[1] = base * 2.0f;
-    v[2] = base * 3.0f;
+    v[0]        = base;
+    v[1]        = base * 2.0f;
+    v[2]        = base * 3.0f;
     out->vector = v;
     out->dim    = 3;
     return AEGIS_OK;
@@ -107,10 +103,8 @@ static long store_find(mock_store_t* s, const void* key, size_t key_len)
     return -1;
 }
 
-static aegis_status_t store_put(void* ctx,
-                                const void* key, size_t key_len,
-                                const void* value, size_t value_len,
-                                const aegis_cancellation_token_t* token)
+static aegis_status_t store_put(void* ctx, const void* key, size_t key_len, const void* value,
+                                size_t value_len, const aegis_cancellation_token_t* token)
 {
     (void)token;
     mock_store_t* s  = ctx;
@@ -146,10 +140,8 @@ static aegis_status_t store_put(void* ctx,
     return AEGIS_OK;
 }
 
-static aegis_status_t store_get(void* ctx,
-                                const void* key, size_t key_len,
-                                const aegis_cancellation_token_t* token,
-                                aegis_storage_blob_t* out)
+static aegis_status_t store_get(void* ctx, const void* key, size_t key_len,
+                                const aegis_cancellation_token_t* token, aegis_storage_blob_t* out)
 {
     (void)token;
     mock_store_t* s  = ctx;
@@ -168,8 +160,7 @@ static aegis_status_t store_get(void* ctx,
     return AEGIS_OK;
 }
 
-static aegis_status_t store_del(void* ctx,
-                                const void* key, size_t key_len,
+static aegis_status_t store_del(void* ctx, const void* key, size_t key_len,
                                 const aegis_cancellation_token_t* token)
 {
     (void)token;
@@ -210,15 +201,14 @@ static void mock_store_destroy(mock_store_t* s)
 
 /* ── Registration helper ──────────────────────────────────────────────────── */
 
-static aegis_provider_registry_t* make_reg_with_mocks(mock_llm_state_t* llm_st,
-                                                      mock_store_t*     store)
+static aegis_provider_registry_t* make_reg_with_mocks(mock_llm_state_t* llm_st, mock_store_t* store)
 {
     aegis_provider_registry_t* reg = NULL;
     assert(aegis_provider_registry_create(&reg) == AEGIS_OK);
 
     /* Wire per-test ctx into the file-scope ops instances. */
-    s_llm_ops     = k_mock_llm_ops;
-    s_llm_ops.ctx = llm_st;
+    s_llm_ops       = k_mock_llm_ops;
+    s_llm_ops.ctx   = llm_st;
     s_store_ops     = k_mock_store_ops;
     s_store_ops.ctx = store;
     s_embed_ops     = k_mock_embed_ops;
@@ -229,9 +219,9 @@ static aegis_provider_registry_t* make_reg_with_mocks(mock_llm_state_t* llm_st,
     d.abi_version  = AEGIS_PROVIDER_ABI_VERSION;
     d.thread_model = AEGIS_PROVIDER_THREAD_SAFE;
 
-    d.name         = "mock-llm";
-    d.kind         = AEGIS_PROVIDER_LLM;
-    d.user         = &s_llm_ops;
+    d.name = "mock-llm";
+    d.kind = AEGIS_PROVIDER_LLM;
+    d.user = &s_llm_ops;
     assert(aegis_provider_register(reg, &d) == AEGIS_OK);
 
     d.name = "mock-embed";
@@ -239,16 +229,16 @@ static aegis_provider_registry_t* make_reg_with_mocks(mock_llm_state_t* llm_st,
     d.user = &s_embed_ops;
     assert(aegis_provider_register(reg, &d) == AEGIS_OK);
 
-    d.name         = "mock-store";
-    d.kind         = AEGIS_PROVIDER_STORAGE;
-    d.user         = &s_store_ops;
+    d.name = "mock-store";
+    d.kind = AEGIS_PROVIDER_STORAGE;
+    d.user = &s_store_ops;
     assert(aegis_provider_register(reg, &d) == AEGIS_OK);
 
-    d.name         = "fail-llm";
-    d.kind         = AEGIS_PROVIDER_LLM;
+    d.name = "fail-llm";
+    d.kind = AEGIS_PROVIDER_LLM;
     /* Non-const: def.user is a plain void* (borrowed, registry never writes). */
     static aegis_llm_ops_t fail_ops = {NULL, failing_llm_complete};
-    d.user         = &fail_ops;
+    d.user                          = &fail_ops;
     assert(aegis_provider_register(reg, &d) == AEGIS_OK);
 
     assert(aegis_provider_init(reg, "mock-llm") == AEGIS_OK);
@@ -262,9 +252,9 @@ static aegis_provider_registry_t* make_reg_with_mocks(mock_llm_state_t* llm_st,
 
 static void test_llm_happy_path_and_gates(void)
 {
-    mock_llm_state_t llm_st = {0};
-    mock_store_t     store  = {0};
-    aegis_provider_registry_t* reg = make_reg_with_mocks(&llm_st, &store);
+    mock_llm_state_t           llm_st = {0};
+    mock_store_t               store  = {0};
+    aegis_provider_registry_t* reg    = make_reg_with_mocks(&llm_st, &store);
 
     aegis_llm_response_t resp;
     aegis_llm_request_t  req = {.prompt = "hello", .prompt_len = 5, .max_tokens = 42};
@@ -311,9 +301,9 @@ static void test_llm_happy_path_and_gates(void)
 
 static void test_embedding_roundtrip(void)
 {
-    mock_llm_state_t llm_st = {0};
-    mock_store_t     store  = {0};
-    aegis_provider_registry_t* reg = make_reg_with_mocks(&llm_st, &store);
+    mock_llm_state_t           llm_st = {0};
+    mock_store_t               store  = {0};
+    aegis_provider_registry_t* reg    = make_reg_with_mocks(&llm_st, &store);
 
     aegis_embedding_result_t emb;
     assert(aegis_embed(reg, "mock-embed", "abc", 3, NULL, &emb) == AEGIS_OK);
@@ -339,9 +329,9 @@ static void test_embedding_roundtrip(void)
 
 static void test_storage_roundtrip(void)
 {
-    mock_llm_state_t llm_st = {0};
-    mock_store_t     store  = {0};
-    aegis_provider_registry_t* reg = make_reg_with_mocks(&llm_st, &store);
+    mock_llm_state_t           llm_st = {0};
+    mock_store_t               store  = {0};
+    aegis_provider_registry_t* reg    = make_reg_with_mocks(&llm_st, &store);
 
     aegis_storage_blob_t blob;
     assert(aegis_storage_get(reg, "mock-store", "k", 1, NULL, &blob) == AEGIS_ERR_NOT_FOUND);

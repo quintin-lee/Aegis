@@ -55,27 +55,27 @@ typedef enum aegis_job_state {
 /** One submitted unit of work. Executor-owned. */
 typedef struct aegis_job aegis_job_t;
 struct aegis_job {
-    struct aegis_job* next;            /**< FIFO link; valid while QUEUED.      */
+    struct aegis_job* next; /**< FIFO link; valid while QUEUED.      */
 
-    uint32_t          task_id;         /**< Cached aegis_task_id().             */
-    aegis_task_t*     task;            /**< Borrowed; graph keeps ownership.    */
-    aegis_work_fn     fn;              /**< User work function.                 */
-    void*             user;            /**< Borrowed user context.              */
+    uint32_t      task_id; /**< Cached aegis_task_id().             */
+    aegis_task_t* task;    /**< Borrowed; graph keeps ownership.    */
+    aegis_work_fn fn;      /**< User work function.                 */
+    void*         user;    /**< Borrowed user context.              */
 
-    aegis_job_state_t state;           /**< Guarded by executor lock.           */
-    aegis_cancellation_token_t token;  /**< Flags: lock-free; deadline: set by
-                                            owning worker before each attempt. */
-    aegis_exec_result_t result;        /**< Filled once, before FINISHED.       */
-    int64_t           start_ns;        /**< First attempt start (monotonic ns),
-                                            0 until started.                    */
+    aegis_job_state_t          state; /**< Guarded by executor lock.           */
+    aegis_cancellation_token_t token; /**< Flags: lock-free; deadline: set by
+                                           owning worker before each attempt. */
+    aegis_exec_result_t result;       /**< Filled once, before FINISHED.       */
+    int64_t             start_ns;     /**< First attempt start (monotonic ns),
+                                           0 until started.                    */
 };
 
 /** Executor instance. Public handle is the opaque typedef. */
 struct aegis_executor {
     /* Concurrency primitives (raw pthreads; no condvar wrapper exists). */
     pthread_mutex_t lock;
-    pthread_cond_t  work_avail;  /**< Signaled: enqueue or intake closed.   */
-    pthread_cond_t  done_cond;   /**< Signaled: a job reached FINISHED.     */
+    pthread_cond_t  work_avail; /**< Signaled: enqueue or intake closed.   */
+    pthread_cond_t  done_cond;  /**< Signaled: a job reached FINISHED.     */
 
     /* Intrusive FIFO of QUEUED jobs. */
     aegis_job_t* q_head;
@@ -89,12 +89,12 @@ struct aegis_executor {
     size_t        table_len;
     size_t        table_cap;
 
-    size_t running;        /**< Jobs popped but not yet FINISHED (includes
-                                retry-backoff rest).                        */
-    bool   intake_closed;  /**< Set by shutdown(); rejects submit().        */
-    bool   drained;        /**< Set once a drain completed successfully.    */
+    size_t running;     /**< Jobs popped but not yet FINISHED (includes
+                             retry-backoff rest).                        */
+    bool intake_closed; /**< Set by shutdown(); rejects submit().        */
+    bool drained;       /**< Set once a drain completed successfully.    */
 
-    aegis_thread_t** workers;  /**< Worker handles; joined then freed.       */
+    aegis_thread_t** workers; /**< Worker handles; joined then freed.       */
     unsigned         worker_count;
 };
 

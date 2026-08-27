@@ -24,8 +24,8 @@
 
 /** Ready-queue entry: task plus FIFO sequence number. */
 typedef struct aegis_sched_entry {
-    aegis_task_t* task;   /**< Borrowed task pointer (owned by the graph). */
-    uint64_t      seq;    /**< Monotonic enqueue sequence (FIFO tiebreak). */
+    aegis_task_t* task; /**< Borrowed task pointer (owned by the graph). */
+    uint64_t      seq;  /**< Monotonic enqueue sequence (FIFO tiebreak). */
 } aegis_sched_entry_t;
 
 /** Internal scheduler structure. */

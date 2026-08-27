@@ -28,12 +28,12 @@
 /* ── Shared helpers ────────────────────────────────────────────────────────── */
 
 enum job_kind {
-    KIND_FAST_OK    = 0, /**< Succeeds immediately; retries irrelevant.      */
-    KIND_FLAKY      = 1, /**< Fails N random times then succeeds (retries=3).*/
-    KIND_TIMEOUT    = 2, /** Oversleeps its deadline; must end TIMED_OUT.   */
-    KIND_SLOW_OK    = 3, /**< Sleeps briefly then succeeds.                  */
-    KIND_CANCELME   = 4, /**< Runs until token observed; storm target.       */
-    KIND_COUNT      = 5,
+    KIND_FAST_OK  = 0, /**< Succeeds immediately; retries irrelevant.      */
+    KIND_FLAKY    = 1, /**< Fails N random times then succeeds (retries=3).*/
+    KIND_TIMEOUT  = 2, /** Oversleeps its deadline; must end TIMED_OUT.   */
+    KIND_SLOW_OK  = 3, /**< Sleeps briefly then succeeds.                  */
+    KIND_CANCELME = 4, /**< Runs until token observed; storm target.       */
+    KIND_COUNT    = 5,
 };
 
 typedef struct job_ctx {
@@ -115,13 +115,13 @@ static uint32_t id_of(const aegis_task_t* t)
 
 static aegis_executor_t* g_stress_exec;
 
-#define STRESS_N      1000
+#define STRESS_N              1000
 #define STRESS_SUBMIT_THREADS 4
-#define STORM_MS      120
+#define STORM_MS              120
 
-static aegis_task_t*  stress_tasks[STRESS_N];
-static job_ctx_t      stress_ctx[STRESS_N];
-static struct tally   stress_tally[STRESS_N];
+static aegis_task_t* stress_tasks[STRESS_N];
+static job_ctx_t     stress_ctx[STRESS_N];
+static struct tally  stress_tally[STRESS_N];
 
 typedef struct {
     int         thread_index;
@@ -130,16 +130,16 @@ typedef struct {
 
 static void* stress_submit_thread(void* raw)
 {
-    submit_arg_t* arg = raw;
-    unsigned seed = (unsigned)(arg->thread_index * 7919 + 13);
+    submit_arg_t* arg  = raw;
+    unsigned      seed = (unsigned)(arg->thread_index * 7919 + 13);
 
     for (;;) {
         const size_t i = (size_t)atomic_fetch_add(arg->next_slot, 1);
         if (i >= STRESS_N) {
             break;
         }
-        aegis_task_t* t = stress_tasks[i];
-        const int roll = rand_r(&seed) % 100;
+        aegis_task_t* t    = stress_tasks[i];
+        const int     roll = rand_r(&seed) % 100;
 
         if (roll < 40) {
             stress_ctx[i].kind = KIND_FAST_OK;
@@ -147,7 +147,7 @@ static void* stress_submit_thread(void* raw)
             stress_ctx[i].kind = KIND_FLAKY;
             atomic_store(&stress_ctx[i].remaining_failures, (int)(rand_r(&seed) % 3));
             aegis_task_set_retry_policy(
-                t, (aegis_task_retry_policy_t){ .max_attempts = 3, .delay_ms = 1 });
+                t, (aegis_task_retry_policy_t){.max_attempts = 3, .delay_ms = 1});
         } else if (roll < 75) {
             stress_ctx[i].kind = KIND_TIMEOUT;
             aegis_task_set_timeout_ms(t, 30);
@@ -178,10 +178,10 @@ static void* storm_thread(void* raw)
 
 static void classify_stress(size_t i)
 {
-    aegis_exec_result_t r = { 0 };
+    aegis_exec_result_t r = {0};
     assert(aegis_executor_wait(g_stress_exec, id_of(stress_tasks[i]), &r, -1) == AEGIS_OK);
 
-    aegis_task_t*     t  = stress_tasks[i];
+    aegis_task_t*            t  = stress_tasks[i];
     const aegis_task_state_t st = aegis_task_state(t);
 
     switch (r.outcome) {
@@ -213,7 +213,7 @@ static void test_stress_1000_mixed(void)
     memset(stress_ctx, 0, sizeof(stress_ctx));
     memset(stress_tally, 0, sizeof(stress_tally));
 
-    aegis_executor_config_t cfg = { .worker_count = 8, .queue_capacity = STRESS_N + 16 };
+    aegis_executor_config_t cfg = {.worker_count = 8, .queue_capacity = STRESS_N + 16};
     assert(aegis_executor_create(&g_stress_exec, &cfg) == AEGIS_OK);
 
     char name[32];
@@ -228,9 +228,9 @@ static void test_stress_1000_mixed(void)
         atomic_init(&stress_tally[i].cancelled, 0);
     }
 
-    pthread_t submitters[STRESS_SUBMIT_THREADS];
+    pthread_t    submitters[STRESS_SUBMIT_THREADS];
     submit_arg_t sargs[STRESS_SUBMIT_THREADS];
-    atomic_int next_slot;
+    atomic_int   next_slot;
     atomic_init(&next_slot, 0);
     for (int k = 0; k < STRESS_SUBMIT_THREADS; k++) {
         sargs[k].thread_index = k;
@@ -279,12 +279,12 @@ static void test_stress_1000_mixed(void)
 
 /* ── Test 2: shutdown-vs-submit race hammer ──────────────────────────────── */
 
-#define RACE_ROUNDS   25
-#define RACE_THREADS  6
-#define RACE_PER_THR  20
+#define RACE_ROUNDS  25
+#define RACE_THREADS 6
+#define RACE_PER_THR 20
 
 typedef struct {
-    aegis_executor_t** exec;    /* points at the round-local executor */
+    aegis_executor_t** exec; /* points at the round-local executor */
     atomic_int         ok_cnt;
     atomic_int         rej_cnt;
 } race_arg_t;
@@ -297,8 +297,7 @@ static void* race_submitter(void* raw)
         if (aegis_task_create(&t, "race", NULL) != AEGIS_OK) {
             continue;
         }
-        const aegis_status_t rc =
-            aegis_executor_submit(*arg->exec, t, fast_ok_work, NULL);
+        const aegis_status_t rc = aegis_executor_submit(*arg->exec, t, fast_ok_work, NULL);
         if (rc == AEGIS_OK) {
             atomic_fetch_add(&arg->ok_cnt, 1);
             /* Task ownership passes to round cleanup on success. */
@@ -315,11 +314,11 @@ static void* race_submitter(void* raw)
 static void test_shutdown_race_hammer(void)
 {
     for (int round = 0; round < RACE_ROUNDS; round++) {
-        aegis_executor_t* e = NULL;
-        aegis_executor_config_t cfg = { .worker_count = 4, .queue_capacity = 512 };
+        aegis_executor_t*       e   = NULL;
+        aegis_executor_config_t cfg = {.worker_count = 4, .queue_capacity = 512};
         assert(aegis_executor_create(&e, &cfg) == AEGIS_OK);
 
-        race_arg_t arg = { .exec = &e };
+        race_arg_t arg = {.exec = &e};
         atomic_init(&arg.ok_cnt, 0);
         atomic_init(&arg.rej_cnt, 0);
 
@@ -335,21 +334,20 @@ static void test_shutdown_race_hammer(void)
         aegis_executor_destroy(e);
 
         /* Every attempt either landed or was rejected — none lost. */
-        assert(atomic_load(&arg.ok_cnt) + atomic_load(&arg.rej_cnt)
-               == RACE_THREADS * RACE_PER_THR);
+        assert(atomic_load(&arg.ok_cnt) + atomic_load(&arg.rej_cnt) == RACE_THREADS * RACE_PER_THR);
     }
 }
 
 /* ── Test 3: create/destroy cycles with in-flight work ───────────────────── */
 
-#define CYCLES       50
-#define CYCLE_TASKS  10
+#define CYCLES      50
+#define CYCLE_TASKS 10
 
 static void test_create_destroy_cycles(void)
 {
     for (int c = 0; c < CYCLES; c++) {
-        aegis_executor_t* e = NULL;
-        aegis_executor_config_t cfg = { .worker_count = 2, .queue_capacity = 64 };
+        aegis_executor_t*       e   = NULL;
+        aegis_executor_config_t cfg = {.worker_count = 2, .queue_capacity = 64};
         assert(aegis_executor_create(&e, &cfg) == AEGIS_OK);
 
         aegis_task_t* tasks[CYCLE_TASKS];
@@ -359,7 +357,7 @@ static void test_create_destroy_cycles(void)
             assert(aegis_executor_submit(e, tasks[i], fast_ok_work, NULL) == AEGIS_OK);
         }
         for (int i = 0; i < CYCLE_TASKS; i++) {
-            aegis_exec_result_t r = { 0 };
+            aegis_exec_result_t r = {0};
             assert(aegis_executor_wait(e, aegis_task_id(tasks[i]), &r, -1) == AEGIS_OK);
             assert(r.outcome == AEGIS_EXEC_COMPLETED);
             assert(aegis_task_state(tasks[i]) == AEGIS_TASK_SUCCESS);

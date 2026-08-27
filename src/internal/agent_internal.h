@@ -19,21 +19,21 @@
 /** Internal agent structure. */
 struct aegis_agent {
     /* Identity */
-    char*          name;             /**< Owned. */
-    char           goal[AEGIS_AGENT_GOAL_MAX]; /**< Owned (stack-allocated buffer). */
+    char* name;                       /**< Owned. */
+    char  goal[AEGIS_AGENT_GOAL_MAX]; /**< Owned (stack-allocated buffer). */
 
     /* State machine */
-    aegis_agent_state_t   state;     /**< Protected by lock. */
-    aegis_atomic_int_t*   done_flag; /**< Atomic set when agent reaches terminal state. */
+    aegis_agent_state_t state;     /**< Protected by lock. */
+    aegis_atomic_int_t* done_flag; /**< Atomic set when agent reaches terminal state. */
 
     /* Concurrency */
-    aegis_mutex_t*  lock;            /**< Guards state and goal transitions. */
+    aegis_mutex_t* lock; /**< Guards state and goal transitions. */
 
     /* Event bus */
-    aegis_event_bus_t*  bus;         /**< Owned. */
+    aegis_event_bus_t* bus; /**< Owned. */
 
     /* Synchronization for join() */
-    aegis_atomic_int_t*  joined;     /**< Set when join() completes. */
+    aegis_atomic_int_t* joined; /**< Set when join() completes. */
 };
 
 #endif /* AEGIS_AGENT_INTERNAL_H */

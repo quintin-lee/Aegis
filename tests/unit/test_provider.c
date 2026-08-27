@@ -53,10 +53,10 @@ static void mock_shutdown(void* user)
 static void make_def(aegis_provider_def_t* d, const char* name, void* user)
 {
     memset(d, 0, sizeof(*d));
-    d->name        = name;
-    d->description = "mock";
-    d->abi_version = AEGIS_PROVIDER_ABI_VERSION;
-    d->kind        = AEGIS_PROVIDER_GENERIC;
+    d->name         = name;
+    d->description  = "mock";
+    d->abi_version  = AEGIS_PROVIDER_ABI_VERSION;
+    d->kind         = AEGIS_PROVIDER_GENERIC;
     d->capabilities = AEGIS_CAP_NONE;
     d->thread_model = AEGIS_PROVIDER_THREAD_SAFE;
     d->init         = mock_init;

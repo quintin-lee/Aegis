@@ -7,7 +7,8 @@
 #include <stdio.h>
 #include <string.h>
 
-static void test_create_destroy(void) {
+static void test_create_destroy(void)
+{
     aegis_task_t* task = NULL;
     assert(aegis_task_create(&task, "t1", "desc") == AEGIS_OK);
     assert(task != NULL);
@@ -21,14 +22,16 @@ static void test_create_destroy(void) {
     aegis_task_destroy(task);
 }
 
-static void test_null_create(void) {
+static void test_null_create(void)
+{
     aegis_task_t* t = NULL;
     assert(aegis_task_create(NULL, "x", NULL) == AEGIS_ERR_INVALID);
     assert(aegis_task_create(&t, NULL, NULL) == AEGIS_ERR_INVALID);
     assert(aegis_task_create(&t, "", NULL) == AEGIS_ERR_INVALID);
 }
 
-static void test_null_operations(void) {
+static void test_null_operations(void)
+{
     assert(aegis_task_id(NULL) == 0);
     assert(aegis_task_name(NULL) == NULL);
     assert(aegis_task_description(NULL) == NULL);
@@ -47,7 +50,8 @@ static void test_null_operations(void) {
     aegis_task_destroy(NULL);
 }
 
-static void test_properties(void) {
+static void test_properties(void)
+{
     aegis_task_t* task = NULL;
     assert(aegis_task_create(&task, "prop", NULL) == AEGIS_OK);
 
@@ -70,13 +74,14 @@ static void test_properties(void) {
     aegis_task_destroy(task);
 }
 
-static void test_input_output(void) {
+static void test_input_output(void)
+{
     aegis_task_t* task = NULL;
     assert(aegis_task_create(&task, "io", NULL) == AEGIS_OK);
 
     char data[] = "hello world";
     assert(aegis_task_set_input(task, data, sizeof(data)) == AEGIS_OK);
-    size_t sz = 0;
+    size_t      sz  = 0;
     const void* inp = aegis_task_input(task, &sz);
     assert(inp != NULL);
     assert(sz == sizeof(data));
@@ -84,20 +89,21 @@ static void test_input_output(void) {
 
     char out[] = "result";
     assert(aegis_task_set_output(task, out, sizeof(out)) == AEGIS_OK);
-    sz = 0;
+    sz             = 0;
     const void* op = aegis_task_output(task, &sz);
     assert(op != NULL);
     assert(sz == sizeof(out));
     assert(memcmp(op, out, sizeof(out)) == 0);
 
     /* NULL input/output */
-    assert(aegis_task_input(task, NULL) != NULL); // returns pointer even if size is NULL
-    assert(aegis_task_output(task, NULL) != NULL); // returns pointer even if size is NULL
+    assert(aegis_task_input(task, NULL) != NULL);   // returns pointer even if size is NULL
+    assert(aegis_task_output(task, NULL) != NULL);  // returns pointer even if size is NULL
 
     aegis_task_destroy(task);
 }
 
-static void test_metadata(void) {
+static void test_metadata(void)
+{
     aegis_task_t* task = NULL;
     assert(aegis_task_create(&task, "meta", NULL) == AEGIS_OK);
 
@@ -119,8 +125,9 @@ static void test_metadata(void) {
     aegis_task_destroy(task);
 }
 
-static void test_id_uniqueness(void) {
-    aegis_task_t* t1 = NULL,* t2 = NULL;
+static void test_id_uniqueness(void)
+{
+    aegis_task_t *t1 = NULL, *t2 = NULL;
     assert(aegis_task_create(&t1, "a", NULL) == AEGIS_OK);
     assert(aegis_task_create(&t2, "b", NULL) == AEGIS_OK);
     assert(aegis_task_id(t1) != aegis_task_id(t2));
@@ -128,7 +135,8 @@ static void test_id_uniqueness(void) {
     aegis_task_destroy(t2);
 }
 
-int main(void) {
+int main(void)
+{
     test_create_destroy();
     test_null_create();
     test_null_operations();

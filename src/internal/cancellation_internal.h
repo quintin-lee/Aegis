@@ -20,14 +20,14 @@
 
 /** Cancellation reason flags. */
 enum {
-    AEGIS_CANCEL_NONE      = 0,
-    AEGIS_CANCEL_USER      = 1, /**< aegis_executor_cancel(). */
-    AEGIS_CANCEL_SHUTDOWN  = 2, /**< executor shutdown / destroy. */
+    AEGIS_CANCEL_NONE     = 0,
+    AEGIS_CANCEL_USER     = 1, /**< aegis_executor_cancel(). */
+    AEGIS_CANCEL_SHUTDOWN = 2, /**< executor shutdown / destroy. */
 };
 
 struct aegis_cancellation_token {
-    int32_t cancel_flags;   /**< AEGIS_CANCEL_* bits (atomic access). */
-    int64_t deadline_ns;    /**< Monotonic deadline, 0 = none. Immutable per attempt. */
+    int32_t cancel_flags; /**< AEGIS_CANCEL_* bits (atomic access). */
+    int64_t deadline_ns;  /**< Monotonic deadline, 0 = none. Immutable per attempt. */
 };
 
 /**

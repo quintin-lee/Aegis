@@ -9,10 +9,11 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-static int g_concurrent_failures = 0;
-static pthread_mutex_t g_fail_lock = PTHREAD_MUTEX_INITIALIZER;
+static int             g_concurrent_failures = 0;
+static pthread_mutex_t g_fail_lock           = PTHREAD_MUTEX_INITIALIZER;
 
-static void record_failure(const char* fmt, ...) {
+static void record_failure(const char* fmt, ...)
+{
     pthread_mutex_lock(&g_fail_lock);
     g_concurrent_failures++;
     va_list args;
@@ -26,9 +27,10 @@ typedef struct {
     int id;
 } thread_arg_t;
 
-static void* concurrent_agent_worker(void* arg) {
-    thread_arg_t* ta = (thread_arg_t*)arg;
-    int iterations = 50;
+static void* concurrent_agent_worker(void* arg)
+{
+    thread_arg_t* ta         = (thread_arg_t*)arg;
+    int           iterations = 50;
 
     for (int i = 0; i < iterations; i++) {
         aegis_agent_t* agent = NULL;
@@ -75,7 +77,8 @@ static void* concurrent_agent_worker(void* arg) {
     return NULL;
 }
 
-int main(void) {
+int main(void)
+{
     const int n_threads = 8;
     pthread_t threads[8];
 

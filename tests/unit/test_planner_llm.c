@@ -21,7 +21,7 @@ static const char* g_response = "";
 
 static aegis_status_t canned_llm_complete(void* ctx, const aegis_llm_request_t* req,
                                           const aegis_cancellation_token_t* token,
-                                          aegis_llm_response_t* out)
+                                          aegis_llm_response_t*             out)
 {
     (void)ctx;
     (void)req;
@@ -43,10 +43,11 @@ static aegis_status_t canned_llm_complete(void* ctx, const aegis_llm_request_t* 
 /* Non-const: def.user is a plain void* (borrowed, registry never writes). */
 static aegis_llm_ops_t s_canned_ops = {NULL, canned_llm_complete};
 
-static const char* k_dsl_ok = "# comment line\n"
-                              "\n"
-                              "STEP|-1|computational||first|does A\r\n"
-                              "STEP|10|io|0|second|depends on first\n";
+static const char* k_dsl_ok =
+    "# comment line\n"
+    "\n"
+    "STEP|-1|computational||first|does A\r\n"
+    "STEP|10|io|0|second|depends on first\n";
 
 static const char* k_dsl_revised = "STEP|-1|tool||only-step|revised plan\n";
 
@@ -119,7 +120,7 @@ static void test_plan_happy_path(void)
 
 static void expect_plan_failure(struct fixture* fx, const char* response)
 {
-    g_response    = response;
+    g_response         = response;
     aegis_plan_t* plan = (aegis_plan_t*)0x1; /* Poison: must stay untouched. */
     assert(aegis_planner_plan(fx->planner, "goal", NULL, &plan) == AEGIS_ERR_INVALID);
     assert(plan == (aegis_plan_t*)0x1);
@@ -130,13 +131,13 @@ static void test_plan_parse_failures(void)
     struct fixture fx;
     fixture_setup(&fx);
 
-    expect_plan_failure(&fx, "");                                  /* Empty output.     */
-    expect_plan_failure(&fx, "I would start by gathering data.");  /* Prose.            */
-    expect_plan_failure(&fx, "STEP|1|quantum||x|y");               /* Bad type word.    */
-    expect_plan_failure(&fx, "STEP|x|io||n|d");                    /* Bad id.           */
-    expect_plan_failure(&fx, "STEP|1|io||n");                      /* Missing field.    */
-    expect_plan_failure(&fx, "STEP|1|io|||extra|junk");            /* Too many fields.  */
-    expect_plan_failure(&fx, "STEP|1|io|99|orphan|dep on nothing");/* Unknown dep.      */
+    expect_plan_failure(&fx, "");                                   /* Empty output.     */
+    expect_plan_failure(&fx, "I would start by gathering data.");   /* Prose.            */
+    expect_plan_failure(&fx, "STEP|1|quantum||x|y");                /* Bad type word.    */
+    expect_plan_failure(&fx, "STEP|x|io||n|d");                     /* Bad id.           */
+    expect_plan_failure(&fx, "STEP|1|io||n");                       /* Missing field.    */
+    expect_plan_failure(&fx, "STEP|1|io|||extra|junk");             /* Too many fields.  */
+    expect_plan_failure(&fx, "STEP|1|io|99|orphan|dep on nothing"); /* Unknown dep.      */
 
     /* The last one was actually valid; prove failures only for real junk. */
     aegis_plan_t* plan = NULL;
@@ -160,7 +161,7 @@ static void test_planner_arg_validation(void)
     assert(aegis_planner_plan(fx.planner, "", NULL, &plan) == AEGIS_ERR_INVALID);
     assert(aegis_planner_plan(fx.planner, "g", NULL, NULL) == AEGIS_ERR_INVALID);
 
-    aegis_planner_t* bad = NULL;
+    aegis_planner_t*       bad = NULL;
     aegis_planner_config_t cfg;
     memset(&cfg, 0, sizeof(cfg));
     cfg.provider_registry = fx.reg;
@@ -189,14 +190,14 @@ static void test_replan_flow(void)
     struct fixture fx;
     fixture_setup(&fx);
 
-    g_response    = k_dsl_ok;
+    g_response        = k_dsl_ok;
     aegis_plan_t* old = NULL;
     assert(aegis_planner_plan(fx.planner, "original goal", NULL, &old) == AEGIS_OK);
 
-    g_response    = k_dsl_revised;
+    g_response            = k_dsl_revised;
     aegis_plan_t* revised = NULL;
-    assert(aegis_replan(fx.planner, old, "step 'second' failed: disk full", NULL,
-                        &revised) == AEGIS_OK);
+    assert(aegis_replan(fx.planner, old, "step 'second' failed: disk full", NULL, &revised) ==
+           AEGIS_OK);
     assert(revised != NULL);
     assert(aegis_plan_version(revised) == aegis_plan_version(old) + 1u);
     assert(aegis_plan_step_count(revised) == 1u);

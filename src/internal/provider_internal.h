@@ -20,11 +20,11 @@ typedef struct aegis_provider_entry {
 
 /** Provider registry: mutex-guarded name map plus ownership side-array. */
 struct aegis_provider_registry {
-    aegis_mutex_t*            lock;      /**< Leaf lock for all map/state access. */
-    aegis_hashmap_t*          map;       /**< name -> aegis_provider_entry_t*.    */
-    aegis_provider_entry_t**  owned;     /**< Ownership side-array (map frees nothing). */
-    size_t                    owned_len;
-    size_t                    owned_cap;
+    aegis_mutex_t*           lock;  /**< Leaf lock for all map/state access. */
+    aegis_hashmap_t*         map;   /**< name -> aegis_provider_entry_t*.    */
+    aegis_provider_entry_t** owned; /**< Ownership side-array (map frees nothing). */
+    size_t                   owned_len;
+    size_t                   owned_cap;
 };
 
 /**

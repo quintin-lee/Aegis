@@ -34,9 +34,9 @@ typedef struct aegis_task_metadata {
 /** Internal task structure. */
 struct aegis_task {
     /* Identity */
-    uint32_t           id;
-    char               name[AEGIS_TASK_NAME_MAX];
-    char               description[AEGIS_TASK_DESC_MAX];
+    uint32_t id;
+    char     name[AEGIS_TASK_NAME_MAX];
+    char     description[AEGIS_TASK_DESC_MAX];
 
     /* Properties */
     aegis_task_type_t  type;
@@ -50,17 +50,17 @@ struct aegis_task {
     long timeout_ms;
 
     /* Data */
-    void*    input_data;
-    size_t   input_size;
-    void*    output_data;
-    size_t   output_size;
+    void*  input_data;
+    size_t input_size;
+    void*  output_data;
+    size_t output_size;
 
     /* Error message */
-    char     error_msg[256];
+    char error_msg[256];
 
     /* Metadata */
     aegis_task_metadata_t metadata[AEGIS_TASK_METADATA_MAX];
-    size_t                    n_metadata;
+    size_t                n_metadata;
 
     /* Concurrency */
     aegis_mutex_t* lock;

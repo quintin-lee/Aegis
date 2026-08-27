@@ -11,10 +11,11 @@
 #include <stdarg.h>
 #include <string.h>
 
-static int g_failures = 0;
-static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
+static int             g_failures = 0;
+static pthread_mutex_t g_lock     = PTHREAD_MUTEX_INITIALIZER;
 
-static void fail(const char* fmt, ...) {
+static void fail(const char* fmt, ...)
+{
     pthread_mutex_lock(&g_lock);
     g_failures++;
     va_list args;
@@ -28,7 +29,8 @@ typedef struct {
     int id;
 } arg_t;
 
-static void* worker(void* arg) {
+static void* worker(void* arg)
+{
     arg_t* a = (arg_t*)arg;
     for (int i = 0; i < 50; i++) {
         aegis_task_graph_t* g = NULL;
@@ -80,7 +82,7 @@ static void* worker(void* arg) {
 
         /* Query */
         aegis_task_t** ready = NULL;
-        size_t cnt = 0;
+        size_t         cnt   = 0;
         if (aegis_task_graph_ready_tasks(g, &ready, &cnt) != AEGIS_OK) {
             fail("Thread %d iter %d: ready_tasks failed\n", a->id, i);
         } else {
@@ -93,20 +95,23 @@ static void* worker(void* arg) {
 
         aegis_task_graph_destroy(g);
 
-    next:
-        ;
+    next:;
     }
     free(a);
     return NULL;
 }
 
-int main(void) {
+int main(void)
+{
     const int N = 8;
     pthread_t threads[N];
 
     for (int i = 0; i < N; i++) {
         arg_t* a = malloc(sizeof(*a));
-        if (!a) { perror("malloc"); return 1; }
+        if (!a) {
+            perror("malloc");
+            return 1;
+        }
         a->id = i;
         if (pthread_create(&threads[i], NULL, worker, a) != 0) {
             perror("pthread_create");

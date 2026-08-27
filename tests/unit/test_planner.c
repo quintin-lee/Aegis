@@ -27,7 +27,7 @@ static void test_plan_lifecycle(void)
 
     char goal[] = "build a house";
     assert(aegis_plan_create(&p, goal) == AEGIS_OK);
-    goal[0] = 'X'; /* Mutate the caller buffer... */
+    goal[0] = 'X';                                            /* Mutate the caller buffer... */
     assert(strcmp(aegis_plan_goal(p), "build a house") == 0); /* ...plan keeps its copy. */
     assert(aegis_plan_version(p) == 1u);
     assert(aegis_plan_step_count(p) == 0u);
@@ -64,7 +64,7 @@ static void test_add_step_rules(void)
     noname.name = NULL;
     assert(aegis_plan_add_step(p, &noname, NULL) == AEGIS_ERR_INVALID);
 
-    int64_t a = -1, b = -1;
+    int64_t                a = -1, b = -1;
     aegis_plan_step_spec_t sa = base_spec("a");
     aegis_plan_step_spec_t sb = base_spec("b");
     assert(aegis_plan_add_step(p, &sa, &a) == AEGIS_OK);
@@ -74,22 +74,22 @@ static void test_add_step_rules(void)
     assert(strcmp(aegis_plan_goal(p), "goal") == 0);
 
     /* Explicit duplicate id. */
-    aegis_plan_step_spec_t dup   = base_spec("dup");
-    dup.step_id                  = a;
+    aegis_plan_step_spec_t dup = base_spec("dup");
+    dup.step_id                = a;
     assert(aegis_plan_add_step(p, &dup, NULL) == AEGIS_ERR_BUSY);
 
     /* Unknown dependency. */
-    int64_t                    unknown_dep = 424242;
-    aegis_plan_step_spec_t     orphan      = base_spec("orphan");
-    orphan.deps                            = &unknown_dep;
-    orphan.dep_count                       = 1;
+    int64_t                unknown_dep = 424242;
+    aegis_plan_step_spec_t orphan      = base_spec("orphan");
+    orphan.deps                        = &unknown_dep;
+    orphan.dep_count                   = 1;
     assert(aegis_plan_add_step(p, &orphan, NULL) == AEGIS_ERR_INVALID);
 
     /* Self dependency. */
     int64_t self = a;
     aegis_plan_destroy(p);
     assert(aegis_plan_create(&p, "goal2") == AEGIS_OK);
-    int64_t x = -1;
+    int64_t                x  = -1;
     aegis_plan_step_spec_t sx = base_spec("x");
     assert(aegis_plan_add_step(p, &sx, &x) == AEGIS_OK);
     aegis_plan_step_spec_t selfy = base_spec("selfy");
@@ -117,7 +117,7 @@ static void test_validate(void)
     assert(aegis_plan_create(&p, "g") == AEGIS_OK);
     assert(aegis_plan_validate(p) == AEGIS_ERR_INVALID); /* Empty plan. */
 
-    int64_t first = -1;
+    int64_t                first  = -1;
     aegis_plan_step_spec_t sfetch = base_spec("fetch");
     assert(aegis_plan_add_step(p, &sfetch, &first) == AEGIS_OK);
     assert(aegis_plan_validate(p) == AEGIS_OK); /* Single step. */
@@ -156,7 +156,7 @@ static void test_materialize(void)
     aegis_plan_t* p = NULL;
     assert(aegis_plan_create(&p, "pipeline") == AEGIS_OK);
 
-    int64_t fetch = -1;
+    int64_t                fetch   = -1;
     aegis_plan_step_spec_t s_fetch = base_spec("fetch");
     assert(aegis_plan_add_step(p, &s_fetch, &fetch) == AEGIS_OK);
 
@@ -224,7 +224,7 @@ static void test_serialize(void)
 {
     aegis_plan_t* p = NULL;
     assert(aegis_plan_create(&p, "demo") == AEGIS_OK);
-    int64_t one = -1;
+    int64_t                one   = -1;
     aegis_plan_step_spec_t s_one = base_spec("one");
     assert(aegis_plan_add_step(p, &s_one, &one) == AEGIS_OK);
     aegis_plan_step_spec_t two = base_spec("two");
@@ -252,8 +252,8 @@ static void test_reflection_counts(void)
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
 
-    aegis_task_t* ok1 = NULL;
-    aegis_task_t* bad = NULL;
+    aegis_task_t* ok1  = NULL;
+    aegis_task_t* bad  = NULL;
     aegis_task_t* gone = NULL;
     aegis_task_t* skip = NULL;
     aegis_task_t* pend = NULL;
@@ -288,8 +288,7 @@ static void test_reflection_counts(void)
     assert(aegis_reflection_first_error(r) == NULL);
 
     const char* fb = aegis_reflection_feedback(r);
-    assert(fb && strstr(fb, "1 succeeded") && strstr(fb, "1 failed") &&
-           strstr(fb, "1 incomplete"));
+    assert(fb && strstr(fb, "1 succeeded") && strstr(fb, "1 failed") && strstr(fb, "1 incomplete"));
     aegis_reflection_destroy(r);
     aegis_reflection_destroy(NULL); /* No-op. */
 
@@ -298,8 +297,7 @@ static void test_reflection_counts(void)
 
 /** Realistic failure path: run one failing task through the executor so the
  * task ends FAILED with an error message attached. */
-static aegis_status_t always_fail_work(aegis_task_t* task,
-                                       const aegis_cancellation_token_t* token,
+static aegis_status_t always_fail_work(aegis_task_t* task, const aegis_cancellation_token_t* token,
                                        void* user)
 {
     (void)task;
@@ -310,10 +308,10 @@ static aegis_status_t always_fail_work(aegis_task_t* task,
 
 static void test_reflection_first_error_via_executor(void)
 {
-    aegis_executor_t* ex = NULL;
+    aegis_executor_t*       ex  = NULL;
     aegis_executor_config_t cfg = {0};
-    cfg.worker_count = 1;
-    cfg.queue_capacity = 8;
+    cfg.worker_count            = 1;
+    cfg.queue_capacity          = 8;
     assert(aegis_executor_create(&ex, &cfg) == AEGIS_OK);
 
     aegis_task_graph_t* g = NULL;

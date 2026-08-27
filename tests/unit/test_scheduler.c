@@ -36,7 +36,7 @@ static void test_lifecycle(void)
 
 static void test_attach_validation(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -58,7 +58,7 @@ static void test_attach_validation(void)
 
 static void test_next_empty(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -80,7 +80,7 @@ static void test_next_empty(void)
 
 static void test_single_task_dispatch_cycle(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -138,7 +138,7 @@ static void test_single_task_dispatch_cycle(void)
 
 static void test_priority_order(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -172,7 +172,7 @@ static void test_priority_order(void)
 
 static void test_fifo_tiebreak(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -207,7 +207,7 @@ static void test_fifo_tiebreak(void)
 
 static void test_dependency_gating_chain(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -253,7 +253,7 @@ static void test_dependency_gating_chain(void)
 
 static void test_failed_source_blocks_dependent(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -278,7 +278,7 @@ static void test_failed_source_blocks_dependent(void)
 
 static void test_skipped_source_satisfies_dependent(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -306,7 +306,7 @@ static void test_skipped_source_satisfies_dependent(void)
 
 static void test_stale_entry_dropped(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -342,14 +342,14 @@ static int reverse_priority_cmp(const aegis_task_t* lhs, const aegis_task_t* rhs
 
 static void test_custom_policy(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
     assert(aegis_scheduler_attach(s, g) == AEGIS_OK);
 
-    aegis_task_t* lo  = make_task(g, "p1");
-    aegis_task_t* hi  = make_task(g, "p10");
+    aegis_task_t* lo = make_task(g, "p1");
+    aegis_task_t* hi = make_task(g, "p10");
     aegis_task_set_priority(lo, 1);
     aegis_task_set_priority(hi, 10);
 
@@ -380,7 +380,7 @@ static void test_custom_policy(void)
 
 static void test_notify_unknown_task(void)
 {
-    aegis_scheduler_t* s = NULL;
+    aegis_scheduler_t*  s = NULL;
     aegis_task_graph_t* g = NULL;
     assert(aegis_scheduler_create(&s) == AEGIS_OK);
     assert(aegis_task_graph_create(&g) == AEGIS_OK);

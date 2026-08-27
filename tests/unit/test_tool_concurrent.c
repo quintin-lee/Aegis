@@ -24,8 +24,7 @@ static const aegis_tool_param_spec_t k_add_params[] = {
 static const aegis_tool_schema_t k_add_schema = {k_add_params, 2};
 
 static aegis_status_t add_ints(void* user, const aegis_tool_args_t* args,
-                               const aegis_cancellation_token_t* token,
-                               aegis_tool_result_t* out)
+                               const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
 {
     (void)user;
     (void)token;
@@ -39,8 +38,7 @@ static aegis_status_t add_ints(void* user, const aegis_tool_args_t* args,
 static const aegis_tool_schema_t k_no_schema = {NULL, 0}; /* empty schema */
 
 static aegis_status_t ok_tool(void* user, const aegis_tool_args_t* args,
-                              const aegis_cancellation_token_t* token,
-                              aegis_tool_result_t* out)
+                              const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
 {
     (void)user;
     (void)args;
@@ -48,15 +46,15 @@ static aegis_status_t ok_tool(void* user, const aegis_tool_args_t* args,
     return aegis_tool_result_set_bool(out, true);
 }
 
-static aegis_tool_registry_t* g_reg   = NULL;
-static aegis_executor_t*      g_exec  = NULL;
+static aegis_tool_registry_t* g_reg  = NULL;
+static aegis_executor_t*      g_exec = NULL;
 
-#define HAMMER_THREADS 8
+#define HAMMER_THREADS    8
 #define HAMMER_PER_THREAD 25
 
 typedef struct hammer_arg {
-    int              tid;
-    atomic_int       failures;
+    int        tid;
+    atomic_int failures;
 } hammer_arg_t;
 
 static void* hammer_thread(void* p)
@@ -65,14 +63,14 @@ static void* hammer_thread(void* p)
 
     for (int i = 0; i < HAMMER_PER_THREAD; i++) {
         aegis_task_t* task = NULL;
-        char name[64];
+        char          name[64];
         snprintf(name, sizeof(name), "hammer-%d-%d", arg->tid, i);
         if (aegis_task_create(&task, name, "") != AEGIS_OK) {
             atomic_fetch_add(&arg->failures, 1);
             continue;
         }
 
-        const int64_t x = arg->tid * 1000 + i;
+        const int64_t      x    = arg->tid * 1000 + i;
         aegis_tool_args_t* args = NULL;
         if (aegis_tool_args_create(&args) != AEGIS_OK ||
             aegis_tool_args_add_int(args, "a", x) != AEGIS_OK ||
@@ -154,10 +152,10 @@ static void test_invoke_hammer(void)
 
 /* ── Register / find race ───────────────────────────────────────────── */
 
-#define REG_WRITERS 4
+#define REG_WRITERS          4
 #define REG_TOOLS_PER_WRITER 16 /* 64 tools total */
-#define REG_READERS 4
-#define READER_ROUNDS 200
+#define REG_READERS          4
+#define READER_ROUNDS        200
 
 typedef struct reg_writer_arg {
     int        wid; /* 0..REG_WRITERS-1 */
@@ -179,8 +177,8 @@ static void* reg_writer_thread(void* p)
     for (int i = 0; i < REG_TOOLS_PER_WRITER; i++) {
         aegis_tool_def_t d;
         memset(&d, 0, sizeof(d));
-        snprintf(g_race_names[arg->wid][i], sizeof(g_race_names[arg->wid][i]),
-                 "race-%d-%d", arg->wid, i);
+        snprintf(g_race_names[arg->wid][i], sizeof(g_race_names[arg->wid][i]), "race-%d-%d",
+                 arg->wid, i);
         d.name    = g_race_names[arg->wid][i];
         d.schema  = k_no_schema;
         d.execute = ok_tool;
@@ -199,8 +197,8 @@ static void* reg_reader_thread(void* p)
     for (int r = 0; r < READER_ROUNDS; r++) {
         /* Look up a random raced tool: may legitimately not exist yet. */
         char name[32];
-        snprintf(name, sizeof(name), "race-%u-%u",
-                 rand_r(&seed) % REG_WRITERS, rand_r(&seed) % REG_TOOLS_PER_WRITER);
+        snprintf(name, sizeof(name), "race-%u-%u", rand_r(&seed) % REG_WRITERS,
+                 rand_r(&seed) % REG_TOOLS_PER_WRITER);
 
         aegis_tool_def_t found;
         memset(&found, 0, sizeof(found));
@@ -235,8 +233,8 @@ static void test_register_find_race(void)
     base.execute = ok_tool;
     assert(aegis_tool_registry_register(g_reg, &base) == AEGIS_OK);
 
-    pthread_t     writers[REG_WRITERS];
-    pthread_t     readers[REG_READERS];
+    pthread_t        writers[REG_WRITERS];
+    pthread_t        readers[REG_READERS];
     reg_writer_arg_t wargs[REG_WRITERS];
     reg_reader_arg_t rargs[REG_READERS];
 
@@ -262,8 +260,7 @@ static void test_register_find_race(void)
         write_failures += atomic_load(&wargs[t].failures);
     }
     assert(write_failures == 0);
-    assert(aegis_tool_registry_count(g_reg) ==
-           (size_t)(REG_WRITERS * REG_TOOLS_PER_WRITER) + 1);
+    assert(aegis_tool_registry_count(g_reg) == (size_t)(REG_WRITERS * REG_TOOLS_PER_WRITER) + 1);
 
     /* Every raced tool resolves once writers are done. */
     for (int w = 0; w < REG_WRITERS; w++) {
@@ -279,8 +276,7 @@ static void test_register_find_race(void)
         misses += atomic_load(&rargs[t].misses);
     }
     assert(lookups + misses == REG_READERS * READER_ROUNDS);
-    printf("register/find race: %d hits, %d not-yet-registered misses\n", lookups,
-           misses);
+    printf("register/find race: %d hits, %d not-yet-registered misses\n", lookups, misses);
 
     aegis_tool_registry_destroy(g_reg);
     g_reg = NULL;

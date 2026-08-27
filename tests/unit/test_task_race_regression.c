@@ -27,12 +27,13 @@ typedef struct {
 } arg_t;
 
 /* Track all created task IDs across threads to detect duplicates */
-static uint32_t* g_all_ids = NULL;
-static size_t    g_id_count = 0;
-static size_t    g_id_cap   = 0;
+static uint32_t*       g_all_ids  = NULL;
+static size_t          g_id_count = 0;
+static size_t          g_id_cap   = 0;
 static pthread_mutex_t g_ids_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static void* worker(void* arg) {
+static void* worker(void* arg)
+{
     arg_t* a = (arg_t*)arg;
     for (int i = 0; i < NITER; i++) {
         aegis_task_graph_t* g = NULL;
@@ -59,7 +60,7 @@ static void* worker(void* arg) {
             uint32_t id = aegis_task_id(tasks[j]);
             pthread_mutex_lock(&g_ids_lock);
             if (g_id_count >= g_id_cap) {
-                g_id_cap = g_id_cap ? g_id_cap * 2 : 64;
+                g_id_cap      = g_id_cap ? g_id_cap * 2 : 64;
                 uint32_t* tmp = realloc(g_all_ids, sizeof(*g_all_ids) * g_id_cap);
                 assert(tmp);
                 g_all_ids = tmp;
@@ -69,24 +70,31 @@ static void* worker(void* arg) {
         }
 
         /* Build: T0→T1→T2, T0→T3, T2+T3→T4 */
-        if (aegis_task_graph_add_dependency(g, tasks[0], tasks[1]) != AEGIS_OK)
+        if (aegis_task_graph_add_dependency(g, tasks[0], tasks[1]) != AEGIS_OK) {
             __sync_fetch_and_or(&g_failures, 1);
-        if (aegis_task_graph_add_dependency(g, tasks[1], tasks[2]) != AEGIS_OK)
+        }
+        if (aegis_task_graph_add_dependency(g, tasks[1], tasks[2]) != AEGIS_OK) {
             __sync_fetch_and_or(&g_failures, 1);
-        if (aegis_task_graph_add_dependency(g, tasks[0], tasks[3]) != AEGIS_OK)
+        }
+        if (aegis_task_graph_add_dependency(g, tasks[0], tasks[3]) != AEGIS_OK) {
             __sync_fetch_and_or(&g_failures, 1);
-        if (aegis_task_graph_add_dependency(g, tasks[2], tasks[4]) != AEGIS_OK)
+        }
+        if (aegis_task_graph_add_dependency(g, tasks[2], tasks[4]) != AEGIS_OK) {
             __sync_fetch_and_or(&g_failures, 1);
-        if (aegis_task_graph_add_dependency(g, tasks[3], tasks[4]) != AEGIS_OK)
+        }
+        if (aegis_task_graph_add_dependency(g, tasks[3], tasks[4]) != AEGIS_OK) {
             __sync_fetch_and_or(&g_failures, 1);
+        }
 
-        if (!aegis_task_graph_is_dag(g))
+        if (!aegis_task_graph_is_dag(g)) {
             __sync_fetch_and_or(&g_failures, 1);
-        if (aegis_task_graph_validate(g) != AEGIS_OK)
+        }
+        if (aegis_task_graph_validate(g) != AEGIS_OK) {
             __sync_fetch_and_or(&g_failures, 1);
+        }
 
         aegis_task_t** ready = NULL;
-        size_t cnt = 0;
+        size_t         cnt   = 0;
         aegis_task_graph_ready_tasks(g, &ready, &cnt);
         free(ready);
 
@@ -97,14 +105,14 @@ static void* worker(void* arg) {
         }
         aegis_task_graph_destroy(g);
 
-    next:
-        ;
+    next:;
     }
     free(a);
     return NULL;
 }
 
-int main(void) {
+int main(void)
+{
     const size_t total_expected = (size_t)NTHREADS * NITER * NTASKS_PER;
 
     g_all_ids = malloc(sizeof(*g_all_ids) * total_expected);
@@ -117,16 +125,16 @@ int main(void) {
         a->id = i;
         assert(pthread_create(&threads[i], NULL, worker, a) == 0);
     }
-    for (int i = 0; i < NTHREADS; i++)
+    for (int i = 0; i < NTHREADS; i++) {
         pthread_join(threads[i], NULL);
+    }
 
     /* Check for duplicate IDs — any duplicate means the race still exists */
     int duplicates = 0;
     for (size_t i = 0; i < g_id_count && !duplicates; i++) {
         for (size_t j = i + 1; j < g_id_count && !duplicates; j++) {
             if (g_all_ids[i] == g_all_ids[j]) {
-                printf("DUPLICATE ID %u at indices [%zu, %zu]\n",
-                       g_all_ids[i], i, j);
+                printf("DUPLICATE ID %u at indices [%zu, %zu]\n", g_all_ids[i], i, j);
                 duplicates++;
             }
         }
@@ -135,12 +143,10 @@ int main(void) {
     free(g_all_ids);
 
     if (g_failures > 0 || duplicates > 0) {
-        fprintf(stderr, "REGRESSION: %d dup IDs, %d func failures\n",
-                duplicates, g_failures);
+        fprintf(stderr, "REGRESSION: %d dup IDs, %d func failures\n", duplicates, g_failures);
         return 1;
     }
 
-    printf("task graph concurrency regression test passed (%zu IDs unique)\n",
-           g_id_count);
+    printf("task graph concurrency regression test passed (%zu IDs unique)\n", g_id_count);
     return 0;
 }

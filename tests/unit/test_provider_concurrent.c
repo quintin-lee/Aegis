@@ -14,10 +14,9 @@
 
 /* ── Mock LLM echoing the request bytes back ──────────────────────────────── */
 
-static aegis_status_t echo_llm_complete(void* ctx,
-                                        const aegis_llm_request_t* req,
+static aegis_status_t echo_llm_complete(void* ctx, const aegis_llm_request_t* req,
                                         const aegis_cancellation_token_t* token,
-                                        aegis_llm_response_t* out)
+                                        aegis_llm_response_t*             out)
 {
     (void)ctx;
     (void)token;
@@ -60,7 +59,7 @@ typedef struct race_arg {
 
 static void* race_writer(void* argp)
 {
-    race_arg_t* a   = argp;
+    race_arg_t* a = argp;
     char        name[32];
     for (int i = 0; i < 200; i++) {
         snprintf(name, sizeof(name), "dyn-%d", i % 8);
@@ -117,8 +116,8 @@ static void test_registry_race(void)
     }
 
     enum { W = 4, R = 4 };
-    pthread_t             writers[W], readers[R];
-    static race_arg_t     arg;
+    pthread_t         writers[W], readers[R];
+    static race_arg_t arg;
     arg.reg = reg;
     atomic_init(&arg.found_ok, 0);
     atomic_init(&arg.not_found_ok, 0);
@@ -210,7 +209,7 @@ static void test_concurrent_dispatch(void)
     assert(aegis_provider_init(reg, "echo") == AEGIS_OK);
 
     enum { D = 6, L = 2 };
-    pthread_t           dispatchers[D], flappers[L];
+    pthread_t             dispatchers[D], flappers[L];
     static dispatch_arg_t darg;
     darg.reg  = reg;
     darg.name = "echo";
@@ -248,7 +247,7 @@ static void test_concurrent_dispatch(void)
     /* Deterministic tail: bring the provider back and get full success. */
     aegis_status_t rc = aegis_provider_init(reg, "echo");
     assert(rc == AEGIS_OK || rc == AEGIS_ERR_BUSY); /* BUSY if already up. */
-    aegis_llm_request_t  req  = {.prompt = "final", .prompt_len = 5};
+    aegis_llm_request_t  req = {.prompt = "final", .prompt_len = 5};
     aegis_llm_response_t resp;
     assert(aegis_llm_complete(reg, "echo", &req, NULL, &resp) == AEGIS_OK);
     assert(resp.len == 5 && memcmp(resp.data, "final", 5) == 0);

@@ -20,11 +20,12 @@
  *      After T3,T4 complete: T5
  */
 
-static void test_basic_lifecycle(void) {
+static void test_basic_lifecycle(void)
+{
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
 
-    aegis_task_t* t1 = NULL, *t2 = NULL, *t3 = NULL;
+    aegis_task_t *t1 = NULL, *t2 = NULL, *t3 = NULL;
     assert(aegis_task_create(&t1, "t1", "first") == AEGIS_OK);
     assert(aegis_task_create(&t2, "t2", "second") == AEGIS_OK);
     assert(aegis_task_create(&t3, "t3", "third") == AEGIS_OK);
@@ -39,11 +40,12 @@ static void test_basic_lifecycle(void) {
     aegis_task_graph_destroy(g);
 }
 
-static void test_add_remove_dependency(void) {
+static void test_add_remove_dependency(void)
+{
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
 
-    aegis_task_t* t1 = NULL, *t2 = NULL;
+    aegis_task_t *t1 = NULL, *t2 = NULL;
     assert(aegis_task_create(&t1, "t1", NULL) == AEGIS_OK);
     assert(aegis_task_create(&t2, "t2", NULL) == AEGIS_OK);
     assert(aegis_task_graph_add_task(g, t1) == AEGIS_OK);
@@ -67,11 +69,12 @@ static void test_add_remove_dependency(void) {
     aegis_task_graph_destroy(g);
 }
 
-static void test_cycle_detection(void) {
+static void test_cycle_detection(void)
+{
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
 
-    aegis_task_t* t1 = NULL, *t2 = NULL, *t3 = NULL;
+    aegis_task_t *t1 = NULL, *t2 = NULL, *t3 = NULL;
     assert(aegis_task_create(&t1, "t1", NULL) == AEGIS_OK);
     assert(aegis_task_create(&t2, "t2", NULL) == AEGIS_OK);
     assert(aegis_task_create(&t3, "t3", NULL) == AEGIS_OK);
@@ -91,7 +94,8 @@ static void test_cycle_detection(void) {
     aegis_task_graph_destroy(g);
 }
 
-static void test_self_loop(void) {
+static void test_self_loop(void)
+{
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
 
@@ -106,11 +110,12 @@ static void test_self_loop(void) {
     aegis_task_graph_destroy(g);
 }
 
-static void test_validate_topology(void) {
+static void test_validate_topology(void)
+{
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
 
-    aegis_task_t* t1 = NULL, *t2 = NULL;
+    aegis_task_t *t1 = NULL, *t2 = NULL;
     assert(aegis_task_create(&t1, "t1", NULL) == AEGIS_OK);
     assert(aegis_task_create(&t2, "t2", NULL) == AEGIS_OK);
     assert(aegis_task_graph_add_task(g, t1) == AEGIS_OK);
@@ -126,7 +131,8 @@ static void test_validate_topology(void) {
     aegis_task_graph_destroy(g);
 }
 
-static void test_complex_dag(void) {
+static void test_complex_dag(void)
+{
     /* T1 → T2 → T3
        T1 → T4
        T3,T4 → T5 */
@@ -155,7 +161,8 @@ static void test_complex_dag(void) {
     aegis_task_graph_destroy(g);
 }
 
-static void test_cycle_complex(void) {
+static void test_cycle_complex(void)
+{
     /* T1 → T2 → T3 → T1 (cycle) */
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
@@ -178,11 +185,12 @@ static void test_cycle_complex(void) {
     aegis_task_graph_destroy(g);
 }
 
-static void test_ready_tasks(void) {
+static void test_ready_tasks(void)
+{
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
 
-    aegis_task_t* t1 = NULL, *t2 = NULL, *t3 = NULL;
+    aegis_task_t *t1 = NULL, *t2 = NULL, *t3 = NULL;
     assert(aegis_task_create(&t1, "t1", NULL) == AEGIS_OK);
     assert(aegis_task_create(&t2, "t2", NULL) == AEGIS_OK);
     assert(aegis_task_create(&t3, "t3", NULL) == AEGIS_OK);
@@ -195,7 +203,7 @@ static void test_ready_tasks(void) {
 
     /* Initially all pending, none ready */
     aegis_task_t** ready = NULL;
-    size_t count = 0;
+    size_t         count = 0;
     assert(aegis_task_graph_ready_tasks(g, &ready, &count) == AEGIS_OK);
     assert(count == 0);
     free(ready);
@@ -204,14 +212,16 @@ static void test_ready_tasks(void) {
     aegis_task_set_state_for_test(t1, AEGIS_TASK_RUNNING);
 
     /* t2 still pending (t1 not done), t3 pending */
-    ready = NULL; count = 0;
+    ready = NULL;
+    count = 0;
     assert(aegis_task_graph_ready_tasks(g, &ready, &count) == AEGIS_OK);
     assert(count == 0);
     free(ready);
 
     /* Mark t1 as success, t2 should be ready */
     aegis_task_set_state_for_test(t1, AEGIS_TASK_SUCCESS);
-    aegis_task_set_state_for_test(t2, AEGIS_TASK_PENDING); /* deps satisfied but not yet marked ready */
+    aegis_task_set_state_for_test(t2,
+                                  AEGIS_TASK_PENDING); /* deps satisfied but not yet marked ready */
 
     /* Simulate scheduler: update dependent states */
     /* In a real system, the scheduler would do this. Here we just verify structure. */
@@ -219,11 +229,12 @@ static void test_ready_tasks(void) {
     aegis_task_graph_destroy(g);
 }
 
-static void test_remove_task(void) {
+static void test_remove_task(void)
+{
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
 
-    aegis_task_t* t1 = NULL, *t2 = NULL;
+    aegis_task_t *t1 = NULL, *t2 = NULL;
     assert(aegis_task_create(&t1, "t1", NULL) == AEGIS_OK);
     assert(aegis_task_create(&t2, "t2", NULL) == AEGIS_OK);
     assert(aegis_task_graph_add_task(g, t1) == AEGIS_OK);
@@ -246,7 +257,8 @@ static void test_remove_task(void) {
     aegis_task_graph_destroy(g);
 }
 
-static void test_null_operations(void) {
+static void test_null_operations(void)
+{
     assert(aegis_task_graph_add_task(NULL, NULL) == AEGIS_ERR_INVALID);
     assert(aegis_task_graph_remove_task(NULL, NULL) == AEGIS_ERR_INVALID);
     assert(aegis_task_graph_add_dependency(NULL, NULL, NULL) == AEGIS_ERR_INVALID);
@@ -260,11 +272,12 @@ static void test_null_operations(void) {
     aegis_task_graph_destroy(NULL);
 }
 
-static void test_nonexistent_dependency(void) {
+static void test_nonexistent_dependency(void)
+{
     aegis_task_graph_t* g = NULL;
     assert(aegis_task_graph_create(&g) == AEGIS_OK);
 
-    aegis_task_t* t1 = NULL, *t2 = NULL;
+    aegis_task_t *t1 = NULL, *t2 = NULL;
     assert(aegis_task_create(&t1, "t1", NULL) == AEGIS_OK);
     assert(aegis_task_create(&t2, "t2", NULL) == AEGIS_OK);
     assert(aegis_task_graph_add_task(g, t1) == AEGIS_OK);
@@ -277,7 +290,8 @@ static void test_nonexistent_dependency(void) {
     aegis_task_graph_destroy(g);
 }
 
-int main(void) {
+int main(void)
+{
     test_basic_lifecycle();
     test_add_remove_dependency();
     test_cycle_detection();

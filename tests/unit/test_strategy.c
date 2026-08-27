@@ -27,7 +27,7 @@ static const char* g_response = "";
 
 static aegis_status_t canned_llm_complete(void* ctx, const aegis_llm_request_t* req,
                                           const aegis_cancellation_token_t* token,
-                                          aegis_llm_response_t* out)
+                                          aegis_llm_response_t*             out)
 {
     (void)ctx;
     (void)req;
@@ -99,12 +99,13 @@ static void fixture_teardown(struct fixture* f)
 
 /* Minimal well-typed plan-fn stand-in for validation-order checks;
  * never actually invoked by the registry CRUD case. */
-static aegis_status_t noop_plan_fn(void*                          user,
-                                   const aegis_strategy_input_t*   input,
-                                   const aegis_cancellation_token_t* token,
-                                   aegis_plan_t**                  out)
+static aegis_status_t noop_plan_fn(void* user, const aegis_strategy_input_t* input,
+                                   const aegis_cancellation_token_t* token, aegis_plan_t** out)
 {
-    (void)user; (void)input; (void)token; (void)out;
+    (void)user;
+    (void)input;
+    (void)token;
+    (void)out;
     return AEGIS_ERR_INTERNAL;
 }
 
@@ -121,14 +122,14 @@ static void test_registry_crud(void)
     d.plan        = noop_plan_fn; /* Non-NULL stand-in for gating order checks. */
     d.abi_version = AEGIS_STRATEGY_ABI_VERSION;
     assert(aegis_strategy_register(reg, &d) == AEGIS_ERR_INVALID); /* name NULL     */
-    d.name   = "";
-    d.plan   = NULL;
+    d.name        = "";
+    d.plan        = NULL;
     d.abi_version = AEGIS_STRATEGY_ABI_VERSION;
     assert(aegis_strategy_register(reg, &d) == AEGIS_ERR_INVALID); /* empty name    */
-    d.name   = "s";
-    d.plan   = NULL;
+    d.name = "s";
+    d.plan = NULL;
     assert(aegis_strategy_register(reg, &d) == AEGIS_ERR_INVALID); /* plan fn NULL  */
-    d.plan       = noop_plan_fn;
+    d.plan        = noop_plan_fn;
     d.abi_version = 0u;
     assert(aegis_strategy_register(reg, &d) == AEGIS_ERR_INVALID); /* bad abi 0     */
     d.abi_version = AEGIS_STRATEGY_ABI_VERSION + 1u;
@@ -185,7 +186,7 @@ static void test_plan_execute_fresh(void)
     assert(aegis_planner_attach_strategies(fx.planner, strat) == AEGIS_OK);
     assert(aegis_planner_use_strategy(fx.planner, "plan_execute") == AEGIS_OK);
 
-    g_response      = k_dsl_two;
+    g_response         = k_dsl_two;
     aegis_plan_t* plan = NULL;
     assert(aegis_planner_plan(fx.planner, "build widget", NULL, &plan) == AEGIS_OK);
     assert(plan != NULL);
@@ -225,22 +226,22 @@ static void test_plan_execute_revision(void)
     assert(aegis_plan_create(&old, "ship release") == AEGIS_OK);
     aegis_plan_step_spec_t s;
     memset(&s, 0, sizeof(s));
-    s.step_id = AEGIS_PLAN_STEP_ID_AUTO;
-    s.name    = "build";
-    s.type    = AEGIS_TASK_TYPE_COMPUTATIONAL;
+    s.step_id  = AEGIS_PLAN_STEP_ID_AUTO;
+    s.name     = "build";
+    s.type     = AEGIS_TASK_TYPE_COMPUTATIONAL;
     int64_t id = -1;
     assert(aegis_plan_add_step(old, &s, &id) == AEGIS_OK);
-    s.name = "upload";
-    s.deps = &id;
+    s.name      = "upload";
+    s.deps      = &id;
     s.dep_count = 1u;
     int64_t id2 = -1;
     assert(aegis_plan_add_step(old, &s, &id2) == AEGIS_OK);
     aegis_plan_set_version(old, 3u);
 
-    g_response         = k_dsl_revised;
+    g_response            = k_dsl_revised;
     aegis_plan_t* revised = NULL;
-    assert(aegis_replan(fx.planner, old, "step 'build' failed: disk full", NULL,
-                        &revised) == AEGIS_OK);
+    assert(aegis_replan(fx.planner, old, "step 'build' failed: disk full", NULL, &revised) ==
+           AEGIS_OK);
     assert(revised != NULL);
     assert(aegis_plan_version(revised) == 4u); /* Replanner stamps, not the strategy. */
     assert(aegis_plan_step_count(revised) == 1u);
@@ -285,13 +286,12 @@ static void test_pre_cancelled_token(void)
 
 /* ── Planner routing: bound strategy replaces the built-in path ───────────── */
 
-static atomic_int          g_sentinel_saw_prev = 0;
-static char                g_sentinel_feedback[64];
+static atomic_int g_sentinel_saw_prev = 0;
+static char       g_sentinel_feedback[64];
 
 /* Sentinel strategy: never consults the LLM; returns a fixed one-step plan. */
 static aegis_status_t sentinel_plan(void* user, const aegis_strategy_input_t* input,
-                                    const aegis_cancellation_token_t* token,
-                                    aegis_plan_t** out)
+                                    const aegis_cancellation_token_t* token, aegis_plan_t** out)
 {
     (void)user;
     (void)token;
@@ -305,18 +305,18 @@ static aegis_status_t sentinel_plan(void* user, const aegis_strategy_input_t* in
         g_sentinel_feedback[0] = '\0';
     }
 
-    aegis_plan_t* plan = NULL;
-    aegis_status_t rc = aegis_plan_create(&plan, input->goal);
+    aegis_plan_t*  plan = NULL;
+    aegis_status_t rc   = aegis_plan_create(&plan, input->goal);
     if (rc != AEGIS_OK) {
         return rc;
     }
     aegis_plan_step_spec_t s;
     memset(&s, 0, sizeof(s));
-    s.step_id = AEGIS_PLAN_STEP_ID_AUTO;
-    s.name    = "custom-strategy-plan";
-    s.type    = AEGIS_TASK_TYPE_COMPUTATIONAL;
+    s.step_id  = AEGIS_PLAN_STEP_ID_AUTO;
+    s.name     = "custom-strategy-plan";
+    s.type     = AEGIS_TASK_TYPE_COMPUTATIONAL;
     int64_t id = -1;
-    rc = aegis_plan_add_step(plan, &s, &id);
+    rc         = aegis_plan_add_step(plan, &s, &id);
     if (rc != AEGIS_OK) {
         aegis_plan_destroy(plan);
         return rc;
@@ -364,7 +364,7 @@ static void test_planner_routing(void)
 
     /* Deselecting restores the built-in DSL path. */
     assert(aegis_planner_use_strategy(fx.planner, NULL) == AEGIS_OK);
-    g_response      = k_dsl_two;
+    g_response            = k_dsl_two;
     aegis_plan_t* builtin = NULL;
     assert(aegis_planner_plan(fx.planner, "g", NULL, &builtin) == AEGIS_OK);
     assert(aegis_plan_step_count(builtin) == 2u);
@@ -374,7 +374,7 @@ static void test_planner_routing(void)
      * version stamping stays with the replanner. First obtain a valid old
      * plan on the BUILT-IN path, then flip back to the sentinel. */
     assert(aegis_planner_use_strategy(fx.planner, NULL) == AEGIS_OK);
-    g_response      = k_dsl_two;
+    g_response         = k_dsl_two;
     aegis_plan_t* base = NULL;
     assert(aegis_planner_plan(fx.planner, "base goal", NULL, &base) == AEGIS_OK);
     atomic_store(&g_sentinel_saw_prev, 0);
@@ -414,7 +414,7 @@ struct race_arg {
 
 static void* race_reader(void* p)
 {
-    struct race_arg* a = p;
+    struct race_arg*   a       = p;
     static const char* names[] = {"a", "b", "c", "d"};
     for (int i = 0; i < 500; i++) {
         for (unsigned n = 0; n < 4u; n++) {
@@ -438,10 +438,10 @@ static void* race_writer(void* p)
         snprintf(name, sizeof(name), "dyn-%ld-%d", a->tid, i);
         aegis_strategy_def_t d;
         memset(&d, 0, sizeof(d));
-        d.name        = name;
-        d.description = "transient";
-        d.abi_version = AEGIS_STRATEGY_ABI_VERSION;
-        d.plan        = sentinel_plan;
+        d.name            = name;
+        d.description     = "transient";
+        d.abi_version     = AEGIS_STRATEGY_ABI_VERSION;
+        d.plan            = sentinel_plan;
         aegis_status_t rc = aegis_strategy_register(a->reg, &d);
         if (rc == AEGIS_OK) {
             assert(aegis_strategy_unregister(a->reg, name) == AEGIS_OK);
@@ -468,8 +468,8 @@ static void test_registry_race_compact(void)
         assert(aegis_strategy_register(reg, &d) == AEGIS_OK);
     }
 
-    pthread_t readers[RACE_READERS];
-    pthread_t writers[RACE_WRITERS];
+    pthread_t       readers[RACE_READERS];
+    pthread_t       writers[RACE_WRITERS];
     struct race_arg rargs[RACE_READERS];
     struct race_arg wargs[RACE_WRITERS];
     for (long t = 0; t < RACE_READERS; t++) {

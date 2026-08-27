@@ -27,7 +27,7 @@ static void test_args_lifecycle(void)
     assert(!aegis_tool_args_find(NULL, "x", &v));
 
     /* All five value types. */
-    char text[] = "editable-source";
+    char    text[] = "editable-source";
     uint8_t blob[] = {1, 2, 3};
     assert(aegis_tool_args_add_bool(args, "b", true) == AEGIS_OK);
     assert(aegis_tool_args_add_int(args, "i", -42) == AEGIS_OK);
@@ -36,9 +36,11 @@ static void test_args_lifecycle(void)
     assert(aegis_tool_args_add_bytes(args, "y", blob, sizeof(blob)) == AEGIS_OK);
     assert(aegis_tool_args_count(args) == 5);
 
-    assert(aegis_tool_args_find(args, "b", &v) && v->type == AEGIS_TOOL_VAL_BOOL && v->as.b == true);
+    assert(aegis_tool_args_find(args, "b", &v) && v->type == AEGIS_TOOL_VAL_BOOL &&
+           v->as.b == true);
     assert(aegis_tool_args_find(args, "i", &v) && v->type == AEGIS_TOOL_VAL_INT && v->as.i == -42);
-    assert(aegis_tool_args_find(args, "f", &v) && v->type == AEGIS_TOOL_VAL_FLOAT && v->as.f == 2.5);
+    assert(aegis_tool_args_find(args, "f", &v) && v->type == AEGIS_TOOL_VAL_FLOAT &&
+           v->as.f == 2.5);
     assert(aegis_tool_args_find(args, "s", &v) && v->type == AEGIS_TOOL_VAL_STRING &&
            v->as.str.len == strlen("editable-source") &&
            strcmp(v->as.str.ptr, "editable-source") == 0);
@@ -63,8 +65,7 @@ static void test_args_lifecycle(void)
 
     /* NULL string payload stores the empty string (documented semantic). */
     assert(aegis_tool_args_add_string(args, "nul", NULL) == AEGIS_OK);
-    assert(aegis_tool_args_find(args, "nul", &v) && v->as.str.len == 0 &&
-           v->as.str.ptr[0] == '\0');
+    assert(aegis_tool_args_find(args, "nul", &v) && v->as.str.len == 0 && v->as.str.ptr[0] == '\0');
 
     /* Empty payloads allowed. */
     assert(aegis_tool_args_add_bytes(args, "empty", NULL, 0) == AEGIS_OK);
@@ -167,7 +168,7 @@ static void test_validate_args(void)
 
 static aegis_status_t noop_execute(void* user, const aegis_tool_args_t* args,
                                    const aegis_cancellation_token_t* token,
-                                   aegis_tool_result_t* out)
+                                   aegis_tool_result_t*              out)
 {
     (void)user;
     (void)args;
@@ -199,7 +200,7 @@ static void test_registry(void)
         aegis_tool_def_t bad = def;
         bad.name             = "";
         assert(aegis_tool_registry_register(reg, &bad) == AEGIS_ERR_INVALID);
-        bad.name   = "ok-name";
+        bad.name    = "ok-name";
         bad.execute = NULL;
         assert(aegis_tool_registry_register(reg, &bad) == AEGIS_ERR_INVALID);
     }

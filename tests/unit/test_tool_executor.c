@@ -21,8 +21,7 @@ static const aegis_tool_param_spec_t k_add_params[] = {
 static const aegis_tool_schema_t k_add_schema = {k_add_params, 2};
 
 static aegis_status_t add_ints(void* user, const aegis_tool_args_t* args,
-                               const aegis_cancellation_token_t* token,
-                               aegis_tool_result_t* out)
+                               const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
 {
     (void)user;
     (void)token;
@@ -42,8 +41,7 @@ static const aegis_tool_schema_t k_echo_schema = {k_echo_params, 1};
 static const aegis_tool_schema_t k_no_schema = {NULL, 0};
 
 static aegis_status_t echo_string(void* user, const aegis_tool_args_t* args,
-                                  const aegis_cancellation_token_t* token,
-                                  aegis_tool_result_t* out)
+                                  const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
 {
     (void)user;
     (void)token;
@@ -56,7 +54,7 @@ static aegis_status_t echo_string(void* user, const aegis_tool_args_t* args,
 
 static aegis_status_t failing_tool(void* user, const aegis_tool_args_t* args,
                                    const aegis_cancellation_token_t* token,
-                                   aegis_tool_result_t* out)
+                                   aegis_tool_result_t*              out)
 {
     (void)args;
     (void)token;
@@ -66,8 +64,7 @@ static aegis_status_t failing_tool(void* user, const aegis_tool_args_t* args,
 
 /* Sleeps in 5ms slices honoring the token; ~200ms max. */
 static aegis_status_t sleeper(void* user, const aegis_tool_args_t* args,
-                              const aegis_cancellation_token_t* token,
-                              aegis_tool_result_t* out)
+                              const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
 {
     (void)user;
     (void)args;
@@ -83,8 +80,7 @@ static aegis_status_t sleeper(void* user, const aegis_tool_args_t* args,
 
 /* Spins until the token is tripped, then reports cooperative cancel. */
 static aegis_status_t cancelme(void* user, const aegis_tool_args_t* args,
-                               const aegis_cancellation_token_t* token,
-                               aegis_tool_result_t* out)
+                               const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
 {
     (void)user;
     (void)args;
@@ -106,22 +102,22 @@ static aegis_task_t* make_task(const char* name)
 
 static aegis_executor_t* make_executor(unsigned workers)
 {
-    aegis_executor_config_t  cfg;
-    aegis_executor_t* exec = NULL;
-    cfg.worker_count   = workers;
-    cfg.queue_capacity = 64;
+    aegis_executor_config_t cfg;
+    aegis_executor_t*       exec = NULL;
+    cfg.worker_count             = workers;
+    cfg.queue_capacity           = 64;
     assert(aegis_executor_create(&exec, &cfg) == AEGIS_OK);
     return exec;
 }
 
-#define SPIN_COND(cond, label)                                             \
-    do {                                                                   \
-        for (int spin_##label = 0; spin_##label < 5000; spin_##label++) {   \
-            if (cond)                                                      \
-                break;                                                     \
-            aegis_sleep_ms(1);                                             \
-        }                                                                  \
-        assert(cond); /* label: bounded-wait exceeded */                   \
+#define SPIN_COND(cond, label)                                            \
+    do {                                                                  \
+        for (int spin_##label = 0; spin_##label < 5000; spin_##label++) { \
+            if (cond)                                                     \
+                break;                                                    \
+            aegis_sleep_ms(1);                                            \
+        }                                                                 \
+        assert(cond); /* label: bounded-wait exceeded */                  \
     } while (0)
 
 static aegis_tool_registry_t* make_registry_with_mocks(void)
@@ -132,36 +128,36 @@ static aegis_tool_registry_t* make_registry_with_mocks(void)
     aegis_tool_def_t d;
     memset(&d, 0, sizeof(d));
 
-    d.name = "add_ints";
+    d.name        = "add_ints";
     d.description = "sums two ints";
-    d.schema = k_add_schema;
-    d.execute = add_ints;
+    d.schema      = k_add_schema;
+    d.execute     = add_ints;
     assert(aegis_tool_registry_register(reg, &d) == AEGIS_OK);
 
-    d.name = "echo_string";
+    d.name        = "echo_string";
     d.description = "echoes its text argument";
-    d.schema = k_echo_schema;
-    d.execute = echo_string;
+    d.schema      = k_echo_schema;
+    d.execute     = echo_string;
     assert(aegis_tool_registry_register(reg, &d) == AEGIS_OK);
 
-    d.name = "failing";
+    d.name        = "failing";
     d.description = "always fails with ERR_PROVIDER";
-    d.schema = k_no_schema;
-    d.execute = failing_tool;
-    d.user = (void*)(intptr_t)AEGIS_ERR_PROVIDER;
+    d.schema      = k_no_schema;
+    d.execute     = failing_tool;
+    d.user        = (void*)(intptr_t)AEGIS_ERR_PROVIDER;
     assert(aegis_tool_registry_register(reg, &d) == AEGIS_OK);
 
-    d.name = "sleeper";
+    d.name        = "sleeper";
     d.description = "sleeps honoring the token";
-    d.schema = k_no_schema;
-    d.execute = sleeper;
-    d.user = NULL;
+    d.schema      = k_no_schema;
+    d.execute     = sleeper;
+    d.user        = NULL;
     assert(aegis_tool_registry_register(reg, &d) == AEGIS_OK);
 
-    d.name = "cancelme";
+    d.name        = "cancelme";
     d.description = "spins until cancelled";
-    d.schema = k_no_schema;
-    d.execute = cancelme;
+    d.schema      = k_no_schema;
+    d.execute     = cancelme;
     assert(aegis_tool_registry_register(reg, &d) == AEGIS_OK);
 
     return reg;
@@ -178,7 +174,7 @@ static aegis_tool_args_t* fresh_args(void)
 
 static void test_submit_validation(void)
 {
-    aegis_tool_registry_t* reg = make_registry_with_mocks();
+    aegis_tool_registry_t* reg  = make_registry_with_mocks();
     aegis_executor_t*      exec = make_executor(1);
     aegis_task_t*          task = make_task("v");
 
@@ -199,7 +195,7 @@ static void test_submit_validation(void)
 
 static void test_unknown_tool_propagates_not_found(void)
 {
-    aegis_tool_registry_t* reg = make_registry_with_mocks();
+    aegis_tool_registry_t* reg  = make_registry_with_mocks();
     aegis_executor_t*      exec = make_executor(1);
     aegis_task_t*          task = make_task("unknown");
 
@@ -226,12 +222,12 @@ static void test_unknown_tool_propagates_not_found(void)
 
 static void test_success_paths_encode_output_bytes(void)
 {
-    aegis_tool_registry_t* reg = make_registry_with_mocks();
+    aegis_tool_registry_t* reg  = make_registry_with_mocks();
     aegis_executor_t*      exec = make_executor(2);
 
     /* INT result -> 8 bytes little-endian. */
     {
-        aegis_task_t* task = make_task("add");
+        aegis_task_t*      task = make_task("add");
         aegis_tool_args_t* args = NULL;
         assert(aegis_tool_args_create(&args) == AEGIS_OK);
         assert(aegis_tool_args_add_int(args, "a", 19) == AEGIS_OK);
@@ -245,8 +241,8 @@ static void test_success_paths_encode_output_bytes(void)
         assert(result.status == AEGIS_OK);
         assert(aegis_task_state(task) == AEGIS_TASK_SUCCESS);
 
-        size_t         len  = 0;
-        const void*    data = aegis_task_output(task, &len);
+        size_t      len  = 0;
+        const void* data = aegis_task_output(task, &len);
         assert(data && len == 8);
         uint8_t expect[8];
         int64_t sum = 12;
@@ -258,7 +254,7 @@ static void test_success_paths_encode_output_bytes(void)
 
     /* STRING result -> raw text without NUL. */
     {
-        aegis_task_t* task = make_task("echo");
+        aegis_task_t*      task = make_task("echo");
         aegis_tool_args_t* args = NULL;
         assert(aegis_tool_args_create(&args) == AEGIS_OK);
         assert(aegis_tool_args_add_string(args, "text", "hello-tool") == AEGIS_OK);
@@ -283,7 +279,7 @@ static void test_success_paths_encode_output_bytes(void)
 
 static void test_validation_failure_propagates_invalid(void)
 {
-    aegis_tool_registry_t* reg = make_registry_with_mocks();
+    aegis_tool_registry_t* reg  = make_registry_with_mocks();
     aegis_executor_t*      exec = make_executor(1);
     aegis_task_t*          task = make_task("badargs");
 
@@ -310,7 +306,7 @@ static void test_validation_failure_propagates_invalid(void)
 
 static void test_tool_error_propagates_verbatim(void)
 {
-    aegis_tool_registry_t* reg = make_registry_with_mocks();
+    aegis_tool_registry_t* reg  = make_registry_with_mocks();
     aegis_executor_t*      exec = make_executor(1);
     aegis_task_t*          task = make_task("boom");
 
@@ -332,7 +328,7 @@ static void test_tool_error_propagates_verbatim(void)
 
 static void test_timeout_via_task_deadline(void)
 {
-    aegis_tool_registry_t* reg = make_registry_with_mocks();
+    aegis_tool_registry_t* reg  = make_registry_with_mocks();
     aegis_executor_t*      exec = make_executor(1);
     aegis_task_t*          task = make_task("slow");
 
@@ -357,7 +353,7 @@ static void test_timeout_via_task_deadline(void)
 
 static void test_cooperative_cancel_running_tool(void)
 {
-    aegis_tool_registry_t* reg = make_registry_with_mocks();
+    aegis_tool_registry_t* reg  = make_registry_with_mocks();
     aegis_executor_t*      exec = make_executor(1);
     aegis_task_t*          task = make_task("victim");
 

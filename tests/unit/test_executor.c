@@ -29,7 +29,7 @@ static aegis_task_t* make_task(const char* name)
 static aegis_executor_t* make_executor(unsigned workers)
 {
     aegis_executor_t*       e   = NULL;
-    aegis_executor_config_t cfg = { .worker_count = workers, .queue_capacity = 0 };
+    aegis_executor_config_t cfg = {.worker_count = workers, .queue_capacity = 0};
     assert(aegis_executor_create(&e, &cfg) == AEGIS_OK);
     return e;
 }
@@ -164,9 +164,9 @@ static aegis_status_t output_work(aegis_task_t* task, const aegis_cancellation_t
 static void test_success_path(void)
 {
     atomic_store(&g_gate, 1); /* nothing gated here */
-    aegis_executor_t* e    = make_executor(2);
-    aegis_task_t*     t    = make_task("success");
-    aegis_exec_result_t r  = { 0 };
+    aegis_executor_t*   e = make_executor(2);
+    aegis_task_t*       t = make_task("success");
+    aegis_exec_result_t r = {0};
 
     assert(aegis_executor_submit(e, t, output_work, (void*)"done-data") == AEGIS_OK);
     assert(aegis_executor_wait(e, aegis_task_id(t), &r, 5000) == AEGIS_OK);
@@ -194,13 +194,12 @@ static void test_success_path(void)
 
 static void test_failure_no_retry(void)
 {
-    aegis_executor_t* e   = make_executor(1);
-    aegis_task_t*     t   = make_task("fail-fast");
-    aegis_exec_result_t r = { 0 };
-    const int         rc  = AEGIS_ERR_TOOL;
+    aegis_executor_t*   e  = make_executor(1);
+    aegis_task_t*       t  = make_task("fail-fast");
+    aegis_exec_result_t r  = {0};
+    const int           rc = AEGIS_ERR_TOOL;
 
-    aegis_task_set_retry_policy(
-        t, (aegis_task_retry_policy_t){ .max_attempts = 0, .delay_ms = 0 });
+    aegis_task_set_retry_policy(t, (aegis_task_retry_policy_t){.max_attempts = 0, .delay_ms = 0});
 
     assert(aegis_executor_submit(e, t, failing_work, (void*)(intptr_t)rc) == AEGIS_OK);
     assert(aegis_executor_wait(e, aegis_task_id(t), &r, 5000) == AEGIS_OK);
@@ -217,15 +216,14 @@ static void test_failure_no_retry(void)
 
 static void test_retry_exhausted(void)
 {
-    aegis_executor_t* e = make_executor(1);
-    aegis_task_t*     t = make_task("retry-exhausted");
-    aegis_exec_result_t r = { 0 };
+    aegis_executor_t*   e = make_executor(1);
+    aegis_task_t*       t = make_task("retry-exhausted");
+    aegis_exec_result_t r = {0};
 
-    aegis_task_set_retry_policy(
-        t, (aegis_task_retry_policy_t){ .max_attempts = 2, .delay_ms = 1 });
+    aegis_task_set_retry_policy(t, (aegis_task_retry_policy_t){.max_attempts = 2, .delay_ms = 1});
 
-    assert(aegis_executor_submit(e, t, failing_work, (void*)(intptr_t)AEGIS_ERR_INTERNAL)
-           == AEGIS_OK);
+    assert(aegis_executor_submit(e, t, failing_work, (void*)(intptr_t)AEGIS_ERR_INTERNAL) ==
+           AEGIS_OK);
     assert(aegis_executor_wait(e, aegis_task_id(t), &r, 5000) == AEGIS_OK);
 
     /* retries=2 → three total attempts. */
@@ -240,13 +238,14 @@ static void test_retry_exhausted(void)
 
 static void test_retry_then_success(void)
 {
-    aegis_executor_t* e = make_executor(1);
-    aegis_task_t*     t = make_task("retry-recovers");
-    aegis_exec_result_t r = { 0 };
-    int               remaining = 2;
+    aegis_executor_t*   e         = make_executor(1);
+    aegis_task_t*       t         = make_task("retry-recovers");
+    aegis_exec_result_t r         = {0};
+    int                 remaining = 2;
 
     aegis_task_set_retry_policy(
-        t, (aegis_task_retry_policy_t){ .max_attempts = 3, .delay_ms = 1, .exponential_backoff = true });
+        t,
+        (aegis_task_retry_policy_t){.max_attempts = 3, .delay_ms = 1, .exponential_backoff = true});
 
     assert(aegis_executor_submit(e, t, flaky_work, &remaining) == AEGIS_OK);
     assert(aegis_executor_wait(e, aegis_task_id(t), &r, 5000) == AEGIS_OK);
@@ -265,14 +264,13 @@ static void test_retry_then_success(void)
 
 static void test_timeout_not_retried(void)
 {
-    aegis_executor_t* e   = make_executor(1);
-    aegis_task_t*     t   = make_task("timeout");
-    aegis_exec_result_t r = { 0 };
+    aegis_executor_t*   e = make_executor(1);
+    aegis_task_t*       t = make_task("timeout");
+    aegis_exec_result_t r = {0};
     atomic_store(&g_gate, 0);
 
     /* Retries configured: must NOT apply after a timeout. */
-    aegis_task_set_retry_policy(
-        t, (aegis_task_retry_policy_t){ .max_attempts = 3, .delay_ms = 1 });
+    aegis_task_set_retry_policy(t, (aegis_task_retry_policy_t){.max_attempts = 3, .delay_ms = 1});
     aegis_task_set_timeout_ms(t, 40);
 
     atomic_int ran;
@@ -293,10 +291,10 @@ static void test_timeout_not_retried(void)
 
 static void test_cancel_queued_never_runs(void)
 {
-    aegis_executor_t* e = make_executor(1); /* single worker: second job queues */
-    aegis_task_t*     blocker = make_task("blocker");
-    aegis_task_t*     victim  = make_task("queued-victim");
-    aegis_exec_result_t rb = { 0 }, rv = { 0 };
+    aegis_executor_t*   e       = make_executor(1); /* single worker: second job queues */
+    aegis_task_t*       blocker = make_task("blocker");
+    aegis_task_t*       victim  = make_task("queued-victim");
+    aegis_exec_result_t rb = {0}, rv = {0};
     atomic_store(&g_gate, 0);
 
     atomic_int ran_blocker, ran_victim;
@@ -337,9 +335,9 @@ static void test_cancel_queued_never_runs(void)
 
 static void test_cancel_running_cooperative(void)
 {
-    aegis_executor_t* e = make_executor(1);
-    aegis_task_t*     t = make_task("running-cancel");
-    aegis_exec_result_t r = { 0 };
+    aegis_executor_t*   e = make_executor(1);
+    aegis_task_t*       t = make_task("running-cancel");
+    aegis_exec_result_t r = {0};
     atomic_store(&g_gate, 0); /* work runs until cancelled */
 
     atomic_int ran;
@@ -364,9 +362,7 @@ static void test_cancel_running_cooperative(void)
 /* Ignores the cancellation token entirely: cancel during run returns OK but
  * must not change the outcome. Used to observe FINISHED-before-reap
  * deterministically. */
-static int stubborn_slow_work(aegis_task_t*                  t,
-                              const aegis_cancellation_token_t* tok,
-                              void*                          user)
+static int stubborn_slow_work(aegis_task_t* t, const aegis_cancellation_token_t* tok, void* user)
 {
     (void)t;
     (void)tok;
@@ -389,8 +385,7 @@ static void test_cancel_after_finish_is_busy(void)
      * outcome. Wait until all work drained instead. */
     bool finished = false;
     for (int i = 0; i < 5000 && !finished; i++) {
-        if (aegis_executor_running_count(e) == 0 &&
-            aegis_executor_pending_count(e) == 0) {
+        if (aegis_executor_running_count(e) == 0 && aegis_executor_pending_count(e) == 0) {
             finished = true;
         } else {
             aegis_sleep_ms(1);
@@ -401,7 +396,7 @@ static void test_cancel_after_finish_is_busy(void)
     /* Finished but unreaped → BUSY. */
     assert(aegis_executor_cancel(e, aegis_task_id(t)) == AEGIS_ERR_BUSY);
 
-    aegis_exec_result_t r = { 0 };
+    aegis_exec_result_t r = {0};
     assert(aegis_executor_wait(e, aegis_task_id(t), &r, 5000) == AEGIS_OK);
     assert(r.outcome == AEGIS_EXEC_COMPLETED);
 
@@ -416,9 +411,9 @@ static void test_cancel_after_finish_is_busy(void)
 
 static void test_duplicate_and_queue_full(void)
 {
-    static atomic_int ran_a;
-    aegis_executor_t* e = NULL;
-    aegis_executor_config_t cfg = { .worker_count = 1, .queue_capacity = 1 };
+    static atomic_int       ran_a;
+    aegis_executor_t*       e   = NULL;
+    aegis_executor_config_t cfg = {.worker_count = 1, .queue_capacity = 1};
     assert(aegis_executor_create(&e, &cfg) == AEGIS_OK);
 
     aegis_task_t* a = make_task("dup-a");
@@ -432,12 +427,12 @@ static void test_duplicate_and_queue_full(void)
     while (!atomic_load(&ran_a)) {
         aegis_sleep_ms(2);
     }
-    assert(aegis_executor_submit(e, b, gated_work, NULL) == AEGIS_OK); /* queued  */
+    assert(aegis_executor_submit(e, b, gated_work, NULL) == AEGIS_OK);       /* queued  */
     assert(aegis_executor_submit(e, c, gated_work, NULL) == AEGIS_ERR_BUSY); /* full */
     assert(aegis_executor_submit(e, a, gated_work, NULL) == AEGIS_ERR_BUSY); /* dup */
 
     open_gate();
-    aegis_exec_result_t r = { 0 };
+    aegis_exec_result_t r = {0};
     assert(aegis_executor_wait(e, aegis_task_id(a), &r, 5000) == AEGIS_OK);
     assert(aegis_executor_wait(e, aegis_task_id(b), &r, 5000) == AEGIS_OK);
 
@@ -451,9 +446,9 @@ static void test_duplicate_and_queue_full(void)
 
 static void test_wait_timeout_leaves_job_intact(void)
 {
-    aegis_executor_t* e = make_executor(1);
-    aegis_task_t*     t = make_task("wait-budget");
-    aegis_exec_result_t r = { 0 };
+    aegis_executor_t*   e = make_executor(1);
+    aegis_task_t*       t = make_task("wait-budget");
+    aegis_exec_result_t r = {0};
     atomic_store(&g_gate, 0);
 
     assert(aegis_executor_submit(e, t, gated_work, NULL) == AEGIS_OK);
@@ -505,8 +500,7 @@ static void test_shutdown_drains_everything(void)
     /* Every task reached a terminal state; queued ones were never run. */
     for (int i = 0; i < 4; i++) {
         const aegis_task_state_t st = aegis_task_state(tasks[i]);
-        assert(st == AEGIS_TASK_SUCCESS || st == AEGIS_TASK_CANCELLED ||
-               st == AEGIS_TASK_FAILED);
+        assert(st == AEGIS_TASK_SUCCESS || st == AEGIS_TASK_CANCELLED || st == AEGIS_TASK_FAILED);
     }
 
     aegis_executor_destroy(e);
@@ -517,9 +511,7 @@ static void test_shutdown_drains_everything(void)
 
 /* Sets the flag once running, then burns ~50ms ignoring the token: long
  * enough that no small shutdown budget can wait it out. */
-static int stubborn_flagged_work(aegis_task_t*                    t,
-                                 const aegis_cancellation_token_t* tok,
-                                 void*                            user)
+static int stubborn_flagged_work(aegis_task_t* t, const aegis_cancellation_token_t* tok, void* user)
 {
     (void)t;
     (void)tok;

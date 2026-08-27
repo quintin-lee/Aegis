@@ -23,11 +23,11 @@ typedef struct aegis_strategy_entry {
 } aegis_strategy_entry_t;
 
 struct aegis_strategy_registry {
-    aegis_mutex_t*         lock;     /**< Leaf lock: never taken while held elsewhere. */
-    aegis_hashmap_t*       map;      /**< name -> aegis_strategy_entry_t*. */
-    aegis_strategy_entry_t** owned;  /**< Ownership side-array (hashmap frees values never). */
-    size_t                 owned_len;
-    size_t                 owned_cap;
+    aegis_mutex_t*           lock;  /**< Leaf lock: never taken while held elsewhere. */
+    aegis_hashmap_t*         map;   /**< name -> aegis_strategy_entry_t*. */
+    aegis_strategy_entry_t** owned; /**< Ownership side-array (hashmap frees values never). */
+    size_t                   owned_len;
+    size_t                   owned_cap;
 };
 
 /** Validate a registration input. AEGIS_OK or AEGIS_ERR_INVALID. */
