@@ -135,6 +135,17 @@ uint64_t aegis_checkpoint_timestamp(const aegis_checkpoint_t* ckpt);
 const char* aegis_checkpoint_goal(const aegis_checkpoint_t* ckpt);
 
 /**
+ * @brief Set the goal text on a checkpoint (copies string).
+ *
+ * Useful for orchestrators that have a goal string without an aegis_agent_t.
+ *
+ * @param ckpt Checkpoint (borrowed).
+ * @param goal Goal text (borrowed; NULL clears).
+ * @return AEGIS_OK or AEGIS_ERR_NOMEM.
+ */
+aegis_status_t aegis_checkpoint_set_goal(aegis_checkpoint_t* ckpt, const char* goal);
+
+/**
  * @brief Get the plan version captured in the checkpoint.
  */
 uint32_t aegis_checkpoint_plan_version(const aegis_checkpoint_t* ckpt);

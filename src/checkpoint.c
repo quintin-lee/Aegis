@@ -185,6 +185,22 @@ aegis_status_t aegis_checkpoint_populate(aegis_checkpoint_t* ckpt, const aegis_a
     return AEGIS_OK;
 }
 
+aegis_status_t aegis_checkpoint_set_goal(aegis_checkpoint_t* ckpt, const char* goal)
+{
+    if (!ckpt) {
+        return AEGIS_ERR_INVALID;
+    }
+    free(ckpt->goal);
+    ckpt->goal = NULL;
+    if (goal) {
+        ckpt->goal = strdup(goal);
+        if (!ckpt->goal) {
+            return AEGIS_ERR_NOMEM;
+        }
+    }
+    return AEGIS_OK;
+}
+
 /* ── Accessors ─────────────────────────────────────────────────────────────── */
 
 uint32_t aegis_checkpoint_version(const aegis_checkpoint_t* ckpt)
@@ -240,7 +256,8 @@ aegis_status_t aegis_checkpoint_serialize(const aegis_checkpoint_t* ckpt, char**
     }
     *out = NULL;
 
-    size_t est = 256 + strlen(ckpt->agent_state) + strlen(ckpt->goal) +
+    size_t est = 256 + strlen(ckpt->agent_state) +
+                 (ckpt->goal ? strlen(ckpt->goal) : 0) +
                  (ckpt->plan_text ? strlen(ckpt->plan_text) + 20 : 0);
     for (size_t i = 0; i < ckpt->n_tasks; i++) {
         est += 128;
