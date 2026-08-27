@@ -51,9 +51,9 @@ typedef enum aegis_security_audit_type {
 
 /** Audit decision outcome. */
 typedef enum aegis_security_audit_decision {
-    AEGIS_SECURITY_AUDIT_ALLOW,       /**< Action permitted.                          */
-    AEGIS_SECURITY_AUDIT_DENY,        /**< Action denied.                             */
-    AEGIS_SECURITY_AUDIT_INFO,        /**< Informational (no decision).               */
+    AEGIS_SECURITY_AUDIT_ALLOW, /**< Action permitted.                          */
+    AEGIS_SECURITY_AUDIT_DENY,  /**< Action denied.                             */
+    AEGIS_SECURITY_AUDIT_INFO,  /**< Informational (no decision).               */
 } aegis_security_audit_decision_t;
 
 /**
@@ -63,12 +63,12 @@ typedef enum aegis_security_audit_decision {
  * buffer overwrites the oldest when full).
  */
 typedef struct aegis_security_audit_entry {
-    uint64_t              timestamp;       /**< Monotonic nanoseconds since epoch.   */
-    aegis_security_audit_type_t    type;     /**< Category of event.                   */
-    aegis_security_audit_decision_t decision; /**< ALLOW / DENY / INFO.                 */
-    aegis_capability_t    capability;      /**< Capability flag, or AEGIS_CAP_NONE.   */
-    uint32_t              rule_index;      /**< Index of rule evaluated (-1 if N/A).  */
-    char                  message[128];    /**< Human-readable description.           */
+    uint64_t                        timestamp;    /**< Monotonic nanoseconds since epoch.   */
+    aegis_security_audit_type_t     type;         /**< Category of event.                   */
+    aegis_security_audit_decision_t decision;     /**< ALLOW / DENY / INFO.                 */
+    aegis_capability_t              capability;   /**< Capability flag, or AEGIS_CAP_NONE.   */
+    uint32_t                        rule_index;   /**< Index of rule evaluated (-1 if N/A).  */
+    char                            message[128]; /**< Human-readable description.           */
 } aegis_security_audit_entry_t;
 
 /* ── Sandbox ───────────────────────────────────────────────────────────────── */
@@ -138,8 +138,8 @@ size_t aegis_security_audit_count(const aegis_security_policy_t* policy);
  * @param idx    Zero-based index (must be < aegis_security_audit_count()).
  * @return Pointer to the entry (borrowed, immutable); NULL if idx out of range.
  */
-const aegis_security_audit_entry_t* aegis_security_audit_get(
-    const aegis_security_policy_t* policy, size_t idx);
+const aegis_security_audit_entry_t* aegis_security_audit_get(const aegis_security_policy_t* policy,
+                                                             size_t                         idx);
 
 /**
  * @brief Get the most-recently-written audit entry.
@@ -185,8 +185,8 @@ void aegis_security_policy_destroy(aegis_security_policy_t* policy);
  *         AEGIS_ERR_NOMEM.
  */
 aegis_status_t aegis_security_policy_add_rule(aegis_security_policy_t* policy,
-                                               const char* tool_pattern,
-                                               aegis_capability_t required_caps);
+                                              const char*              tool_pattern,
+                                              aegis_capability_t       required_caps);
 
 /**
  * @brief Remove all rules from a policy.
@@ -224,10 +224,8 @@ size_t aegis_security_policy_rule_count(const aegis_security_policy_t* policy);
  * @return AEGIS_OK (permitted), AEGIS_ERR_PERM (denied),
  *         AEGIS_ERR_INVALID (null args).
  */
-aegis_status_t aegis_security_evaluate(aegis_security_policy_t* policy,
-                                        const char* tool_name,
-                                        aegis_capability_t tool_caps,
-                                        const char* ctx);
+aegis_status_t aegis_security_evaluate(aegis_security_policy_t* policy, const char* tool_name,
+                                       aegis_capability_t tool_caps, const char* ctx);
 
 /**
  * @brief Convenience: check whether a tool's capabilities are granted
@@ -241,9 +239,8 @@ aegis_status_t aegis_security_evaluate(aegis_security_policy_t* policy,
  * @param tool_caps Capability bitmask.
  * @return true if permitted, false if denied.
  */
-bool aegis_security_has_permission(const aegis_security_policy_t* policy,
-                                    const char* tool_name,
-                                    aegis_capability_t tool_caps);
+bool aegis_security_has_permission(const aegis_security_policy_t* policy, const char* tool_name,
+                                   aegis_capability_t tool_caps);
 
 /* ── Sandbox ───────────────────────────────────────────────────────────────── */
 
@@ -286,10 +283,9 @@ typedef struct aegis_security_sandbox_vtable {
      * @param token   Cancellation token (borrowed).
      * @return AEGIS_OK to proceed, or an error to abort execution.
      */
-    aegis_status_t (*pre_execute)(aegis_security_sandbox_t* sandbox,
-                                   const char* tool_name,
-                                   aegis_capability_t tool_caps,
-                                   const aegis_cancellation_token_t* token);
+    aegis_status_t (*pre_execute)(aegis_security_sandbox_t* sandbox, const char* tool_name,
+                                  aegis_capability_t                tool_caps,
+                                  const aegis_cancellation_token_t* token);
 
     /**
      * @brief Post-execution hook: clean up sandbox state.
@@ -300,8 +296,7 @@ typedef struct aegis_security_sandbox_vtable {
      * @param sandbox Sandbox handle (borrowed, mutable).
      * @param result  Tool result (borrowed; may be NULL on failure).
      */
-    void (*post_execute)(aegis_security_sandbox_t* sandbox,
-                         const void* result);
+    void (*post_execute)(aegis_security_sandbox_t* sandbox, const void* result);
 } aegis_security_sandbox_vtable_t;
 
 /**
@@ -314,8 +309,8 @@ typedef struct aegis_security_sandbox_vtable {
  * @param sandbox Sandbox handle (mutable, borrowed).
  * @param vtable  New vtable (borrowed; must remain valid for sandbox lifetime).
  */
-void aegis_security_sandbox_set_vtable(aegis_security_sandbox_t* sandbox,
-                                        const aegis_security_sandbox_vtable_t* vtable);
+void aegis_security_sandbox_set_vtable(aegis_security_sandbox_t*              sandbox,
+                                       const aegis_security_sandbox_vtable_t* vtable);
 
 /**
  * @brief Get the current vtable pointer.
@@ -341,11 +336,10 @@ const aegis_security_sandbox_vtable_t* aegis_security_sandbox_get_vtable(
  * @param token        Cancellation token (borrowed).
  * @return AEGIS_OK to proceed, or the first error encountered.
  */
-aegis_status_t aegis_security_gate(aegis_security_policy_t* policy,
-                                    aegis_security_sandbox_t* sandbox,
-                                    const char* tool_name,
-                                    aegis_capability_t tool_caps,
-                                    const aegis_cancellation_token_t* token);
+aegis_status_t aegis_security_gate(aegis_security_policy_t*  policy,
+                                   aegis_security_sandbox_t* sandbox, const char* tool_name,
+                                   aegis_capability_t                tool_caps,
+                                   const aegis_cancellation_token_t* token);
 
 #ifdef __cplusplus
 }

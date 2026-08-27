@@ -90,7 +90,7 @@ static void test_evaluate_allowed(void)
     assert(aegis_security_evaluate(p, "read_file", AEGIS_CAP_READ_FILE, "context1") == AEGIS_OK);
     assert(aegis_security_evaluate(p, "execute_cmd", AEGIS_CAP_SHELL, NULL) == AEGIS_OK);
     /* Super-set of capabilities should also pass. */
-    assert(aegis_security_evaluate(p, "read_file",
+    assert(aegis_security_evaluate(p, "read_file", AEGIS_CAP_READ_FILE, NULL) == AEGIS_OK);
                                     AEGIS_CAP_READ_FILE | AEGIS_CAP_WRITE_FILE,
                                     NULL) == AEGIS_OK);
 
@@ -232,8 +232,7 @@ static void mock_post_execute(aegis_security_sandbox_t* sandbox, const void* res
 }
 
 static const aegis_security_sandbox_vtable_t mock_vtable = {
-    aegis_add_test(unit_checkpoint         tests/unit/test_checkpoint.c)
-    aegis_add_test(unit_security           tests/unit/test_security.c)
+    .pre_execute  = mock_pre_execute,
     .post_execute = mock_post_execute,
 };
 
@@ -279,6 +278,7 @@ static void test_gate_no_sandbox(void)
 
     aegis_cancellation_token_t* token = NULL;
     expect_ok(aegis_cancellation_token_create(&token), "token");
+    /* NULL sandbox should be a no-op. */
     assert(aegis_security_gate(p, NULL, "read_file", AEGIS_CAP_READ_FILE, token) == AEGIS_OK);
 
     aegis_cancellation_token_destroy(token);
