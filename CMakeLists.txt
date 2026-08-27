@@ -148,6 +148,7 @@ add_library(aegis_core
     src/context.c
     src/storage_store.c
     src/checkpoint.c
+    src/security.c
 )
 target_include_directories(aegis_core
     PUBLIC
@@ -233,6 +234,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_context            tests/unit/test_context.c)
     aegis_add_test(unit_storage            tests/unit/test_storage.c)
     aegis_add_test(unit_checkpoint         tests/unit/test_checkpoint.c)
+    aegis_add_test(unit_security           tests/unit/test_security.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
