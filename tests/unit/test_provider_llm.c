@@ -155,7 +155,7 @@ static void test_llm_mock_error_mapping(void)
     aegis_provider_def_t def = {0};
     expect_ok(aegis_llm_mock_create(&ctx, &ops, &def), "create");
     assert(ctx != NULL);
-    ctx->fail_after = 1;
+    aegis_llm_mock_set_fail_after(ctx, 1);
 
     aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");

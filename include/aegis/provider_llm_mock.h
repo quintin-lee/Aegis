@@ -36,6 +36,14 @@ aegis_status_t aegis_llm_mock_create(llm_mock_ctx_t** out_ctx, const aegis_llm_o
  */
 void aegis_llm_mock_destroy(llm_mock_ctx_t* ctx, const aegis_llm_ops_t* ops);
 
+/**
+ * @brief Set the failure threshold for the mock LLM provider.
+ *
+ * @param ctx        Mock context (borrowed).
+ * @param fail_after Number of successful calls before failing (0 = never fail).
+ */
+void aegis_llm_mock_set_fail_after(llm_mock_ctx_t* ctx, int fail_after);
+
 #ifdef __cplusplus
 }
 #endif
