@@ -51,7 +51,7 @@ static void test_span_creation(void)
 
     /* End parent first (LIFO). */
     aegis_trace_span_end(span);
-    assert(aegis_trace_span_duration_us(span) >= 0);
+    (void)aegis_trace_span_duration_us(span);
     aegis_trace_span_end(child);
     // Duration is non-negative by construction
 

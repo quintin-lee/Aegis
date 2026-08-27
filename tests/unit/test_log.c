@@ -21,6 +21,7 @@ static void test_sink(aegis_log_level_t level, const char* module,
                       const char* context, const char* message, void* user)
 {
     (void)user;
+    (void)context;
     g_test_sink_call_count++;
     g_last_level = level;
     g_last_module = module;

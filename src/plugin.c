@@ -92,7 +92,8 @@ aegis_status_t aegis_plugin_load(const char* path, aegis_plugin_t** out)
     }
 
     typedef const aegis_plugin_manifest_t* (*manifest_fn)(void);
-    manifest_fn get_manifest = (manifest_fn)dlsym(handle, AEGIS_PLUGIN_MANIFEST_FN);
+    manifest_fn get_manifest = NULL;
+    *(void**)(&get_manifest) = dlsym(handle, AEGIS_PLUGIN_MANIFEST_FN);
     if (!get_manifest) {
         fprintf(stderr, "[PLUGIN] missing symbol %s: %s\n", AEGIS_PLUGIN_MANIFEST_FN, dlerror());
         dlclose(handle);
@@ -125,13 +126,15 @@ aegis_status_t aegis_plugin_load(const char* path, aegis_plugin_t** out)
 
     typedef aegis_status_t (*init_fn_type)(void**);
     typedef void (*shutdown_fn_type)(void*);
-    init_fn_type     init_sym     = (init_fn_type)dlsym(handle, AEGIS_PLUGIN_INIT_FN);
-    shutdown_fn_type shutdown_sym = (shutdown_fn_type)dlsym(handle, AEGIS_PLUGIN_SHUTDOWN_FN);
+    init_fn_type     init_sym     = NULL;
+    shutdown_fn_type shutdown_sym = NULL;
+    *(void**)(&init_sym)          = dlsym(handle, AEGIS_PLUGIN_INIT_FN);
+    *(void**)(&shutdown_sym)      = dlsym(handle, AEGIS_PLUGIN_SHUTDOWN_FN);
     if (init_sym) {
-        p->init_fn = (void*)init_sym;
+        *(void**)(&p->init_fn) = *(void**)(&init_sym);
     }
     if (shutdown_sym) {
-        p->shutdown_fn = (void*)shutdown_sym;
+        *(void**)(&p->shutdown_fn) = *(void**)(&shutdown_sym);
     }
 
     if (init_sym) {
@@ -167,7 +170,8 @@ aegis_status_t aegis_plugin_unload(aegis_plugin_t* plugin)
 
     if (plugin->initialized && plugin->shutdown_fn) {
         typedef void (*shutdown_fn_type)(void*);
-        shutdown_fn_type fn = (shutdown_fn_type)plugin->shutdown_fn;
+        shutdown_fn_type fn = NULL;
+        *(void**)(&fn)      = plugin->shutdown_fn;
         fn(plugin->user_ctx);
         plugin->initialized = 0;
     }
