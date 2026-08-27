@@ -34,13 +34,16 @@ function(aegis_set_warnings target)
     target_compile_options(${target} PRIVATE ${_WARN_FLAGS})
 endfunction()
 
-# ── clang-format ──────────────────────────────────────────────────────────────
+# ── clang-format (pre-build auto-format) ─────────────────────────────────────
+# When AEGIS_FORMAT_CODE is ON (default), clang-format runs on every source
+# file before compilation. The pre_build_format target ensures format runs
+# before any build target; all targets depend on it.
 if(AEGIS_FORMAT_CODE)
     find_program(CLANG_FORMAT_PROGRAM clang-format)
     if(CLANG_FORMAT_PROGRAM)
         message(STATUS "clang-format found: ${CLANG_FORMAT_PROGRAM}")
 
-        # Collect all C/C++ source files
+        # Collect all C/C++ source files (re-read on each configure via CONFIGURE_DEPENDS).
         file(GLOB_RECURSE AEGIS_ALL_SOURCES
             CONFIGURE_DEPENDS
             src/*.c
@@ -50,9 +53,26 @@ if(AEGIS_FORMAT_CODE)
             tests/unit/**/*.c
         )
 
-        add_custom_target(format
+        # Stamp file in build tree — triggers format only when sources change.
+        set(_AEGIS_FORMAT_STAMP "${CMAKE_BINARY_DIR}/.clang-format-stamp")
+
+        add_custom_command(
+            OUTPUT "${_AEGIS_FORMAT_STAMP}"
             COMMAND ${CLANG_FORMAT_PROGRAM} -i -style=file ${AEGIS_ALL_SOURCES}
-            COMMENT "Formatting sources with clang-format"
+            COMMAND ${CMAKE_COMMAND} -E touch "${_AEGIS_FORMAT_STAMP}"
+            COMMENT "Running clang-format on all sources before build"
+            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            DEPENDS ${AEGIS_ALL_SOURCES}
+        )
+
+        # Target that depends on the stamp; all build targets depend on this.
+        add_custom_target(pre_build_format DEPENDS "${_AEGIS_FORMAT_STAMP}")
+
+        # Manual re-format target — delete stamp to force re-format next build.
+        add_custom_target(format_all
+            COMMAND ${CLANG_FORMAT_PROGRAM} -i -style=file ${AEGIS_ALL_SOURCES}
+            COMMAND ${CMAKE_COMMAND} -E touch "${_AEGIS_FORMAT_STAMP}"
+            COMMENT "Formatting all sources with clang-format"
             WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
         )
     else()
@@ -88,6 +108,9 @@ target_include_directories(aegis_common
 )
 target_link_libraries(aegis_common PRIVATE m pthread)
 aegis_set_warnings(aegis_common)
+if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
+    add_dependencies(aegis_common pre_build_format)
+endif()
 
 # ── libaegis-core ────────────────────────────────────────────────────────────
 add_library(aegis_core
@@ -130,11 +153,17 @@ target_include_directories(aegis_core
 )
 target_link_libraries(aegis_core PRIVATE aegis_common)
 aegis_set_warnings(aegis_core)
+if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
+    add_dependencies(aegis_core pre_build_format)
+endif()
 
 # ── Executable (CLI shell) ──────────────────────────────────────────────────
 add_executable(aegis_shell src/shell.c)
 target_link_libraries(aegis_shell PRIVATE aegis_core)
 aegis_set_warnings(aegis_shell)
+if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
+    add_dependencies(aegis_shell pre_build_format)
+endif()
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 if(AEGIS_BUILD_TESTS)
@@ -158,6 +187,9 @@ if(AEGIS_BUILD_TESTS)
         target_link_libraries(${name} PRIVATE aegis_core GTest::gtest_main)
         aegis_set_warnings(${name})
         add_test(NAME ${name} COMMAND ${name})
+        if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
+            add_dependencies(${name} pre_build_format)
+        endif()
     endmacro()
 
     aegis_add_test(unit_scheduler  tests/unit/test_scheduler.c)
