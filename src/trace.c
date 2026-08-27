@@ -122,7 +122,7 @@ aegis_status_t aegis_trace_span_create(aegis_trace_context_t* ctx, const char* n
     aegis_trace_span_t* span = &ctx->spans[idx];
     span->id                 = trace_generate_id();
     span->trace_id           = ctx->trace_id;
-    span->parent_id          = ctx->current_span > 0 ? ctx->spans[ctx->current_span - 1].id : 0;
+    span->parent_id          = idx > 0 ? ctx->spans[idx - 1].id : 0;
     span->name               = name;
     span->start_ns           = trace_now_ns();
     span->end_ns             = 0;
