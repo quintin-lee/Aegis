@@ -60,9 +60,7 @@ static void test_llm_mock_basic(void)
 
     aegis_llm_response_destroy(&resp);
     aegis_cancellation_token_destroy(token);
-    aegis_provider_shutdown(reg, "llm-mock");
     aegis_provider_registry_destroy(reg);
-    aegis_llm_mock_destroy(ctx, ops);
 }
 
 static void test_llm_mock_cancelled(void)
@@ -88,9 +86,7 @@ static void test_llm_mock_cancelled(void)
     assert(resp.data == NULL);
 
     aegis_cancellation_token_destroy(token);
-    aegis_provider_shutdown(reg, "llm-mock");
     aegis_provider_registry_destroy(reg);
-    aegis_llm_mock_destroy(ctx, ops);
 }
 
 static void test_llm_mock_not_found(void)
@@ -107,6 +103,7 @@ static void test_llm_mock_not_found(void)
 
     aegis_cancellation_token_destroy(token);
     aegis_provider_registry_destroy(reg);
+    aegis_llm_mock_destroy(ctx, ops);
 }
 
 static void test_llm_mock_uninitialized(void)
@@ -135,6 +132,11 @@ static void test_llm_mock_uninitialized(void)
 
 static void test_llm_mock_invalid_args(void)
 {
+    llm_mock_ctx_t* ctx = NULL;
+    const aegis_llm_ops_t* ops = NULL;
+    aegis_provider_def_t def = {0};
+    expect_ok(aegis_llm_mock_create(&ctx, &ops, &def), "create");
+
     aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");
     aegis_cancellation_token_t* token = NULL;
@@ -146,6 +148,7 @@ static void test_llm_mock_invalid_args(void)
 
     aegis_cancellation_token_destroy(token);
     aegis_provider_registry_destroy(reg);
+    aegis_llm_mock_destroy(ctx, ops);
 }
 
 /* ── Main ──────────────────────────────────────────────────────────────────── */
