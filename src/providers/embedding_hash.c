@@ -145,7 +145,7 @@ aegis_status_t aegis_embedding_hash_create(hash_embed_ctx_t**            out_ctx
     def->thread_model = AEGIS_PROVIDER_SINGLE_THREAD;
     def->init         = hash_embed_init;
     def->shutdown     = hash_embed_shutdown;
-    def->user         = ops;
+    def->user         = ctx;
 
     *out_ctx = ctx;
     *out_ops = ops;

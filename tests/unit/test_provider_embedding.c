@@ -80,11 +80,10 @@ static void test_embedding_hash_empty(void)
     /* Empty string should produce zero vector (all zeros). */
     for (size_t i = 0; i < res.dim; i++)
         assert(res.vector[i] == 0.0f);
-    aegis_embedding_result_destroy(&res);
+        aegis_embedding_result_destroy(&res);
 
     aegis_cancellation_token_destroy(token);
     aegis_provider_unregister(reg, "embedding-hash");
-    aegis_embedding_hash_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
 }
 
