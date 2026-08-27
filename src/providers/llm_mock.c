@@ -192,9 +192,15 @@ aegis_status_t aegis_llm_mock_create(llm_mock_ctx_t** out_ctx, const aegis_llm_o
     return AEGIS_OK;
 }
 
+void aegis_llm_mock_set_fail_after(llm_mock_ctx_t* ctx, int fail_after)
+{
+    if (ctx) {
+        ctx->fail_after = fail_after;
+    }
+}
+
 void aegis_llm_mock_destroy(llm_mock_ctx_t* ctx, const aegis_llm_ops_t* ops)
 {
-    /* ops is borrowed from the registry; don't free it here. */
     (void)ops;
     if (!ctx) {
         return;
