@@ -198,16 +198,6 @@ static void test_audit_log_records_decisions(void)
     assert(found_decision);
     assert(found_deny);
 
-    bool found_deny = false;
-    for (size_t i = 0; i < count; i++) {
-        const aegis_security_audit_entry_t* e = aegis_security_audit_get(p, i);
-        if (e && e->decision == AEGIS_SECURITY_AUDIT_DENY) {
-            found_deny = true;
-
-        }
-    }
-    assert(found_deny);
-
     aegis_security_policy_destroy(p);
 }
 
