@@ -241,7 +241,18 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_log                tests/unit/test_log.c)
     aegis_add_test(unit_metrics            tests/unit/test_metrics.c)
     aegis_add_test(unit_trace              tests/unit/test_trace.c)
+    aegis_add_test(unit_plugin             tests/unit/test_plugin.c)
+    target_link_libraries(unit_plugin PRIVATE aegis_core dl pthread)
 endif()
+
+# ── Mock plugin shared object ────────────────────────────────────────────────
+add_library(mock_plugin SHARED tests/plugin/plugin_mock.c)
+target_include_directories(mock_plugin PRIVATE ${PROJECT_SOURCE_DIR}/include
+                                                ${PROJECT_SOURCE_DIR}/src/internal)
+target_link_libraries(mock_plugin PRIVATE aegis_core)
+set_target_properties(mock_plugin PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/tests/plugin"
+)
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
 if(AEGIS_BUILD_BENCH)
