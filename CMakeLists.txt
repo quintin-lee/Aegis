@@ -118,6 +118,7 @@ add_library(aegis_core
     src/goal.c
     src/status.c
     src/dependency.c
+    src/critic.c
     src/graph.c
 )
 target_include_directories(aegis_core
@@ -192,6 +193,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_planner              tests/unit/test_planner.c)
     aegis_add_test(unit_planner_llm          tests/unit/test_planner_llm.c)
     aegis_add_test(unit_strategy             tests/unit/test_strategy.c)
+    aegis_add_test(unit_critic             tests/unit/test_critic.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
