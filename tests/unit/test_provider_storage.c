@@ -1,0 +1,187 @@
+/**
+ * @file test_provider_storage.c
+ * @brief Unit tests for the SQLite storage provider.
+ */
+#include "aegis/storage.h"
+#include "aegis/provider_storage_sqlite.h"
+#include "aegis/provider.h"
+#include "aegis/cancellation.h"
+
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+static void expect_ok(aegis_status_t rc, const char* msg)
+{
+    assert(rc == AEGIS_OK);
+    (void)msg;
+}
+
+/* ── Tests ─────────────────────────────────────────────────────────────────── */
+
+static void test_storage_sqlite_memory(void)
+{
+    aegis_sqlite_storage_ctx_t* ctx = NULL;
+    aegis_storage_ops_t* ops = NULL;
+    aegis_provider_def_t def = {0};
+    expect_ok(aegis_storage_sqlite_create(NULL, 1, &ctx, &ops, &def), "create");
+    assert(ctx != NULL);
+    assert(ops != NULL);
+    assert(ops->put != NULL);
+    assert(ops->get != NULL);
+    assert(ops->del != NULL);
+
+    /* Create registry and register. */
+    aegis_provider_registry_t* reg = NULL;
+    expect_ok(aegis_provider_registry_create(&reg), "create reg");
+    expect_ok(aegis_provider_register(reg, &def), "register");
+    expect_ok(aegis_provider_init(reg, "storage-sqlite-memory"), "init");
+
+    aegis_cancellation_token_t* token = NULL;
+    expect_ok(aegis_cancellation_token_create(&token), "token");
+
+    /* Put. */
+    const char* key1 = "hello";
+    const char* val1 = "world";
+    expect_ok(aegis_storage_put(reg, "storage-sqlite-memory", key1, strlen(key1),
+                                 val1, strlen(val1), token), "put");
+
+    /* Get. */
+    aegis_storage_blob_t blob = {0};
+    expect_ok(aegis_storage_get(reg, "storage-sqlite-memory", key1, strlen(key1),
+                                 token, &blob), "get");
+    assert(blob.data != NULL);
+    assert(blob.len == strlen(val1));
+    assert(memcmp(blob.data, val1, blob.len) == 0);
+    aegis_storage_blob_destroy(&blob);
+
+    /* Get missing. */
+    blob = {0};
+    expect_ok(aegis_storage_get(reg, "storage-sqlite-memory", "missing", 7, token, &blob), "get missing");
+    assert(blob.data == NULL);
+    assert(blob.len == 0);
+
+    /* Delete. */
+    expect_ok(aegis_storage_delete(reg, "storage-sqlite-memory", key1, strlen(key1), token), "del");
+
+    /* Verify deleted. */
+    blob = {0};
+    expect_ok(aegis_storage_get(reg, "storage-sqlite-memory", key1, strlen(key1), token, &blob), "get after del");
+    assert(blob.data == NULL);
+    aegis_storage_blob_destroy(&blob);
+
+    aegis_cancellation_token_destroy(token);
+    aegis_provider_shutdown(reg, "storage-sqlite-memory");
+    aegis_provider_registry_destroy(reg);
+    aegis_storage_sqlite_destroy(ctx, ops);
+}
+
+static void test_storage_sqlite_file(void)
+{
+    const char* db_path = "/tmp/aegis_test_storage_XXXXXX.db";
+    char path[256];
+    strncpy(path, db_path, sizeof(path) - 1);
+    int fd = mkstemp(path);
+    assert(fd >= 0);
+    close(fd);
+
+    aegis_sqlite_storage_ctx_t* ctx = NULL;
+    aegis_storage_ops_t* ops = NULL;
+    aegis_provider_def_t def = {0};
+    expect_ok(aegis_storage_sqlite_create(path, 0, &ctx, &ops, &def), "create");
+
+    aegis_provider_registry_t* reg = NULL;
+    expect_ok(aegis_provider_registry_create(&reg), "create reg");
+    expect_ok(aegis_provider_register(reg, &def), "register");
+    expect_ok(aegis_provider_init(reg, "storage-sqlite"), "init");
+
+    aegis_cancellation_token_t* token = NULL;
+    expect_ok(aegis_cancellation_token_create(&token), "token");
+
+    /* Put and get. */
+    const char* key = "key1";
+    const char* val = "value1";
+    expect_ok(aegis_storage_put(reg, "storage-sqlite", key, strlen(key), val, strlen(val), token), "put");
+
+    aegis_storage_blob_t blob = {0};
+    expect_ok(aegis_storage_get(reg, "storage-sqlite", key, strlen(key), token, &blob), "get");
+    assert(blob.data != NULL);
+    assert(memcmp(blob.data, val, blob.len) == 0);
+    aegis_storage_blob_destroy(&blob);
+
+    aegis_cancellation_token_destroy(token);
+    aegis_provider_shutdown(reg, "storage-sqlite");
+    aegis_provider_registry_destroy(reg);
+    aegis_storage_sqlite_destroy(ctx, ops);
+    unlink(path);
+}
+
+static void test_storage_invalid_args(void)
+{
+    aegis_provider_registry_t* reg = NULL;
+    expect_ok(aegis_provider_registry_create(&reg), "create reg");
+    aegis_cancellation_token_t* token = NULL;
+    expect_ok(aegis_cancellation_token_create(&token), "token");
+
+    aegis_storage_blob_t blob = {0};
+    assert(aegis_storage_put(NULL, "x", NULL, 0, NULL, 0, token) == AEGIS_ERR_INVALID);
+    assert(aegis_storage_get(NULL, "x", NULL, 0, token, &blob) == AEGIS_ERR_INVALID);
+    assert(aegis_storage_delete(NULL, "x", NULL, 0, token) == AEGIS_ERR_INVALID);
+
+    aegis_cancellation_token_destroy(token);
+    aegis_provider_registry_destroy(reg);
+}
+
+static void test_storage_transaction(void)
+{
+    aegis_sqlite_storage_ctx_t* ctx = NULL;
+    aegis_storage_ops_t* ops = NULL;
+    aegis_provider_def_t def = {0};
+    expect_ok(aegis_storage_sqlite_create(NULL, 1, &ctx, &ops, &def), "create");
+
+    aegis_provider_registry_t* reg = NULL;
+    expect_ok(aegis_provider_registry_create(&reg), "create reg");
+    expect_ok(aegis_provider_register(reg, &def), "register");
+    expect_ok(aegis_provider_init(reg, "storage-sqlite-memory"), "init");
+
+    aegis_cancellation_token_t* token = NULL;
+    expect_ok(aegis_cancellation_token_create(&token), "token");
+
+    /* Transaction: put, put, commit. */
+    aegis_storage_transaction_t* txn = NULL;
+    expect_ok(aegis_storage_transaction_create(&txn), "txn create");
+    expect_ok(aegis_storage_transaction_put(txn, "a", 1, "1", 1), "txn put a");
+    expect_ok(aegis_storage_transaction_put(txn, "b", 1, "2", 1), "txn put b");
+    expect_ok(aegis_storage_transaction_commit(txn, token), "txn commit");
+
+    /* Verify. */
+    aegis_storage_blob_t blob = {0};
+    expect_ok(aegis_storage_get(reg, "storage-sqlite-memory", "a", 1, token, &blob), "get a");
+    assert(blob.data != NULL && ((char*)blob.data)[0] == '1');
+    aegis_storage_blob_destroy(&blob);
+
+    blob = {0};
+    expect_ok(aegis_storage_get(reg, "storage-sqlite-memory", "b", 1, token, &blob), "get b");
+    assert(blob.data != NULL && ((char*)blob.data)[0] == '2');
+    aegis_storage_blob_destroy(&blob);
+
+    aegis_cancellation_token_destroy(token);
+    aegis_provider_shutdown(reg, "storage-sqlite-memory");
+    aegis_provider_registry_destroy(reg);
+    aegis_storage_sqlite_destroy(ctx, ops);
+}
+
+/* ── Main ──────────────────────────────────────────────────────────────────── */
+
+int main(void)
+{
+    test_storage_invalid_args();
+    test_storage_sqlite_memory();
+    test_storage_sqlite_file();
+    test_storage_transaction();
+
+    printf("provider_storage: all tests passed\n");
+    return 0;
+}

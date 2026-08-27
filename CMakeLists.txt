@@ -153,6 +153,9 @@ add_library(aegis_core
     src/metrics.c
     src/trace.c
     src/plugin.c
+    src/providers/llm_mock.c
+    src/providers/storage_sqlite.c
+    src/providers/embedding_hash.c
 )
 target_include_directories(aegis_core
     PUBLIC
@@ -161,7 +164,7 @@ target_include_directories(aegis_core
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src/internal
 )
-target_link_libraries(aegis_core PRIVATE aegis_common)
+target_link_libraries(aegis_core PRIVATE aegis_common sqlite3 m)
 aegis_set_warnings(aegis_core)
 if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
     add_dependencies(aegis_core pre_build_format)
@@ -244,6 +247,9 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_trace              tests/unit/test_trace.c)
     aegis_add_test(unit_plugin             tests/unit/test_plugin.c)
     target_link_libraries(unit_plugin PRIVATE aegis_core dl pthread)
+    aegis_add_test(unit_provider_llm       tests/unit/test_provider_llm.c)
+    aegis_add_test(unit_provider_storage   tests/unit/test_provider_storage.c)
+    aegis_add_test(unit_provider_embedding tests/unit/test_provider_embedding.c)
 endif()
 
 # ── Mock plugin shared object ────────────────────────────────────────────────
