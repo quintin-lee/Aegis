@@ -145,6 +145,7 @@ add_library(aegis_core
     src/graph.c
     src/memory.c
     src/memory_mock.c
+    src/context.c
 )
 target_include_directories(aegis_core
     PUBLIC
@@ -227,6 +228,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_planner              tests/unit/test_planner.c)
     aegis_add_test(unit_planner_llm          tests/unit/test_planner_llm.c)
     aegis_add_test(unit_memory             tests/unit/test_memory.c)
+    aegis_add_test(unit_context            tests/unit/test_context.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
