@@ -119,6 +119,11 @@ static void test_embedding_hash_different_inputs(void)
 
 static void test_embedding_invalid_args(void)
 {
+    hash_embed_ctx_t* ctx = NULL;
+    const aegis_embedding_ops_t* ops = NULL;
+    aegis_provider_def_t def = {0};
+    expect_ok(aegis_embedding_hash_create(&ctx, &ops, &def), "create");
+
     aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");
     aegis_cancellation_token_t* token = NULL;
@@ -129,6 +134,7 @@ static void test_embedding_invalid_args(void)
     assert(aegis_embed(reg, NULL, "test", 4, token, &res) == AEGIS_ERR_INVALID);
     assert(aegis_embed(reg, "x", NULL, 4, token, &res) == AEGIS_ERR_INVALID);
 
+    aegis_embedding_hash_destroy(ctx, ops);
     aegis_cancellation_token_destroy(token);
     aegis_provider_registry_destroy(reg);
 }
