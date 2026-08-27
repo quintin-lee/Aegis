@@ -149,6 +149,9 @@ add_library(aegis_core
     src/storage_store.c
     src/checkpoint.c
     src/security.c
+    src/log.c
+    src/metrics.c
+    src/trace.c
 )
 target_include_directories(aegis_core
     PUBLIC
@@ -235,6 +238,9 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_storage            tests/unit/test_storage.c)
     aegis_add_test(unit_checkpoint         tests/unit/test_checkpoint.c)
     aegis_add_test(unit_security           tests/unit/test_security.c)
+    aegis_add_test(unit_log                tests/unit/test_log.c)
+    aegis_add_test(unit_metrics            tests/unit/test_metrics.c)
+    aegis_add_test(unit_trace              tests/unit/test_trace.c)
 endif()
 
 # ── Benchmarks ───────────────────────────────────────────────────────────────
