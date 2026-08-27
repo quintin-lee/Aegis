@@ -253,9 +253,8 @@ aegis_status_t aegis_autonomous_agent_restore(aegis_autonomous_agent_t* aa, cons
         }
         return AEGIS_ERR_NOT_FOUND;
     }
-    // verify readable, mark recovered
-    aa->recovered = true;
     aegis_checkpoint_destroy(ckpt);
+    aa->recovered = true;
     return AEGIS_OK;
 }
 
