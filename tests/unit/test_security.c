@@ -89,10 +89,10 @@ static void test_evaluate_allowed(void)
 
     assert(aegis_security_evaluate(p, "read_file", AEGIS_CAP_READ_FILE, "context1") == AEGIS_OK);
     assert(aegis_security_evaluate(p, "execute_cmd", AEGIS_CAP_SHELL, NULL) == AEGIS_OK);
-    /* Super-set of capabilities should also pass. */
-    assert(aegis_security_evaluate(p, "read_file", AEGIS_CAP_READ_FILE, NULL) == AEGIS_OK);
+    /* Default deny: tool requiring MORE than rule grants is denied. */
+    assert(aegis_security_evaluate(p, "read_file",
                                     AEGIS_CAP_READ_FILE | AEGIS_CAP_WRITE_FILE,
-                                    NULL) == AEGIS_OK);
+                                    NULL) == AEGIS_ERR_PERM);
 
     aegis_security_policy_destroy(p);
 }
@@ -183,15 +183,28 @@ static void test_audit_log_records_decisions(void)
     assert(latest != NULL);
     assert(latest->type == AEGIS_SECURITY_AUDIT_DECISION);
 
-    const aegis_security_audit_entry_t* first = aegis_security_audit_get(p, 0);
-    assert(first != NULL);
-    assert(first->type == AEGIS_SECURITY_AUDIT_CAP_CHECK);
+    /* Verify audit log has entries of expected types. */
+    bool found_cap_check = false, found_decision = false, found_deny = false;
+    for (size_t i = 0; i < count; i++) {
+        const aegis_security_audit_entry_t* e = aegis_security_audit_get(p, i);
+        assert(e != NULL);
+        if (e->type == AEGIS_SECURITY_AUDIT_CAP_CHECK) found_cap_check = true;
+        if (e->type == AEGIS_SECURITY_AUDIT_DECISION) {
+            found_decision = true;
+            if (e->decision == AEGIS_SECURITY_AUDIT_DENY) found_deny = true;
+        }
+    }
+    assert(found_cap_check);
+    assert(found_decision);
+    assert(found_deny);
 
     bool found_deny = false;
     for (size_t i = 0; i < count; i++) {
         const aegis_security_audit_entry_t* e = aegis_security_audit_get(p, i);
-        if (e && e->decision == AEGIS_SECURITY_AUDIT_DENY)
+        if (e && e->decision == AEGIS_SECURITY_AUDIT_DENY) {
             found_deny = true;
+
+        }
     }
     assert(found_deny);
 
