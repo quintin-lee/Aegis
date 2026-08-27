@@ -14,6 +14,9 @@
 
 static void expect_ok(aegis_status_t rc, const char* msg)
 {
+    if (rc != AEGIS_OK) {
+        fprintf(stderr, "TEST FAIL: %s returned %d\n", msg, rc);
+    }
     assert(rc == AEGIS_OK);
     (void)msg;
 }

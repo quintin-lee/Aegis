@@ -67,14 +67,8 @@ static aegis_status_t llm_mock_init(void* user)
 
 static void llm_mock_shutdown(void* user)
 {
-    if (!user) {
-        return;
-    }
-    llm_mock_ctx_t* ctx = (llm_mock_ctx_t*)user;
-    free(ctx->response_prefix);
-    ctx->response_prefix = NULL;
-    ctx->call_count      = 0;
-    ctx->fail_after      = 0;
+    /* Caller (registry) owns ctx; this is a no-op. */
+    (void)user;
 }
 
 /* ── Completion callback ───────────────────────────────────────────────────── */
