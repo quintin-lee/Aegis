@@ -131,7 +131,6 @@ static void test_embedding_invalid_args(void)
 
     aegis_cancellation_token_destroy(token);
     aegis_provider_registry_destroy(reg);
-    aegis_embedding_hash_destroy(ctx, ops);
 }
 
 /* ── Main ──────────────────────────────────────────────────────────────────── */
