@@ -34,7 +34,8 @@ typedef struct aegis_sqlite_storage_ctx {
 
 static aegis_status_t sqlite_storage_init(void* user)
 {
-    aegis_sqlite_storage_ctx_t* ctx = (aegis_sqlite_storage_ctx_t*)user;
+    const aegis_storage_ops_t*  ops = (const aegis_storage_ops_t*)user;
+    aegis_sqlite_storage_ctx_t* ctx = ops ? (aegis_sqlite_storage_ctx_t*)ops->ctx : NULL;
     if (!ctx) {
         return AEGIS_ERR_INVALID;
     }
@@ -77,7 +78,11 @@ static void sqlite_storage_shutdown(void* user)
     if (!user) {
         return;
     }
-    aegis_sqlite_storage_ctx_t* ctx = (aegis_sqlite_storage_ctx_t*)user;
+    const aegis_storage_ops_t*  ops = (const aegis_storage_ops_t*)user;
+    aegis_sqlite_storage_ctx_t* ctx = (aegis_sqlite_storage_ctx_t*)ops->ctx;
+    if (!ctx) {
+        return;
+    }
     if (ctx->db) {
         sqlite3_close(ctx->db);
         ctx->db = NULL;
@@ -253,7 +258,7 @@ aegis_status_t aegis_storage_sqlite_create(const char* db_path, int in_memory,
 
 void aegis_storage_sqlite_destroy(aegis_sqlite_storage_ctx_t* ctx, const aegis_storage_ops_t* ops)
 {
-    (void)ops;
+    free((void*)ops);
     if (!ctx) {
         return;
     }

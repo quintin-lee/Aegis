@@ -195,7 +195,7 @@ void aegis_llm_mock_set_fail_after(llm_mock_ctx_t* ctx, int fail_after)
 
 void aegis_llm_mock_destroy(llm_mock_ctx_t* ctx, const aegis_llm_ops_t* ops)
 {
-    (void)ops;
+    free((void*)ops);
     if (!ctx) {
         return;
     }

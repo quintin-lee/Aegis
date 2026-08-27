@@ -52,6 +52,7 @@ static void test_llm_mock_basic(void)
     aegis_llm_response_destroy(&resp);
     aegis_cancellation_token_destroy(token);
     aegis_provider_unregister(reg, "llm-mock");
+    aegis_llm_mock_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
 }
 
@@ -78,6 +79,7 @@ static void test_llm_mock_cancelled(void)
 
     aegis_cancellation_token_destroy(token);
     aegis_provider_unregister(reg, "llm-mock");
+    aegis_llm_mock_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
 }
 
@@ -123,6 +125,8 @@ static void test_llm_mock_uninitialized(void)
     assert(aegis_llm_complete(reg, "llm-mock", &req, token, &resp) == AEGIS_ERR_PERM);
 
     aegis_cancellation_token_destroy(token);
+    aegis_provider_unregister(reg, "llm-mock");
+    aegis_llm_mock_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
 }
 
@@ -165,6 +169,7 @@ static void test_llm_mock_error_mapping(void)
 
     aegis_cancellation_token_destroy(token);
     aegis_provider_unregister(reg, "llm-mock");
+    aegis_llm_mock_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
 }
 
