@@ -64,16 +64,11 @@ static void test_embedding_hash_basic(void)
     aegis_cancellation_token_destroy(token);
     aegis_provider_shutdown(reg, "embedding-hash");
     aegis_provider_registry_destroy(reg);
-    aegis_embedding_hash_destroy(ctx, ops);
+
 }
 
 static void test_embedding_hash_empty(void)
 {
-    hash_embed_ctx_t* ctx = NULL;
-    const aegis_embedding_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
-    expect_ok(aegis_embedding_hash_create(&ctx, &ops, &def), "create");
-
     aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");
     expect_ok(aegis_provider_register(reg, &def), "register");
@@ -94,16 +89,11 @@ static void test_embedding_hash_empty(void)
     aegis_cancellation_token_destroy(token);
     aegis_provider_shutdown(reg, "embedding-hash");
     aegis_provider_registry_destroy(reg);
-    aegis_embedding_hash_destroy(ctx, ops);
+
 }
 
 static void test_embedding_hash_different_inputs(void)
 {
-    hash_embed_ctx_t* ctx = NULL;
-    const aegis_embedding_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
-    expect_ok(aegis_embedding_hash_create(&ctx, &ops, &def), "create");
-
     aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");
     expect_ok(aegis_provider_register(reg, &def), "register");
@@ -124,7 +114,7 @@ static void test_embedding_hash_different_inputs(void)
     aegis_cancellation_token_destroy(token);
     aegis_provider_shutdown(reg, "embedding-hash");
     aegis_provider_registry_destroy(reg);
-    aegis_embedding_hash_destroy(ctx, ops);
+
 }
 
 static void test_embedding_invalid_args(void)
