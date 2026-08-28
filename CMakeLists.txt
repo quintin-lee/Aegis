@@ -209,7 +209,14 @@ if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
 endif()
 
 # ── Aegis CLI (Application layer, public API only) ──────────────────────────
-add_executable(aegis src/cli.c)
+add_executable(aegis
+    src/cli_main.c
+    src/cli_init.c
+    src/cli_run.c
+    src/cli_status.c
+    src/cli_cancel.c
+    src/cli_inspect.c
+)
 target_link_libraries(aegis PRIVATE aegis_core)
 target_compile_definitions(aegis PRIVATE AEGIS_VERSION_STRING="${AEGIS_VERSION_STRING}")
 aegis_set_warnings(aegis)
