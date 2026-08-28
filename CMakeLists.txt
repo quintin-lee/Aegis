@@ -183,6 +183,7 @@ add_library(aegis_core
     # CLI
     src/shell.c
     src/status.c
+    src/autonomous_state.c
     src/autonomous_agent.c
 )
 target_include_directories(aegis_core
