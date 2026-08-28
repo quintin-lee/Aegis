@@ -145,7 +145,7 @@ static void test_no_tool_registry_returns_error(void)
     aegis_autonomous_result_t result = {0};
     aegis_status_t rc = aegis_autonomous_agent_run(aa, "fallback goal", &result);
     printf("  rc=%d tasks=%u final=%d\n", (int)rc, result.tasks_executed, (int)result.final_status);
-    assert(result.tasks_executed >= 0);  /* May succeed or fail depending on task type */
+    // tasks_executed may be 0 or more  /* May succeed or fail depending on task type */
     printf("  tasks_executed=%u PASS\n", result.tasks_executed);
 
     aegis_autonomous_agent_destroy(aa);
