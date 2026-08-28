@@ -12,6 +12,7 @@
 #include <stdint.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <pthread.h>
 
 /* ── Rule ──────────────────────────────────────────────────────────────────── */
 
@@ -32,6 +33,7 @@ struct aegis_security_policy {
     size_t                      audit_head;    /**< Next write position.     */
     size_t                      audit_count;   /**< Total entries written.   */
     aegis_security_sandbox_t*   sandbox;       /**< Attached sandbox (may be NULL). */
+    pthread_mutex_t             lock;          /**< Guards audit + rules.    */
 };
 
 /* ── Sandbox ────────────────────────────────────────────────────────────────── */

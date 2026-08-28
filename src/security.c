@@ -16,6 +16,7 @@
 #include "aegis/types.h"
 
 #include "internal/security_internal.h"
+
 #include "internal/lifecycle.h"
 
 #include <stdio.h>
@@ -43,6 +44,7 @@ void aegis_security_audit_append(aegis_security_policy_t* policy, aegis_security
     if (!policy) {
         return;
     }
+    pthread_mutex_lock(&policy->lock);
 
     aegis_security_audit_entry_t* entry = &policy->audit[policy->audit_head];
     entry->timestamp                    = aegis_security_now_ns();
@@ -65,6 +67,7 @@ void aegis_security_audit_append(aegis_security_policy_t* policy, aegis_security
     if (policy->audit_count < AEGIS_SECURITY_AUDIT_MAX_ENTRIES) {
         policy->audit_count++;
     }
+    pthread_mutex_unlock(&policy->lock);
 }
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
@@ -129,12 +132,21 @@ aegis_status_t aegis_security_policy_create(aegis_security_policy_t** out)
     if (!p) {
         return AEGIS_ERR_NOMEM;
     }
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_RECURSIVE);
+    pthread_mutex_init(&p->lock, &attr);
+    pthread_mutexattr_destroy(&attr);
     *out = p;
     return AEGIS_OK;
 }
 
 void aegis_security_policy_destroy(aegis_security_policy_t* policy)
 {
+    if (!policy) {
+        return;
+    }
+    pthread_mutex_destroy(&policy->lock);
     free(policy);
 }
 
@@ -216,6 +228,7 @@ aegis_status_t aegis_security_evaluate(aegis_security_policy_t* policy, const ch
     if (!policy || !tool_name) {
         return AEGIS_ERR_INVALID;
     }
+    pthread_mutex_lock(&policy->lock);
 
     /* Phase 1: Capability check. */
     aegis_security_audit_append(policy, AEGIS_SECURITY_AUDIT_CAP_CHECK, AEGIS_SECURITY_AUDIT_INFO,
@@ -249,6 +262,7 @@ aegis_status_t aegis_security_evaluate(aegis_security_policy_t* policy, const ch
         aegis_security_audit_append(policy, AEGIS_SECURITY_AUDIT_DECISION,
                                     AEGIS_SECURITY_AUDIT_ALLOW, tool_caps, matched_rule,
                                     "Tool '%s' ALLOWED — all checks passed", tool_name);
+        pthread_mutex_unlock(&policy->lock);
         return AEGIS_OK;
     } else {
         aegis_security_audit_append(policy, AEGIS_SECURITY_AUDIT_PERMISSION,
@@ -258,6 +272,7 @@ aegis_status_t aegis_security_evaluate(aegis_security_policy_t* policy, const ch
         aegis_security_audit_append(policy, AEGIS_SECURITY_AUDIT_DECISION,
                                     AEGIS_SECURITY_AUDIT_DENY, tool_caps, -1,
                                     "Tool '%s' DENIED — capability check failed", tool_name);
+        pthread_mutex_unlock(&policy->lock);
         return AEGIS_ERR_PERM;
     }
 }
