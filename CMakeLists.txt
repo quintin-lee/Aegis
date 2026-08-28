@@ -214,8 +214,6 @@ endif()
 add_executable(aegis
     src/cli_main.c
     src/cli_helpers.c
-    src/cli_helpers.c
-    src/cli_helpers.c
     src/cli_init.c
     src/cli_run.c
     src/cli_status.c
