@@ -39,8 +39,9 @@ static void test_load_mock_plugin(void)
     struct stat st;
     if (stat(path, &st) != 0) {
         fprintf(stderr, "[SKIP] mock_plugin.so not found, build it first:\n");
-        fprintf(stderr, "  gcc -shared -fPIC -o tests/plugin/mock_plugin.so "
-                        "tests/plugin/plugin_mock.c -Iinclude -Isrc/internal -laegis_core\n");
+        fprintf(stderr,
+                "  gcc -shared -fPIC -o tests/plugin/mock_plugin.so "
+                "tests/plugin/plugin_mock.c -Iinclude -Isrc/internal -laegis_core\n");
         return;
     }
 
@@ -59,7 +60,9 @@ static void test_plugin_lifecycle(void)
 {
     const char* path = "tests/plugin/mock_plugin.so";
     struct stat st;
-    if (stat(path, &st) != 0) return;
+    if (stat(path, &st) != 0) {
+        return;
+    }
 
     aegis_plugin_t* p = NULL;
     expect_ok(aegis_plugin_load(path, &p), "load");

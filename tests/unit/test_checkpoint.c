@@ -27,10 +27,10 @@ static aegis_plan_t* make_test_plan(const char* goal)
     aegis_plan_t* p = NULL;
     expect_ok(aegis_plan_create(&p, goal), "create plan");
     aegis_plan_step_spec_t spec = {0};
-    spec.step_id = -1;
-    spec.name = "test-step";
-    spec.type = AEGIS_TASK_TYPE_COMPUTATIONAL;
-    int64_t id = -1;
+    spec.step_id                = -1;
+    spec.name                   = "test-step";
+    spec.type                   = AEGIS_TASK_TYPE_COMPUTATIONAL;
+    int64_t id                  = -1;
     expect_ok(aegis_plan_add_step(p, &spec, &id), "add step");
     return p;
 }
@@ -84,7 +84,8 @@ static void test_populate_with_agent(void)
 
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
-    expect_ok(aegis_checkpoint_populate(ckpt, "RUNNING", "achieve world peace", NULL, NULL, 5), "populate");
+    expect_ok(aegis_checkpoint_populate(ckpt, "RUNNING", "achieve world peace", NULL, NULL, 5),
+              "populate");
     assert(aegis_checkpoint_version(ckpt) == 5);
     assert(strcmp(aegis_checkpoint_goal(ckpt), "achieve world peace") == 0);
 
@@ -94,7 +95,7 @@ static void test_populate_with_agent(void)
 
 static void test_populate_with_plan(void)
 {
-    aegis_plan_t* plan = make_test_plan("build a house");
+    aegis_plan_t*       plan = make_test_plan("build a house");
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
     expect_ok(aegis_checkpoint_populate(ckpt, NULL, NULL, plan, NULL, 0), "populate");
@@ -108,7 +109,7 @@ static void test_populate_with_plan(void)
 
 static void test_populate_with_graph(void)
 {
-    aegis_task_graph_t* g = make_test_graph(3, AEGIS_TASK_SUCCESS);
+    aegis_task_graph_t* g    = make_test_graph(3, AEGIS_TASK_SUCCESS);
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
     expect_ok(aegis_checkpoint_populate(ckpt, NULL, NULL, NULL, g, 0), "populate");
@@ -131,12 +132,13 @@ static void test_serialize_deserialize(void)
     expect_ok(aegis_agent_create(&agent, "test"), "create agent");
     aegis_agent_set_goal(agent, "solve puzzle");
 
-    aegis_plan_t* plan = make_test_plan("solve puzzle");
-    aegis_task_graph_t* g = make_test_graph(2, AEGIS_TASK_FAILED);
+    aegis_plan_t*       plan = make_test_plan("solve puzzle");
+    aegis_task_graph_t* g    = make_test_graph(2, AEGIS_TASK_FAILED);
 
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
-    expect_ok(aegis_checkpoint_populate(ckpt, "RUNNING", "achieve world peace", plan, g, 5), "populate");
+    expect_ok(aegis_checkpoint_populate(ckpt, "RUNNING", "achieve world peace", plan, g, 5),
+              "populate");
 
     char* serialized = NULL;
     expect_ok(aegis_checkpoint_serialize(ckpt, &serialized), "serialize");
@@ -168,8 +170,8 @@ static void test_write_read_roundtrip(void)
     expect_ok(aegis_agent_create(&agent, "test"), "create agent");
     aegis_agent_set_goal(agent, "test goal");
 
-    aegis_plan_t* plan = make_test_plan("test goal");
-    aegis_task_graph_t* g = make_test_graph(1, AEGIS_TASK_SUCCESS);
+    aegis_plan_t*       plan = make_test_plan("test goal");
+    aegis_task_graph_t* g    = make_test_graph(1, AEGIS_TASK_SUCCESS);
 
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
@@ -180,9 +182,9 @@ static void test_write_read_roundtrip(void)
 
     expect_ok(aegis_checkpoint_write(ckpt, path, NULL), "write");
 
-    aegis_checkpoint_t* restored = NULL;
-    aegis_checkpoint_status_t status = AEGIS_CHECKPOINT_OK;
-    aegis_status_t rc = aegis_checkpoint_read(path, &restored, &status);
+    aegis_checkpoint_t*       restored = NULL;
+    aegis_checkpoint_status_t status   = AEGIS_CHECKPOINT_OK;
+    aegis_status_t            rc       = aegis_checkpoint_read(path, &restored, &status);
     assert(rc == AEGIS_OK);
     assert(status == AEGIS_CHECKPOINT_OK);
     assert(restored != NULL);
@@ -216,10 +218,10 @@ static void test_write_cancelled(void)
 
 static void test_read_missing(void)
 {
-    aegis_checkpoint_t* ckpt = NULL;
+    aegis_checkpoint_t*       ckpt   = NULL;
     aegis_checkpoint_status_t status = AEGIS_CHECKPOINT_OK;
-    aegis_status_t rc = aegis_checkpoint_read("/tmp/nonexistent_checkpoint_12345.chk",
-                                               &ckpt, &status);
+    aegis_status_t            rc =
+        aegis_checkpoint_read("/tmp/nonexistent_checkpoint_12345.chk", &ckpt, &status);
     assert(rc == AEGIS_ERR_NOT_FOUND);
     assert(status == AEGIS_CHECKPOINT_MISSING);
     assert(ckpt == NULL);
@@ -228,14 +230,14 @@ static void test_read_missing(void)
 static void test_read_corrupted(void)
 {
     const char* path = "/tmp/aegis_test_corrupted.chk";
-    FILE* fp = fopen(path, "w");
+    FILE*       fp   = fopen(path, "w");
     assert(fp != NULL);
     fprintf(fp, "THIS IS NOT A CHECKPOINT\n");
     fclose(fp);
 
-    aegis_checkpoint_t* ckpt = NULL;
+    aegis_checkpoint_t*       ckpt   = NULL;
     aegis_checkpoint_status_t status = AEGIS_CHECKPOINT_OK;
-    aegis_status_t rc = aegis_checkpoint_read(path, &ckpt, &status);
+    aegis_status_t            rc     = aegis_checkpoint_read(path, &ckpt, &status);
     assert(rc == AEGIS_ERR_INVALID);
     assert(status == AEGIS_CHECKPOINT_CORRUPTED);
     assert(ckpt == NULL);
@@ -246,14 +248,14 @@ static void test_read_corrupted(void)
 static void test_read_incomplete(void)
 {
     const char* path = "/tmp/aegis_test_incomplete.chk";
-    FILE* fp = fopen(path, "w");
+    FILE*       fp   = fopen(path, "w");
     assert(fp != NULL);
     fprintf(fp, "AEGISCHK");
     fclose(fp);
 
-    aegis_checkpoint_t* ckpt = NULL;
+    aegis_checkpoint_t*       ckpt   = NULL;
     aegis_checkpoint_status_t status = AEGIS_CHECKPOINT_OK;
-    aegis_status_t rc = aegis_checkpoint_read(path, &ckpt, &status);
+    aegis_status_t            rc     = aegis_checkpoint_read(path, &ckpt, &status);
     assert(rc != AEGIS_OK);
     assert(ckpt == NULL);
 
@@ -264,15 +266,16 @@ static void test_read_crc_mismatch(void)
 {
     /* Write a checkpoint with invalid CRC directly. */
     const char* path = "/tmp/aegis_test_crc.chk";
-    FILE* fp = fopen(path, "w");
+    FILE*       fp   = fopen(path, "w");
     assert(fp != NULL);
-    fprintf(fp, "AEGISCHK v1\n# TS=0\n# AGENT_STATE=CREATED\n# GOAL=\n# PLAN_VERSION=0\n"
-                "PLAN_START\n\nPLAN_END\n# CRC32=00000000\n");
+    fprintf(fp,
+            "AEGISCHK v1\n# TS=0\n# AGENT_STATE=CREATED\n# GOAL=\n# PLAN_VERSION=0\n"
+            "PLAN_START\n\nPLAN_END\n# CRC32=00000000\n");
     fclose(fp);
 
-    aegis_checkpoint_t* restored = NULL;
-    aegis_checkpoint_status_t status = AEGIS_CHECKPOINT_OK;
-    aegis_status_t rc = aegis_checkpoint_read(path, &restored, &status);
+    aegis_checkpoint_t*       restored = NULL;
+    aegis_checkpoint_status_t status   = AEGIS_CHECKPOINT_OK;
+    aegis_status_t            rc       = aegis_checkpoint_read(path, &restored, &status);
     assert(rc == AEGIS_ERR_INVALID);
     assert(status == AEGIS_CHECKPOINT_CORRUPTED);
     assert(restored == NULL);
@@ -283,16 +286,17 @@ static void test_read_crc_mismatch(void)
 static void test_version_mismatch(void)
 {
     const char* path = "/tmp/aegis_test_version.chk";
-    FILE* fp = fopen(path, "w");
+    FILE*       fp   = fopen(path, "w");
     assert(fp != NULL);
-    fprintf(fp, "AEGISCHK v999\n# TS=0\n# AGENT_STATE=CREATED\n# GOAL=\n# PLAN_VERSION=0\n"
-                "PLAN_START\n\nPLAN_END\n# CRC32=b373f311\n");
+    fprintf(fp,
+            "AEGISCHK v999\n# TS=0\n# AGENT_STATE=CREATED\n# GOAL=\n# PLAN_VERSION=0\n"
+            "PLAN_START\n\nPLAN_END\n# CRC32=b373f311\n");
     fclose(fp);
 
-    aegis_checkpoint_t* restored = NULL;
-    aegis_checkpoint_status_t status = AEGIS_CHECKPOINT_OK;
-    aegis_status_t rc = aegis_checkpoint_read(path, &restored, &status);
-    
+    aegis_checkpoint_t*       restored = NULL;
+    aegis_checkpoint_status_t status   = AEGIS_CHECKPOINT_OK;
+    aegis_status_t            rc       = aegis_checkpoint_read(path, &restored, &status);
+
     assert(rc == AEGIS_ERR_INVALID);
     assert(status == AEGIS_CHECKPOINT_VERSION_MISMATCH);
     assert(restored == NULL);
@@ -309,7 +313,7 @@ static void test_status_str(void)
     assert(strcmp(aegis_checkpoint_status_str(AEGIS_CHECKPOINT_CORRUPTED), "CORRUPTED") == 0);
     assert(strcmp(aegis_checkpoint_status_str(AEGIS_CHECKPOINT_INCOMPLETE), "INCOMPLETE") == 0);
     assert(strcmp(aegis_checkpoint_status_str(AEGIS_CHECKPOINT_VERSION_MISMATCH),
-                "VERSION_MISMATCH") == 0);
+                  "VERSION_MISMATCH") == 0);
     assert(strcmp(aegis_checkpoint_status_str((aegis_checkpoint_status_t)99), "UNKNOWN") == 0);
 }
 

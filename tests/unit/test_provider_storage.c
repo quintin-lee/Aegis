@@ -13,7 +13,7 @@
 #include <string.h>
 #include <unistd.h>
 
-static void expect_ok(aegis_status_t rc, const char *msg)
+static void expect_ok(aegis_status_t rc, const char* msg)
 {
     assert(rc == AEGIS_OK);
     (void)msg;
@@ -23,9 +23,9 @@ static void expect_ok(aegis_status_t rc, const char *msg)
 
 static void test_storage_sqlite_memory(void)
 {
-    aegis_sqlite_storage_ctx_t *ctx = NULL;
-    aegis_storage_ops_t *ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_sqlite_storage_ctx_t* ctx = NULL;
+    aegis_storage_ops_t*        ops = NULL;
+    aegis_provider_def_t        def = {0};
     expect_ok(aegis_storage_sqlite_create(NULL, 1, &ctx, &ops, &def), "create");
     assert(ctx != NULL);
     assert(ops != NULL);
@@ -33,16 +33,16 @@ static void test_storage_sqlite_memory(void)
     assert(ops->get != NULL);
     assert(ops->del != NULL);
 
-    aegis_provider_registry_t *reg = NULL;
+    aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");
     expect_ok(aegis_provider_register(reg, &def), "register");
     expect_ok(aegis_provider_init(reg, "storage-sqlite-memory"), "init");
 
-    aegis_cancellation_token_t *token = NULL;
+    aegis_cancellation_token_t* token = NULL;
     expect_ok(aegis_cancellation_token_create(&token), "token");
 
-    const char *key1 = "hello";
-    const char *val1 = "world";
+    const char* key1 = "hello";
+    const char* val1 = "world";
     expect_ok(aegis_storage_put(reg, "storage-sqlite-memory", key1, strlen(key1), val1,
                                 strlen(val1), token),
               "put");
@@ -56,9 +56,9 @@ static void test_storage_sqlite_memory(void)
     aegis_storage_blob_destroy(&blob);
 
     aegis_storage_blob_t missing = {0};
-    expect_ok(
-        aegis_storage_get(reg, "storage-sqlite-memory", "missing", strlen("missing"), token, &missing),
-        "get missing");
+    expect_ok(aegis_storage_get(reg, "storage-sqlite-memory", "missing", strlen("missing"), token,
+                                &missing),
+              "get missing");
     assert(missing.data == NULL);
     assert(missing.len == 0);
     aegis_storage_blob_destroy(&missing);
@@ -80,29 +80,29 @@ static void test_storage_sqlite_memory(void)
 
 static void test_storage_sqlite_file(void)
 {
-    const char *db_path = "/tmp/aegis_test_storage_XXXXXX";
-    char path[256];
+    const char* db_path = "/tmp/aegis_test_storage_XXXXXX";
+    char        path[256];
     strncpy(path, db_path, sizeof(path) - 1);
     path[sizeof(path) - 1] = '\0';
-    int fd = mkstemp(path);
+    int fd                 = mkstemp(path);
     assert(fd >= 0);
     close(fd);
 
-    aegis_sqlite_storage_ctx_t *ctx = NULL;
-    aegis_storage_ops_t *ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_sqlite_storage_ctx_t* ctx = NULL;
+    aegis_storage_ops_t*        ops = NULL;
+    aegis_provider_def_t        def = {0};
     expect_ok(aegis_storage_sqlite_create(path, 0, &ctx, &ops, &def), "create");
 
-    aegis_provider_registry_t *reg = NULL;
+    aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");
     expect_ok(aegis_provider_register(reg, &def), "register");
     expect_ok(aegis_provider_init(reg, "storage-sqlite"), "init");
 
-    aegis_cancellation_token_t *token = NULL;
+    aegis_cancellation_token_t* token = NULL;
     expect_ok(aegis_cancellation_token_create(&token), "token");
 
-    const char *key = "key1";
-    const char *val = "value1";
+    const char* key = "key1";
+    const char* val = "value1";
     expect_ok(aegis_storage_put(reg, "storage-sqlite", key, strlen(key), val, strlen(val), token),
               "put");
 
@@ -121,10 +121,10 @@ static void test_storage_sqlite_file(void)
 
 static void test_storage_invalid_args(void)
 {
-    aegis_provider_registry_t *reg = NULL;
+    aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");
 
-    aegis_cancellation_token_t *token = NULL;
+    aegis_cancellation_token_t* token = NULL;
     expect_ok(aegis_cancellation_token_create(&token), "token");
 
     aegis_storage_blob_t blob = {0};
@@ -137,20 +137,20 @@ static void test_storage_invalid_args(void)
 
 static void test_storage_transaction(void)
 {
-    aegis_sqlite_storage_ctx_t *ctx = NULL;
-    aegis_storage_ops_t *ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_sqlite_storage_ctx_t* ctx = NULL;
+    aegis_storage_ops_t*        ops = NULL;
+    aegis_provider_def_t        def = {0};
     expect_ok(aegis_storage_sqlite_create(NULL, 1, &ctx, &ops, &def), "create");
 
-    aegis_provider_registry_t *reg = NULL;
+    aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");
     expect_ok(aegis_provider_register(reg, &def), "register");
     expect_ok(aegis_provider_init(reg, "storage-sqlite-memory"), "init");
 
-    aegis_cancellation_token_t *token = NULL;
+    aegis_cancellation_token_t* token = NULL;
     expect_ok(aegis_cancellation_token_create(&token), "token");
 
-    aegis_storage_transaction_t *txn = NULL;
+    aegis_storage_transaction_t* txn = NULL;
     expect_ok(aegis_storage_transaction_create(&txn), "txn create");
     expect_ok(aegis_storage_transaction_put(txn, "a", 1, "1", 1), "txn put a");
     expect_ok(aegis_storage_transaction_put(txn, "b", 1, "2", 1), "txn put b");

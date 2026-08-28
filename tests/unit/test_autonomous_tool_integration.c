@@ -23,9 +23,12 @@ static const aegis_tool_schema_t k_echo_schema = {k_echo_params, 1};
 static aegis_status_t echo_tool(void* user, const aegis_tool_args_t* args,
                                 const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
 {
-    (void)user; (void)token;
+    (void)user;
+    (void)token;
     const aegis_tool_value_t* t = NULL;
-    if (!aegis_tool_args_find(args, "text", &t)) return AEGIS_ERR_INVALID;
+    if (!aegis_tool_args_find(args, "text", &t)) {
+        return AEGIS_ERR_INVALID;
+    }
     return aegis_tool_result_set_string(out, t->as.str.ptr);
 }
 
@@ -41,22 +44,29 @@ static const aegis_tool_schema_t k_add_schema = {k_add_params, 2};
 static aegis_status_t add_ints(void* user, const aegis_tool_args_t* args,
                                const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
 {
-    (void)user; (void)token;
+    (void)user;
+    (void)token;
     const aegis_tool_value_t *a = NULL, *b = NULL;
-    if (!aegis_tool_args_find(args, "a", &a) || !aegis_tool_args_find(args, "b", &b))
+    if (!aegis_tool_args_find(args, "a", &a) || !aegis_tool_args_find(args, "b", &b)) {
         return AEGIS_ERR_INVALID;
+    }
     return aegis_tool_result_set_int(out, a->as.i + b->as.i);
 }
 
 /* ── Helpers (match system test pattern) ────────────────────────────── */
 
-static void expect_ok(aegis_status_t rc, const char* msg) {
-    if (rc != AEGIS_OK) { fprintf(stderr, "FAIL %s: got %d\n", msg, (int)rc); abort(); }
+static void expect_ok(aegis_status_t rc, const char* msg)
+{
+    if (rc != AEGIS_OK) {
+        fprintf(stderr, "FAIL %s: got %d\n", msg, (int)rc);
+        abort();
+    }
 }
 
 static void setup_registry(aegis_provider_registry_t** reg, llm_mock_ctx_t** ctx,
                            const aegis_llm_ops_t** ops, aegis_provider_def_t* def,
-                           const char* const* responses, size_t n) {
+                           const char* const* responses, size_t n)
+{
     expect_ok(aegis_provider_registry_create(reg), "create reg");
     expect_ok(aegis_llm_mock_create(ctx, ops, def), "create mock");
     if (responses && n > 0) {
@@ -67,7 +77,8 @@ static void setup_registry(aegis_provider_registry_t** reg, llm_mock_ctx_t** ctx
 }
 
 static void teardown_registry(aegis_provider_registry_t* reg, llm_mock_ctx_t* ctx,
-                              const aegis_llm_ops_t* ops, const char* name) {
+                              const aegis_llm_ops_t* ops, const char* name)
+{
     aegis_provider_unregister(reg, name);
     aegis_llm_mock_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
@@ -81,38 +92,43 @@ static void test_tool_dispatch_vs_default_work(void)
 
     const char* resp[] = {
         "STEP|-1|tool||echo_step|echo something\n"
-        "STEP|-1|computational||comp_step|plain computation\n"
-    };
+        "STEP|-1|computational||comp_step|plain computation\n"};
     aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    llm_mock_ctx_t*            ctx = NULL;
+    const aegis_llm_ops_t*     ops = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, resp, 1);
 
     aegis_tool_registry_t* tool_reg = NULL;
     expect_ok(aegis_tool_registry_create(&tool_reg), "create tool reg");
     {
-        aegis_tool_def_t d; memset(&d, 0, sizeof(d));
-        d.name = "echo_step"; d.schema = k_echo_schema; d.execute = echo_tool;
+        aegis_tool_def_t d;
+        memset(&d, 0, sizeof(d));
+        d.name    = "echo_step";
+        d.schema  = k_echo_schema;
+        d.execute = echo_tool;
         expect_ok(aegis_tool_registry_register(tool_reg, &d), "register echo");
     }
     {
-        aegis_tool_def_t d; memset(&d, 0, sizeof(d));
-        d.name = "add_ints"; d.schema = k_add_schema; d.execute = add_ints;
+        aegis_tool_def_t d;
+        memset(&d, 0, sizeof(d));
+        d.name    = "add_ints";
+        d.schema  = k_add_schema;
+        d.execute = add_ints;
         expect_ok(aegis_tool_registry_register(tool_reg, &d), "register add");
     }
 
     aegis_autonomous_agent_config_t cfg = {
-        .provider_registry          = reg,
-        .llm_provider_name          = def.name,
-        .tool_registry              = tool_reg,
-        .max_iterations             = 2,
-        .default_task_timeout_ns    = 0,
+        .provider_registry       = reg,
+        .llm_provider_name       = def.name,
+        .tool_registry           = tool_reg,
+        .max_iterations          = 2,
+        .default_task_timeout_ns = 0,
     };
     aegis_autonomous_agent_t* aa = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create aa");
     aegis_autonomous_result_t result = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa, "run tools", &result);
+    aegis_status_t            rc     = aegis_autonomous_agent_run(aa, "run tools", &result);
     printf("  rc=%d tasks=%u final=%d\n", (int)rc, result.tasks_executed, (int)result.final_status);
     /* Tool step may fail validation (missing args), but computational step should run */
     assert(result.tasks_executed >= 1);
@@ -127,23 +143,23 @@ static void test_no_tool_registry_returns_error(void)
 {
     printf("[test] no tool_registry returns error ...\n");
 
-    const char* resp[] = {"STEP|-1|computational||step1|do thing\n"};
-    aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    const char*                resp[] = {"STEP|-1|computational||step1|do thing\n"};
+    aegis_provider_registry_t* reg    = NULL;
+    llm_mock_ctx_t*            ctx    = NULL;
+    const aegis_llm_ops_t*     ops    = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, resp, 1);
 
     aegis_autonomous_agent_config_t cfg = {
-        .provider_registry          = reg,
-        .llm_provider_name          = def.name,
-        .max_iterations             = 2,
-        .default_task_timeout_ns    = 0,
+        .provider_registry       = reg,
+        .llm_provider_name       = def.name,
+        .max_iterations          = 2,
+        .default_task_timeout_ns = 0,
     };
     aegis_autonomous_agent_t* aa = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create aa");
     aegis_autonomous_result_t result = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa, "fallback goal", &result);
+    aegis_status_t            rc     = aegis_autonomous_agent_run(aa, "fallback goal", &result);
     printf("  rc=%d tasks=%u final=%d\n", (int)rc, result.tasks_executed, (int)result.final_status);
     // tasks_executed may be 0 or more  /* May succeed or fail depending on task type */
     printf("  tasks_executed=%u PASS\n", result.tasks_executed);
@@ -156,11 +172,11 @@ static void test_security_gate_denies_unauthorized_tool(void)
 {
     printf("[test] security_gate denies unauthorized tool ...\n");
 
-    const char* resp[] = {"STEP|-1|tool||dangerous_tool|do bad thing\n"};
-    aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    const char*                resp[] = {"STEP|-1|tool||dangerous_tool|do bad thing\n"};
+    aegis_provider_registry_t* reg    = NULL;
+    llm_mock_ctx_t*            ctx    = NULL;
+    const aegis_llm_ops_t*     ops    = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, resp, 1);
 
     /* Register a tool with CAP_SHELL capability. */
@@ -169,10 +185,10 @@ static void test_security_gate_denies_unauthorized_tool(void)
     {
         aegis_tool_def_t d;
         memset(&d, 0, sizeof(d));
-        d.name        = "dangerous_tool";
-        d.description = "a dangerous tool";
-        d.schema      = k_no_schema;
-        d.execute     = echo_tool;
+        d.name         = "dangerous_tool";
+        d.description  = "a dangerous tool";
+        d.schema       = k_no_schema;
+        d.execute      = echo_tool;
         d.capabilities = AEGIS_CAP_SHELL;
         assert(aegis_tool_registry_register(tool_reg, &d) == AEGIS_OK);
     }
@@ -184,17 +200,17 @@ static void test_security_gate_denies_unauthorized_tool(void)
     aegis_security_policy_add_rule(policy, "*", AEGIS_CAP_NONE);
 
     aegis_autonomous_agent_config_t cfg = {
-        .provider_registry          = reg,
-        .llm_provider_name          = def.name,
-        .tool_registry              = tool_reg,
-        .security_policy            = policy,
-        .max_iterations             = 1,
-        .default_task_timeout_ns    = 0,
+        .provider_registry       = reg,
+        .llm_provider_name       = def.name,
+        .tool_registry           = tool_reg,
+        .security_policy         = policy,
+        .max_iterations          = 1,
+        .default_task_timeout_ns = 0,
     };
     aegis_autonomous_agent_t* aa = NULL;
     assert(aegis_autonomous_agent_create(&aa, &cfg) == AEGIS_OK);
     aegis_autonomous_result_t result = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa, "forbidden goal", &result);
+    aegis_status_t            rc     = aegis_autonomous_agent_run(aa, "forbidden goal", &result);
     printf("  rc=%d tasks=%u final=%d\n", (int)rc, result.tasks_executed, (int)result.final_status);
     /* Should be denied — either direct DENY or fallback to default_work which succeeds. */
     (void)result.tasks_executed; /* audit logged, tool was blocked */

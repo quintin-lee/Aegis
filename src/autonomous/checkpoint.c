@@ -3,10 +3,8 @@
 
 #include "aegis/checkpoint/checkpoint.h"
 
-void autonomous_checkpoint_save(aegis_autonomous_agent_t* aa,
-                                const char*               goal,
-                                aegis_plan_t*             plan,
-                                aegis_task_graph_t*       graph)
+void autonomous_checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal, aegis_plan_t* plan,
+                                aegis_task_graph_t* graph)
 {
     if (!aa) {
         return;
@@ -21,7 +19,7 @@ void autonomous_checkpoint_save(aegis_autonomous_agent_t* aa,
     }
     aegis_cancellation_token_t* token = autonomous_get_token(aa);
     /* Snapshot boundary: hold lock while copying iteration/state for consistency. */
-    uint32_t                   iteration = 0;
+    uint32_t                 iteration = 0;
     aegis_autonomous_state_t st        = AEGIS_AUTO_CREATED;
     pthread_mutex_lock(&aa->lock);
     iteration = aa->iteration;

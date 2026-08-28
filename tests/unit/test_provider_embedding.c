@@ -21,9 +21,9 @@ static void expect_ok(aegis_status_t rc, const char* msg)
 
 static void test_embedding_hash_basic(void)
 {
-    hash_embed_ctx_t* ctx = NULL;
+    hash_embed_ctx_t*            ctx = NULL;
     const aegis_embedding_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_provider_def_t         def = {0};
     expect_ok(aegis_embedding_hash_create(&ctx, &ops, &def), "create");
     assert(ctx != NULL);
     assert(ops != NULL);
@@ -41,13 +41,15 @@ static void test_embedding_hash_basic(void)
     expect_ok(aegis_cancellation_token_create(&token), "token");
 
     aegis_embedding_result_t res = {0};
-    expect_ok(aegis_embed(reg, "embedding-hash", "hello world", strlen("hello world"), token, &res), "embed");
+    expect_ok(aegis_embed(reg, "embedding-hash", "hello world", strlen("hello world"), token, &res),
+              "embed");
     assert(res.vector != NULL);
     assert(res.dim == 64);
 
     float norm = 0.0f;
-    for (size_t i = 0; i < res.dim; i++)
+    for (size_t i = 0; i < res.dim; i++) {
         norm += res.vector[i] * res.vector[i];
+    }
     norm = sqrtf(norm);
     assert(fabs(norm - 1.0) < 1e-6);
 
@@ -60,9 +62,9 @@ static void test_embedding_hash_basic(void)
 
 static void test_embedding_hash_empty(void)
 {
-    hash_embed_ctx_t* ctx = NULL;
+    hash_embed_ctx_t*            ctx = NULL;
     const aegis_embedding_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_provider_def_t         def = {0};
     expect_ok(aegis_embedding_hash_create(&ctx, &ops, &def), "create");
 
     aegis_provider_registry_t* reg = NULL;
@@ -91,9 +93,9 @@ static void test_embedding_hash_empty(void)
 
 static void test_embedding_hash_different_inputs(void)
 {
-    hash_embed_ctx_t* ctx = NULL;
+    hash_embed_ctx_t*            ctx = NULL;
     const aegis_embedding_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_provider_def_t         def = {0};
     expect_ok(aegis_embedding_hash_create(&ctx, &ops, &def), "create");
 
     aegis_provider_registry_t* reg = NULL;
@@ -129,9 +131,9 @@ static void test_embedding_hash_different_inputs(void)
 
 static void test_embedding_invalid_args(void)
 {
-    hash_embed_ctx_t* ctx = NULL;
+    hash_embed_ctx_t*            ctx = NULL;
     const aegis_embedding_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_provider_def_t         def = {0};
     expect_ok(aegis_embedding_hash_create(&ctx, &ops, &def), "create");
 
     aegis_provider_registry_t* reg = NULL;

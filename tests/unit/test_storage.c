@@ -40,10 +40,8 @@ static void test_transaction_put(void)
     aegis_storage_transaction_t* txn = NULL;
     expect_ok(aegis_storage_transaction_create(&txn), "create");
 
-    expect_ok(aegis_storage_transaction_put(txn, "key1", 4, "value1", 6),
-              "put key1");
-    expect_ok(aegis_storage_transaction_put(txn, "key2", 4, "value2", 6),
-              "put key2");
+    expect_ok(aegis_storage_transaction_put(txn, "key1", 4, "value1", 6), "put key1");
+    expect_ok(aegis_storage_transaction_put(txn, "key2", 4, "value2", 6), "put key2");
 
     aegis_storage_transaction_destroy(txn);
 }
@@ -53,8 +51,7 @@ static void test_transaction_delete(void)
     aegis_storage_transaction_t* txn = NULL;
     expect_ok(aegis_storage_transaction_create(&txn), "create");
 
-    expect_ok(aegis_storage_transaction_delete(txn, "key1", 4),
-              "delete key1");
+    expect_ok(aegis_storage_transaction_delete(txn, "key1", 4), "delete key1");
 
     aegis_storage_transaction_destroy(txn);
 }
@@ -136,7 +133,7 @@ static void test_snapshot_count_empty(void)
 static void test_query_invalid_args(void)
 {
     aegis_storage_entry_t* entries = NULL;
-    size_t count = 0;
+    size_t                 count   = 0;
 
     /* NULL reg. */
     assert(aegis_storage_query(NULL, "store", NULL, 0, NULL, &entries, &count) ==
@@ -144,24 +141,20 @@ static void test_query_invalid_args(void)
 
     /* NULL store_name. */
     aegis_provider_registry_t* reg = NULL;
-    assert(aegis_storage_query(reg, NULL, NULL, 0, NULL, &entries, &count) ==
-           AEGIS_ERR_INVALID);
+    assert(aegis_storage_query(reg, NULL, NULL, 0, NULL, &entries, &count) == AEGIS_ERR_INVALID);
     (void)reg;
 
     /* NULL out/out_count. */
-    assert(aegis_storage_query(reg, "store", NULL, 0, NULL, NULL, &count) ==
-           AEGIS_ERR_INVALID);
-    assert(aegis_storage_query(reg, "store", NULL, 0, NULL, &entries, NULL) ==
-           AEGIS_ERR_INVALID);
+    assert(aegis_storage_query(reg, "store", NULL, 0, NULL, NULL, &count) == AEGIS_ERR_INVALID);
+    assert(aegis_storage_query(reg, "store", NULL, 0, NULL, &entries, NULL) == AEGIS_ERR_INVALID);
 }
 
 static void test_query_returns_provider_error(void)
 {
     /* Query with NULL registry returns INVALID (arg check). */
     aegis_storage_entry_t* entries = NULL;
-    size_t count = 0;
-    aegis_status_t rc = aegis_storage_query(NULL, "store", NULL, 0, NULL,
-                                             &entries, &count);
+    size_t                 count   = 0;
+    aegis_status_t         rc = aegis_storage_query(NULL, "store", NULL, 0, NULL, &entries, &count);
     assert(rc == AEGIS_ERR_INVALID);
     assert(entries == NULL);
     assert(count == 0);

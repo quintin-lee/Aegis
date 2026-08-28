@@ -24,8 +24,7 @@ static void test_capabilities_str(void)
     assert(strcmp(aegis_security_capabilities_str(AEGIS_CAP_NONE), "NONE") == 0);
     const char* s = aegis_security_capabilities_str(AEGIS_CAP_SHELL);
     assert(strstr(s, "SHELL") != NULL);
-    const char* multi = aegis_security_capabilities_str(
-        AEGIS_CAP_SHELL | AEGIS_CAP_NETWORK);
+    const char* multi = aegis_security_capabilities_str(AEGIS_CAP_SHELL | AEGIS_CAP_NETWORK);
     assert(strstr(multi, "SHELL") != NULL);
     assert(strstr(multi, "NETWORK") != NULL);
 }
@@ -91,9 +90,8 @@ static void test_evaluate_allowed(void)
     assert(aegis_security_evaluate(p, "read_file", AEGIS_CAP_READ_FILE, "context1") == AEGIS_OK);
     assert(aegis_security_evaluate(p, "execute_cmd", AEGIS_CAP_SHELL, NULL) == AEGIS_OK);
     /* Default deny: tool requiring MORE than rule grants is denied. */
-    assert(aegis_security_evaluate(p, "read_file",
-                                    AEGIS_CAP_READ_FILE | AEGIS_CAP_WRITE_FILE,
-                                    NULL) == AEGIS_ERR_PERM);
+    assert(aegis_security_evaluate(p, "read_file", AEGIS_CAP_READ_FILE | AEGIS_CAP_WRITE_FILE,
+                                   NULL) == AEGIS_ERR_PERM);
 
     aegis_security_policy_destroy(p);
 }
@@ -115,9 +113,8 @@ static void test_evaluate_partial_match(void)
     aegis_security_policy_add_rule(p, "read_file", AEGIS_CAP_READ_FILE);
 
     assert(aegis_security_evaluate(p, "read_file", AEGIS_CAP_READ_FILE, NULL) == AEGIS_OK);
-    assert(aegis_security_evaluate(p, "read_file",
-                                    AEGIS_CAP_READ_FILE | AEGIS_CAP_NETWORK,
-                                    NULL) == AEGIS_ERR_PERM);
+    assert(aegis_security_evaluate(p, "read_file", AEGIS_CAP_READ_FILE | AEGIS_CAP_NETWORK, NULL) ==
+           AEGIS_ERR_PERM);
 
     aegis_security_policy_destroy(p);
 }
@@ -189,10 +186,14 @@ static void test_audit_log_records_decisions(void)
     for (size_t i = 0; i < count; i++) {
         const aegis_security_audit_entry_t* e = aegis_security_audit_get(p, i);
         assert(e != NULL);
-        if (e->type == AEGIS_SECURITY_AUDIT_CAP_CHECK) found_cap_check = true;
+        if (e->type == AEGIS_SECURITY_AUDIT_CAP_CHECK) {
+            found_cap_check = true;
+        }
         if (e->type == AEGIS_SECURITY_AUDIT_DECISION) {
             found_decision = true;
-            if (e->decision == AEGIS_SECURITY_AUDIT_DENY) found_deny = true;
+            if (e->decision == AEGIS_SECURITY_AUDIT_DENY) {
+                found_deny = true;
+            }
         }
     }
     assert(found_cap_check);
@@ -217,15 +218,16 @@ static void test_audit_ring_buffer(void)
 
 /* ── Sandbox ───────────────────────────────────────────────────────────────── */
 
-static aegis_status_t mock_pre_execute(aegis_security_sandbox_t* sandbox,
-                                        const char* tool_name,
-                                        aegis_capability_t tool_caps,
-                                        const aegis_cancellation_token_t* token)
+static aegis_status_t mock_pre_execute(aegis_security_sandbox_t* sandbox, const char* tool_name,
+                                       aegis_capability_t                tool_caps,
+                                       const aegis_cancellation_token_t* token)
 {
     (void)sandbox;
     (void)tool_name;
     (void)token;
-    if (tool_caps & AEGIS_CAP_SHELL) return AEGIS_ERR_PERM;
+    if (tool_caps & AEGIS_CAP_SHELL) {
+        return AEGIS_ERR_PERM;
+    }
     return AEGIS_OK;
 }
 
@@ -256,7 +258,7 @@ static void test_sandbox_lifecycle(void)
 
 static void test_sandbox_pre_execute_deny(void)
 {
-    aegis_security_policy_t* p = NULL;
+    aegis_security_policy_t*  p = NULL;
     aegis_security_sandbox_t* s = NULL;
     expect_ok(aegis_security_policy_create(&p), "create");
     expect_ok(aegis_security_sandbox_create(&s), "sandbox");

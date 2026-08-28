@@ -18,21 +18,22 @@
 
 /* ── Mock state ────────────────────────────────────────────────────────────── */
 
-static int g_init_count = 0;
-static int g_shutdown_count = 0;
-static void* g_user_ctx = NULL;
+static int   g_init_count     = 0;
+static int   g_shutdown_count = 0;
+static void* g_user_ctx       = NULL;
 
 /* ── Manifest ──────────────────────────────────────────────────────────────── */
 
 static const aegis_plugin_manifest_t g_manifest = {
-    .name          = "mock-plugin",
-    .abi_version   = AEGIS_PLUGIN_ABI_VERSION,
-    .struct_sizes  = {
-        sizeof(aegis_provider_def_t),
-        sizeof(aegis_strategy_def_t),
-        sizeof(aegis_tool_def_t),
-    },
-    .capabilities  = (uint32_t)AEGIS_CAP_READ_FILE,
+    .name        = "mock-plugin",
+    .abi_version = AEGIS_PLUGIN_ABI_VERSION,
+    .struct_sizes =
+        {
+            sizeof(aegis_provider_def_t),
+            sizeof(aegis_strategy_def_t),
+            sizeof(aegis_tool_def_t),
+        },
+    .capabilities = (uint32_t)AEGIS_CAP_READ_FILE,
 };
 
 const aegis_plugin_manifest_t* get_plugin_manifest(void)
@@ -44,10 +45,12 @@ const aegis_plugin_manifest_t* get_plugin_manifest(void)
 
 aegis_status_t aegis_plugin_init(void** out)
 {
-    if (!out) return AEGIS_ERR_INVALID;
+    if (!out) {
+        return AEGIS_ERR_INVALID;
+    }
     g_init_count++;
     g_user_ctx = malloc(1);
-    *out = g_user_ctx;
+    *out       = g_user_ctx;
     return AEGIS_OK;
 }
 
@@ -63,5 +66,11 @@ void aegis_plugin_shutdown(void* ctx)
 
 /* ── Exposed counters ──────────────────────────────────────────────────────── */
 
-int aegis_mock_plugin_init_count(void) { return g_init_count; }
-int aegis_mock_plugin_shutdown_count(void) { return g_shutdown_count; }
+int aegis_mock_plugin_init_count(void)
+{
+    return g_init_count;
+}
+int aegis_mock_plugin_shutdown_count(void)
+{
+    return g_shutdown_count;
+}

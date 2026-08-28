@@ -25,12 +25,14 @@ static void* stress_insert(void* arg)
         char id[64];
         snprintf(id, sizeof(id), "idx_%d_%d", (int)pthread_self() & 0xFFFF, i);
         aegis_memory_item_t* item = calloc(1, sizeof(*item));
-        if (!item) return NULL;
-        item->id         = strdup(id);
-        item->content    = strdup("concurrent_data");
-        item->type       = AEGIS_MEMORY_ITEM_GENERIC;
-        item->priority   = i;
-        item->timestamp  = 0;
+        if (!item) {
+            return NULL;
+        }
+        item->id        = strdup(id);
+        item->content   = strdup("concurrent_data");
+        item->type      = AEGIS_MEMORY_ITEM_GENERIC;
+        item->priority  = i;
+        item->timestamp = 0;
         if (!item->id || !item->content) {
             free(item->id);
             free(item->content);
@@ -46,8 +48,8 @@ static void* stress_insert(void* arg)
             free(item->content);
             free(item);
         } else {
-            item->id         = NULL;
-            item->content    = NULL;
+            item->id      = NULL;
+            item->content = NULL;
             free(item);
         }
     }

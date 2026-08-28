@@ -23,9 +23,9 @@ static void expect_ok(aegis_status_t rc, const char* msg)
 
 static void test_llm_mock_basic(void)
 {
-    llm_mock_ctx_t* ctx = NULL;
+    llm_mock_ctx_t*        ctx = NULL;
     const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_provider_def_t   def = {0};
     expect_ok(aegis_llm_mock_create(&ctx, &ops, &def), "create");
 
     aegis_provider_registry_t* reg = NULL;
@@ -34,12 +34,12 @@ static void test_llm_mock_basic(void)
     expect_ok(aegis_provider_init(reg, "llm-mock"), "init");
 
     aegis_llm_request_t req = {0};
-    req.prompt = "Hello world";
-    req.prompt_len = strlen("Hello world");
-    req.max_tokens = 100;
-    req.temperature = 0.7f;
+    req.prompt              = "Hello world";
+    req.prompt_len          = strlen("Hello world");
+    req.max_tokens          = 100;
+    req.temperature         = 0.7f;
 
-    aegis_llm_response_t resp = {0};
+    aegis_llm_response_t        resp  = {0};
     aegis_cancellation_token_t* token = NULL;
     expect_ok(aegis_cancellation_token_create(&token), "token");
 
@@ -58,9 +58,9 @@ static void test_llm_mock_basic(void)
 
 static void test_llm_mock_cancelled(void)
 {
-    llm_mock_ctx_t* ctx = NULL;
+    llm_mock_ctx_t*        ctx = NULL;
     const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_provider_def_t   def = {0};
     expect_ok(aegis_llm_mock_create(&ctx, &ops, &def), "create");
 
     aegis_provider_registry_t* reg = NULL;
@@ -72,7 +72,7 @@ static void test_llm_mock_cancelled(void)
     expect_ok(aegis_cancellation_token_create(&token), "token");
     aegis_cancellation_token_request_cancel(token);
 
-    aegis_llm_request_t req = {"cancel test", 11, 100, 0.5f};
+    aegis_llm_request_t  req  = {"cancel test", 11, 100, 0.5f};
     aegis_llm_response_t resp = {0};
     assert(aegis_llm_complete(reg, "llm-mock", &req, token, &resp) == AEGIS_ERR_CANCELLED);
     assert(resp.data == NULL);
@@ -85,16 +85,16 @@ static void test_llm_mock_cancelled(void)
 
 static void test_llm_mock_not_found(void)
 {
-    llm_mock_ctx_t* ctx = NULL;
+    llm_mock_ctx_t*        ctx = NULL;
     const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_provider_def_t   def = {0};
     expect_ok(aegis_llm_mock_create(&ctx, &ops, &def), "create");
 
     aegis_provider_registry_t* reg = NULL;
     expect_ok(aegis_provider_registry_create(&reg), "create reg");
 
-    aegis_llm_request_t req = {"test", 4, 0, 0.0f};
-    aegis_llm_response_t resp = {0};
+    aegis_llm_request_t         req   = {"test", 4, 0, 0.0f};
+    aegis_llm_response_t        resp  = {0};
     aegis_cancellation_token_t* token = NULL;
     expect_ok(aegis_cancellation_token_create(&token), "token");
 
@@ -107,9 +107,9 @@ static void test_llm_mock_not_found(void)
 
 static void test_llm_mock_uninitialized(void)
 {
-    llm_mock_ctx_t* ctx = NULL;
+    llm_mock_ctx_t*        ctx = NULL;
     const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_provider_def_t   def = {0};
     expect_ok(aegis_llm_mock_create(&ctx, &ops, &def), "create");
 
     aegis_provider_registry_t* reg = NULL;
@@ -117,8 +117,8 @@ static void test_llm_mock_uninitialized(void)
     expect_ok(aegis_provider_register(reg, &def), "register");
     /* Do NOT init */
 
-    aegis_llm_request_t req = {"test", 4, 0, 0.0f};
-    aegis_llm_response_t resp = {0};
+    aegis_llm_request_t         req   = {"test", 4, 0, 0.0f};
+    aegis_llm_response_t        resp  = {0};
     aegis_cancellation_token_t* token = NULL;
     expect_ok(aegis_cancellation_token_create(&token), "token");
 
@@ -147,9 +147,9 @@ static void test_llm_mock_invalid_args(void)
 
 static void test_llm_mock_error_mapping(void)
 {
-    llm_mock_ctx_t* ctx = NULL;
+    llm_mock_ctx_t*        ctx = NULL;
     const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def = {0};
+    aegis_provider_def_t   def = {0};
     expect_ok(aegis_llm_mock_create(&ctx, &ops, &def), "create");
     assert(ctx != NULL);
     aegis_llm_mock_set_fail_after(ctx, 1);
@@ -159,8 +159,8 @@ static void test_llm_mock_error_mapping(void)
     expect_ok(aegis_provider_register(reg, &def), "register");
     expect_ok(aegis_provider_init(reg, "llm-mock"), "init");
 
-    aegis_llm_request_t req = {"test", 4, 0, 0.0f};
-    aegis_llm_response_t resp = {0};
+    aegis_llm_request_t         req   = {"test", 4, 0, 0.0f};
+    aegis_llm_response_t        resp  = {0};
     aegis_cancellation_token_t* token = NULL;
     expect_ok(aegis_cancellation_token_create(&token), "token");
 

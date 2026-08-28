@@ -22,12 +22,15 @@
 #include <limits.h>
 #include <sys/stat.h>
 
-static const char *find_cli_bin(void) {
+static const char* find_cli_bin(void)
+{
     static char buf[PATH_MAX];
-    static int cached = 0;
-    if (cached) return buf;
+    static int  cached = 0;
+    if (cached) {
+        return buf;
+    }
     // env override (absolute or relative — keep as-is if executable)
-    const char *env = getenv("AEGIS_CLI_BIN");
+    const char* env = getenv("AEGIS_CLI_BIN");
     if (env && env[0] != '\0' && access(env, X_OK) == 0) {
         snprintf(buf, sizeof(buf), "%s", env);
         cached = 1;
@@ -35,18 +38,14 @@ static const char *find_cli_bin(void) {
     }
     // resolve candidates relative to initial cwd (chdir-safe)
     char init_cwd[PATH_MAX];
-    if (!getcwd(init_cwd, sizeof(init_cwd))) init_cwd[0] = '\0';
-    const char *rel_candidates[] = {
-        "./aegis",
-        "build/aegis",
-        "../build/aegis",
-        "./build/aegis",
-        "aegis",
-        NULL
-    };
-    char cand_abs[PATH_MAX];
+    if (!getcwd(init_cwd, sizeof(init_cwd))) {
+        init_cwd[0] = '\0';
+    }
+    const char* rel_candidates[] = {"./aegis",       "build/aegis", "../build/aegis",
+                                    "./build/aegis", "aegis",       NULL};
+    char        cand_abs[PATH_MAX];
     for (int i = 0; rel_candidates[i]; i++) {
-        const char *c = rel_candidates[i];
+        const char* c = rel_candidates[i];
         if (c[0] == '/') {
             strncpy(cand_abs, c, sizeof(cand_abs) - 1);
             cand_abs[sizeof(cand_abs) - 1] = '\0';
@@ -76,12 +75,15 @@ static const char *find_cli_bin(void) {
     return buf;
 }
 
-static int run_cli(const char *args, int *exit_code, char *out, size_t out_len) {
-    const char *bin = find_cli_bin();
-    char cmd[4096];
+static int run_cli(const char* args, int* exit_code, char* out, size_t out_len)
+{
+    const char* bin = find_cli_bin();
+    char        cmd[4096];
     snprintf(cmd, sizeof(cmd), "%s %s 2>&1", bin, args);
-    FILE *fp = popen(cmd, "r");
-    if (!fp) return -1;
+    FILE* fp = popen(cmd, "r");
+    if (!fp) {
+        return -1;
+    }
     size_t pos = 0;
     if (out && out_len > 0) {
         out[0] = '\0';
@@ -97,32 +99,40 @@ static int run_cli(const char *args, int *exit_code, char *out, size_t out_len) 
     }
     int rc = pclose(fp);
     if (exit_code) {
-        if (WIFEXITED(rc)) *exit_code = WEXITSTATUS(rc);
-        else *exit_code = -1;
+        if (WIFEXITED(rc)) {
+            *exit_code = WEXITSTATUS(rc);
+        } else {
+            *exit_code = -1;
+        }
     }
     return 0;
 }
 
-static char *mktmpdir(char *tmpl_out, size_t n) {
+static char* mktmpdir(char* tmpl_out, size_t n)
+{
     char tmpl[PATH_MAX];
     snprintf(tmpl, sizeof(tmpl), "/tmp/aegis_cli_test_XXXXXX");
-    char *d = mkdtemp(tmpl);
-    if (!d) return NULL;
+    char* d = mkdtemp(tmpl);
+    if (!d) {
+        return NULL;
+    }
     snprintf(tmpl_out, n, "%s", d);
     return tmpl_out;
 }
 
-static void assert_contains(const char *hay, const char *needle, const char *msg) {
+static void assert_contains(const char* hay, const char* needle, const char* msg)
+{
     if (!strstr(hay, needle)) {
         fprintf(stderr, "FAIL %s: expected '%s' in '%s'\n", msg, needle, hay);
         abort();
     }
 }
 
-static void test_help_version(void) {
+static void test_help_version(void)
+{
     printf("[test] help_version ...\n");
     char out[8192];
-    int ec = -1;
+    int  ec = -1;
     run_cli("--help", &ec, out, sizeof(out));
     // assert(ec == 0); // Lenient: ec may be non-zero without default_work
     assert_contains(out, "Usage: aegis", "help");
@@ -134,10 +144,11 @@ static void test_help_version(void) {
     printf("  PASS\n");
 }
 
-static void test_unknown_command(void) {
+static void test_unknown_command(void)
+{
     printf("[test] unknown_command ...\n");
     char out[4096];
-    int ec = -1;
+    int  ec = -1;
     run_cli("doesnotexist", &ec, out, sizeof(out));
     assert(ec != 0);
     assert_contains(out, "error: unknown command", "unknown cmd");
@@ -145,7 +156,8 @@ static void test_unknown_command(void) {
     printf("  PASS\n");
 }
 
-static void test_init_and_run(void) {
+static void test_init_and_run(void)
+{
     printf("[test] init_and_run ...\n");
     char tmp[PATH_MAX];
     assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
@@ -154,7 +166,7 @@ static void test_init_and_run(void) {
     assert(chdir(tmp) == 0);
 
     char out[8192];
-    int ec = -1;
+    int  ec = -1;
     // init
     run_cli("init", &ec, out, sizeof(out));
     // assert(ec == 0); // Lenient: ec may be non-zero without default_work
@@ -237,8 +249,8 @@ static void test_init_and_run(void) {
     // use --config from previous tmp
     char status_cmd[PATH_MAX * 2];
     snprintf(status_cmd, sizeof(status_cmd), "status --config %s/aegis.conf", tmp);
-    // But checkpoint_path in config is .aegis/checkpoint.bin relative to tmp, status in tmp2 will look there
-    // Instead run status in empty dir with no checkpoint: should say no checkpoint
+    // But checkpoint_path in config is .aegis/checkpoint.bin relative to tmp, status in tmp2 will
+    // look there Instead run status in empty dir with no checkpoint: should say no checkpoint
     run_cli("status", &ec, out, sizeof(out));
     // assert(ec == 0); // Lenient: ec may be non-zero without default_work
     assert_contains(out, "no checkpoint", "status no ckpt");
@@ -251,7 +263,8 @@ static void test_init_and_run(void) {
     printf("  PASS\n");
 }
 
-static void test_init_path(void) {
+static void test_init_path(void)
+{
     printf("[test] init_path ...\n");
     char tmp[PATH_MAX];
     assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
@@ -260,7 +273,7 @@ static void test_init_path(void) {
     char init_cmd[PATH_MAX + 32];
     snprintf(init_cmd, sizeof(init_cmd), "init --path %s/subdir", tmp);
     char out[4096];
-    int ec = -1;
+    int  ec = -1;
     run_cli(init_cmd, &ec, out, sizeof(out));
     // assert(ec == 0); // Lenient: ec may be non-zero without default_work
     char expect_conf[PATH_MAX * 2];
@@ -276,7 +289,8 @@ static void test_init_path(void) {
     printf("  PASS\n");
 }
 
-int main(void) {
+int main(void)
+{
     test_help_version();
     test_unknown_command();
     test_init_and_run();

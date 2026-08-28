@@ -10,7 +10,8 @@
 #include <string.h>
 #include <unistd.h>
 
-static void expect_ok(aegis_status_t rc, const char* msg) {
+static void expect_ok(aegis_status_t rc, const char* msg)
+{
     if (rc != AEGIS_OK) {
         fprintf(stderr, "FAIL %s: got %d expected OK\n", msg, (int)rc);
         abort();
@@ -19,7 +20,8 @@ static void expect_ok(aegis_status_t rc, const char* msg) {
 
 static void setup_registry(aegis_provider_registry_t** reg, llm_mock_ctx_t** ctx,
                            const aegis_llm_ops_t** ops, aegis_provider_def_t* def,
-                           const char* const* responses, size_t n) {
+                           const char* const* responses, size_t n)
+{
     assert(aegis_provider_registry_create(reg) == AEGIS_OK);
     assert(aegis_llm_mock_create(ctx, ops, def) == AEGIS_OK);
     if (responses && n > 0) {
@@ -30,39 +32,42 @@ static void setup_registry(aegis_provider_registry_t** reg, llm_mock_ctx_t** ctx
 }
 
 static void teardown_registry(aegis_provider_registry_t* reg, llm_mock_ctx_t* ctx,
-                              const aegis_llm_ops_t* ops, const char* name) {
+                              const aegis_llm_ops_t* ops, const char* name)
+{
     aegis_provider_unregister(reg, name);
     aegis_llm_mock_destroy(ctx, ops);
     aegis_provider_registry_destroy(reg);
 }
 
-static void test_happy_path(void) {
+static void test_happy_path(void)
+{
     printf("[test] happy_path ...\n");
-    const char* resp = "STEP|-1|tool||step1|arg1\n"
-                       "STEP|-1|tool||step2|arg2\n"
-                       "STEP|-1|tool||step3|arg3\n";
-    const char* seq[1] = {resp};
-    aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    const char* resp =
+        "STEP|-1|tool||step1|arg1\n"
+        "STEP|-1|tool||step2|arg2\n"
+        "STEP|-1|tool||step3|arg3\n";
+    const char*                seq[1] = {resp};
+    aegis_provider_registry_t* reg    = NULL;
+    llm_mock_ctx_t*            ctx    = NULL;
+    const aegis_llm_ops_t*     ops    = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, seq, 1);
 
     aegis_autonomous_agent_config_t cfg = {
-        .provider_registry = reg,
-        .llm_provider_name = def.name,
-        .checkpoint_path = NULL,
-        .cancel_token = NULL,
-        .max_iterations = 3,
+        .provider_registry       = reg,
+        .llm_provider_name       = def.name,
+        .checkpoint_path         = NULL,
+        .cancel_token            = NULL,
+        .max_iterations          = 3,
         .default_task_timeout_ns = 0,
     };
     aegis_autonomous_agent_t* aa = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create aa");
     aegis_autonomous_result_t res = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa, "happy goal", &res);
+    aegis_status_t            rc  = aegis_autonomous_agent_run(aa, "happy goal", &res);
     /* Without default_work, computational steps fail */
     assert(rc != AEGIS_OK);
-    #ifndef NDEBUG
+#ifndef NDEBUG
     /* tasks_executed depends on task type */
 #endif
     printf("  tasks_executed=%u iterations=%u PASS\n", res.tasks_executed, res.iterations);
@@ -70,7 +75,8 @@ static void test_happy_path(void) {
     teardown_registry(reg, ctx, ops, def.name);
 }
 
-static void test_retry_then_replan(void) {
+static void test_retry_then_replan(void)
+{
     printf("[test] retry_then_replan ...\n");
     const char* first =
         "STEP|-1|computational||step_ok|ok step\n"
@@ -79,22 +85,22 @@ static void test_retry_then_replan(void) {
     const char* second =
         "STEP|-1|computational||step_a|a\n"
         "STEP|-1|computational||step_b|b\n";
-    const char* seq[2] = {first, second};
-    aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    const char*                seq[2] = {first, second};
+    aegis_provider_registry_t* reg    = NULL;
+    llm_mock_ctx_t*            ctx    = NULL;
+    const aegis_llm_ops_t*     ops    = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, seq, 2);
 
     aegis_autonomous_agent_config_t cfg = {
         .provider_registry = reg,
         .llm_provider_name = def.name,
-        .max_iterations = 5,
+        .max_iterations    = 5,
     };
     aegis_autonomous_agent_t* aa = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create");
     aegis_autonomous_result_t res = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa, "replan goal", &res);
+    aegis_status_t            rc  = aegis_autonomous_agent_run(aa, "replan goal", &res);
     /* Retry/replan test - verify agent runs */
     (void)rc;
     printf("  iterations=%u tasks=%u PASS\n", res.iterations, res.tasks_executed);
@@ -102,27 +108,28 @@ static void test_retry_then_replan(void) {
     teardown_registry(reg, ctx, ops, def.name);
 }
 
-static void test_timeout(void) {
+static void test_timeout(void)
+{
     printf("[test] timeout ...\n");
     const char* resp =
         "STEP|-1|computational||slow_task|slow will sleep\n"
         "STEP|-1|computational||step2|normal\n";
-    const char* seq[1] = {resp};
-    aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    const char*                seq[1] = {resp};
+    aegis_provider_registry_t* reg    = NULL;
+    llm_mock_ctx_t*            ctx    = NULL;
+    const aegis_llm_ops_t*     ops    = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, seq, 1);
     aegis_autonomous_agent_config_t cfg = {
-        .provider_registry = reg,
-        .llm_provider_name = def.name,
-        .max_iterations = 3,
+        .provider_registry       = reg,
+        .llm_provider_name       = def.name,
+        .max_iterations          = 3,
         .default_task_timeout_ns = 30 * 1000 * 1000ULL,
     };
     aegis_autonomous_agent_t* aa = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create");
     aegis_autonomous_result_t res = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa, "timeout goal", &res);
+    aegis_status_t            rc  = aegis_autonomous_agent_run(aa, "timeout goal", &res);
     /* Timeout may or may not trigger depending on timing */
     (void)res.final_status;
     printf("  timeout rc=%d PASS\n", (int)rc);
@@ -134,37 +141,39 @@ struct cancel_arg {
     aegis_autonomous_agent_t* aa;
 };
 
-static void* canceller(void* arg) {
+static void* canceller(void* arg)
+{
     struct cancel_arg* ca = (struct cancel_arg*)arg;
     usleep(80 * 1000);
     aegis_autonomous_agent_cancel(ca->aa);
     return NULL;
 }
 
-static void test_cancellation(void) {
+static void test_cancellation(void)
+{
     printf("[test] cancellation ...\n");
     const char* resp =
         "STEP|-1|computational||slow_task|slow1\n"
         "STEP|-1|computational||slow_task2|slow2\n"
         "STEP|-1|computational||step3|third\n";
-    const char* seq[1] = {resp};
-    aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    const char*                seq[1] = {resp};
+    aegis_provider_registry_t* reg    = NULL;
+    llm_mock_ctx_t*            ctx    = NULL;
+    const aegis_llm_ops_t*     ops    = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, seq, 1);
     aegis_autonomous_agent_config_t cfg = {
         .provider_registry = reg,
         .llm_provider_name = def.name,
-        .max_iterations = 5,
+        .max_iterations    = 5,
     };
     aegis_autonomous_agent_t* aa = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create");
     struct cancel_arg ca = {.aa = aa};
-    pthread_t th;
+    pthread_t         th;
     pthread_create(&th, NULL, canceller, &ca);
     aegis_autonomous_result_t res = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa, "cancel goal", &res);
+    aegis_status_t            rc  = aegis_autonomous_agent_run(aa, "cancel goal", &res);
     pthread_join(th, NULL);
     /* Cancellation behavior may vary */
     (void)rc;
@@ -173,55 +182,56 @@ static void test_cancellation(void) {
     teardown_registry(reg, ctx, ops, def.name);
 }
 
-static void test_checkpoint_recovery(void) {
+static void test_checkpoint_recovery(void)
+{
     printf("[test] checkpoint_recovery ...\n");
     const char* resp =
         "STEP|-1|computational||step1|first\n"
         "STEP|-1|computational||step2|second\n"
         "STEP|-1|computational||step3|third\n";
     const char* seq[1] = {resp};
-    const char* path = "/tmp/aegis_autonomous_chk_test.bin";
+    const char* path   = "/tmp/aegis_autonomous_chk_test.bin";
     unlink(path);
     aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    llm_mock_ctx_t*            ctx = NULL;
+    const aegis_llm_ops_t*     ops = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, seq, 1);
     aegis_autonomous_agent_config_t cfg = {
         .provider_registry = reg,
         .llm_provider_name = def.name,
-        .checkpoint_path = path,
-        .max_iterations = 3,
+        .checkpoint_path   = path,
+        .max_iterations    = 3,
     };
     aegis_autonomous_agent_t* aa = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create");
     aegis_autonomous_result_t res = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa, "checkpoint goal", &res);
-    (void)rc;  /* Task execution may fail without default_work */
+    aegis_status_t            rc  = aegis_autonomous_agent_run(aa, "checkpoint goal", &res);
+    (void)rc; /* Task execution may fail without default_work */
     printf("  checkpoint written PASS\n");
     expect_ok(aegis_autonomous_agent_checkpoint_save(aa, NULL), "save");
     expect_ok(aegis_autonomous_agent_restore(aa, path), "restore");
     (void)res.recovered_from_checkpoint;
     aegis_autonomous_agent_destroy(aa);
 
-    const char* seq2[1] = {resp};
-    llm_mock_ctx_t* ctx2 = NULL;
-    const aegis_llm_ops_t* ops2 = NULL;
-    aegis_provider_def_t def2;
+    const char*                seq2[1] = {resp};
+    llm_mock_ctx_t*            ctx2    = NULL;
+    const aegis_llm_ops_t*     ops2    = NULL;
+    aegis_provider_def_t       def2;
     aegis_provider_registry_t* reg2 = NULL;
     setup_registry(&reg2, &ctx2, &ops2, &def2, seq2, 1);
     aegis_autonomous_agent_config_t cfg2 = {
         .provider_registry = reg2,
         .llm_provider_name = def2.name,
-        .checkpoint_path = path,
-        .max_iterations = 3,
+        .checkpoint_path   = path,
+        .max_iterations    = 3,
     };
     aegis_autonomous_agent_t* aa2 = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa2, &cfg2), "create2");
     expect_ok(aegis_autonomous_agent_restore(aa2, path), "restore2");
     aegis_autonomous_result_t res2 = {0};
-    rc = aegis_autonomous_agent_run(aa2, "checkpoint goal", &res2);
-    (void)rc;  /* Task execution may fail without default_work */
+    rc                             = aegis_autonomous_agent_run(aa2, "checkpoint goal", &res2);
+    (void)rc; /* Task execution may fail without default_work */
     (void)res2.recovered_from_checkpoint;
     printf("  recovery run ok PASS\n");
     aegis_autonomous_agent_destroy(aa2);
@@ -230,19 +240,20 @@ static void test_checkpoint_recovery(void) {
     unlink(path);
 }
 
-static void test_boundaries(void) {
+static void test_boundaries(void)
+{
     printf("[test] boundaries ...\n");
-    const char* resp = "STEP|-1|computational||step1|x\n";
-    const char* seq[1] = {resp};
-    aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    const char*                resp   = "STEP|-1|computational||step1|x\n";
+    const char*                seq[1] = {resp};
+    aegis_provider_registry_t* reg    = NULL;
+    llm_mock_ctx_t*            ctx    = NULL;
+    const aegis_llm_ops_t*     ops    = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, seq, 1);
     aegis_autonomous_agent_config_t cfg = {
         .provider_registry = reg,
         .llm_provider_name = def.name,
-        .max_iterations = 3,
+        .max_iterations    = 3,
     };
     aegis_autonomous_agent_t* aa = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create");
@@ -255,26 +266,24 @@ static void test_boundaries(void) {
 
     aegis_autonomous_agent_destroy(aa);
 
-    const char* fail_first =
-        "STEP|-1|computational||fail_step|fail\n";
-    const char* fail_second =
-        "STEP|-1|computational||fail_step|fail again\n";
-    const char* seq2[2] = {fail_first, fail_second};
-    llm_mock_ctx_t* ctx2 = NULL;
-    const aegis_llm_ops_t* ops2 = NULL;
-    aegis_provider_def_t def2;
+    const char*                fail_first  = "STEP|-1|computational||fail_step|fail\n";
+    const char*                fail_second = "STEP|-1|computational||fail_step|fail again\n";
+    const char*                seq2[2]     = {fail_first, fail_second};
+    llm_mock_ctx_t*            ctx2        = NULL;
+    const aegis_llm_ops_t*     ops2        = NULL;
+    aegis_provider_def_t       def2;
     aegis_provider_registry_t* reg2 = NULL;
     setup_registry(&reg2, &ctx2, &ops2, &def2, seq2, 2);
     aegis_autonomous_agent_config_t cfg2 = {
         .provider_registry = reg2,
         .llm_provider_name = def2.name,
-        .max_iterations = 1,
+        .max_iterations    = 1,
     };
     aegis_autonomous_agent_t* aa2 = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa2, &cfg2), "create2");
     aegis_autonomous_result_t res = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa2, "bounded goal", &res);
-    (void)rc;  /* Boundary test */
+    aegis_status_t            rc  = aegis_autonomous_agent_run(aa2, "bounded goal", &res);
+    (void)rc; /* Boundary test */
     printf("  max_iterations bound rc=%d PASS\n", (int)rc);
     aegis_autonomous_agent_destroy(aa2);
     teardown_registry(reg2, ctx2, ops2, def2.name);
@@ -282,7 +291,8 @@ static void test_boundaries(void) {
     printf("  boundaries PASS\n");
 }
 
-int main(void) {
+int main(void)
+{
     test_happy_path();
     test_retry_then_replan();
     test_timeout();

@@ -12,19 +12,19 @@
 
 /* ── Test sink ─────────────────────────────────────────────────────────────── */
 
-static int g_test_sink_call_count = 0;
-static aegis_log_level_t g_last_level = AEGIS_LOG_DEBUG;
-static const char* g_last_module = NULL;
-static const char* g_last_message = NULL;
+static int               g_test_sink_call_count = 0;
+static aegis_log_level_t g_last_level           = AEGIS_LOG_DEBUG;
+static const char*       g_last_module          = NULL;
+static const char*       g_last_message         = NULL;
 
-static void test_sink(aegis_log_level_t level, const char* module,
-                      const char* context, const char* message, void* user)
+static void test_sink(aegis_log_level_t level, const char* module, const char* context,
+                      const char* message, void* user)
 {
     (void)user;
     (void)context;
     g_test_sink_call_count++;
-    g_last_level = level;
-    g_last_module = module;
+    g_last_level   = level;
+    g_last_module  = module;
     g_last_message = message;
 }
 
@@ -51,8 +51,8 @@ static void test_level_filtering(void)
 
     g_test_sink_call_count = 0;
     AEGIS_LOG(AEGIS_LOG_DEBUG, "x", NULL, "debug");
-    AEGIS_LOG(AEGIS_LOG_INFO,  "x", NULL, "info");
-    AEGIS_LOG(AEGIS_LOG_WARN,  "x", NULL, "warn");
+    AEGIS_LOG(AEGIS_LOG_INFO, "x", NULL, "info");
+    AEGIS_LOG(AEGIS_LOG_WARN, "x", NULL, "warn");
     AEGIS_LOG(AEGIS_LOG_ERROR, "x", NULL, "error");
     AEGIS_LOG(AEGIS_LOG_FATAL, "x", NULL, "fatal");
 
@@ -82,14 +82,15 @@ static void test_no_sink(void)
 static void test_level_string(void)
 {
     assert(strcmp(aegis_log_level_str(AEGIS_LOG_DEBUG), "DEBUG") == 0);
-    assert(strcmp(aegis_log_level_str(AEGIS_LOG_INFO),  "INFO ") == 0);
-    assert(strcmp(aegis_log_level_str(AEGIS_LOG_WARN),  "WARN ") == 0);
+    assert(strcmp(aegis_log_level_str(AEGIS_LOG_INFO), "INFO ") == 0);
+    assert(strcmp(aegis_log_level_str(AEGIS_LOG_WARN), "WARN ") == 0);
     assert(strcmp(aegis_log_level_str(AEGIS_LOG_ERROR), "ERROR") == 0);
     assert(strcmp(aegis_log_level_str(AEGIS_LOG_FATAL), "FATAL") == 0);
     assert(strcmp(aegis_log_level_str((aegis_log_level_t)99), "?????") == 0);
 }
 
-static void* test_noop(void* arg) {
+static void* test_noop(void* arg)
+{
     (void)arg;
     return NULL;
 }

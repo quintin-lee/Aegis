@@ -27,10 +27,12 @@ static void test_registry_lifecycle(void)
 
 static void test_counter(void)
 {
-    aegis_metric_registry_t* reg = NULL;
-    aegis_metric_t* counter = NULL;
+    aegis_metric_registry_t* reg     = NULL;
+    aegis_metric_t*          counter = NULL;
     expect_ok(aegis_metric_registry_create(&reg), "create");
-    expect_ok(aegis_metric_registry_register_counter(reg, "tasks_completed", "Number of tasks completed", &counter), "register");
+    expect_ok(aegis_metric_registry_register_counter(reg, "tasks_completed",
+                                                     "Number of tasks completed", &counter),
+              "register");
 
     assert(counter != NULL);
     assert(aegis_metric_type(counter) == AEGIS_METRIC_COUNTER);
@@ -49,10 +51,12 @@ static void test_counter(void)
 
 static void test_gauge(void)
 {
-    aegis_metric_registry_t* reg = NULL;
-    aegis_metric_t* gauge = NULL;
+    aegis_metric_registry_t* reg   = NULL;
+    aegis_metric_t*          gauge = NULL;
     expect_ok(aegis_metric_registry_create(&reg), "create");
-    expect_ok(aegis_metric_registry_register_gauge(reg, "queue_depth", "Current queue depth", &gauge), "register");
+    expect_ok(
+        aegis_metric_registry_register_gauge(reg, "queue_depth", "Current queue depth", &gauge),
+        "register");
 
     assert(gauge != NULL);
     assert(aegis_metric_type(gauge) == AEGIS_METRIC_GAUGE);
@@ -70,10 +74,12 @@ static void test_gauge(void)
 
 static void test_histogram(void)
 {
-    aegis_metric_registry_t* reg = NULL;
-    aegis_metric_t* hist = NULL;
+    aegis_metric_registry_t* reg  = NULL;
+    aegis_metric_t*          hist = NULL;
     expect_ok(aegis_metric_registry_create(&reg), "create");
-    expect_ok(aegis_metric_registry_register_histogram(reg, "task_duration", "Task duration in ms", &hist), "register");
+    expect_ok(aegis_metric_registry_register_histogram(reg, "task_duration", "Task duration in ms",
+                                                       &hist),
+              "register");
 
     assert(hist != NULL);
     assert(aegis_metric_type(hist) == AEGIS_METRIC_HISTOGRAM);
@@ -92,9 +98,10 @@ static void test_histogram(void)
 static void test_duplicate_name(void)
 {
     aegis_metric_registry_t* reg = NULL;
-    aegis_metric_t* m1 = NULL, *m2 = NULL;
+    aegis_metric_t *         m1 = NULL, *m2 = NULL;
     expect_ok(aegis_metric_registry_create(&reg), "create");
-    expect_ok(aegis_metric_registry_register_counter(reg, "dup", "dup metric", &m1), "register first");
+    expect_ok(aegis_metric_registry_register_counter(reg, "dup", "dup metric", &m1),
+              "register first");
     assert(aegis_metric_registry_register_counter(reg, "dup", "dup metric", &m2) == AEGIS_ERR_BUSY);
 
     aegis_metric_registry_destroy(reg);

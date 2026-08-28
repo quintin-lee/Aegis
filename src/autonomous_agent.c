@@ -105,9 +105,9 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
             free(aa);
             return prc;
         }
-        aegis_capability_t all = (aegis_capability_t)(AEGIS_CAP_READ_FILE | AEGIS_CAP_WRITE_FILE |
-                                                      AEGIS_CAP_SHELL | AEGIS_CAP_NETWORK |
-                                                      AEGIS_CAP_RUN_PROCESS | AEGIS_CAP_ACCESS_CRED);
+        aegis_capability_t all =
+            (aegis_capability_t)(AEGIS_CAP_READ_FILE | AEGIS_CAP_WRITE_FILE | AEGIS_CAP_SHELL |
+                                 AEGIS_CAP_NETWORK | AEGIS_CAP_RUN_PROCESS | AEGIS_CAP_ACCESS_CRED);
         (void)aegis_security_policy_add_rule(allow, "*", all);
         aa->owned_security_policy = allow;
         aa->cfg.security_policy   = allow;
@@ -293,9 +293,9 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
 
     /* Ensure we start from READY. Restore may have left us in READY already. */
     pthread_mutex_lock(&aa->lock);
-    aegis_autonomous_state_t cur            = aa->state;
-    uint32_t                 start_iter     = aa->iteration;
-    bool                     was_recovered  = aa->recovered;
+    aegis_autonomous_state_t cur           = aa->state;
+    uint32_t                 start_iter    = aa->iteration;
+    bool                     was_recovered = aa->recovered;
     pthread_mutex_unlock(&aa->lock);
     (void)was_recovered;
     if (cur != AEGIS_AUTO_READY) {
@@ -375,7 +375,7 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
             }
             uint32_t tid = aegis_task_id(task);
             if (aegis_task_type(task) == AEGIS_TASK_TYPE_TOOL && aa->cfg.tool_registry != NULL) {
-                const char* tool_name = aegis_task_name(task);
+                const char*      tool_name = aegis_task_name(task);
                 aegis_tool_def_t def;
                 aegis_status_t   find_rc = aegis_tool_registry_find(
                     (aegis_tool_registry_t*)aa->cfg.tool_registry, tool_name, &def);
@@ -386,8 +386,7 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                     goto done;
                 }
                 /* Security gate is mandatory: NULL policy is not bypass. */
-                aegis_security_policy_t* policy =
-                    (aegis_security_policy_t*)aa->cfg.security_policy;
+                aegis_security_policy_t* policy = (aegis_security_policy_t*)aa->cfg.security_policy;
                 if (!policy && aa->owned_security_policy) {
                     policy = aa->owned_security_policy;
                 }

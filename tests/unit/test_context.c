@@ -27,8 +27,8 @@ static void expect_ok(aegis_status_t rc, const char* msg)
 }
 
 /* Mock compression: truncate to half the content. */
-static size_t mock_compress(const char* content, size_t content_len,
-                            char* out_buf, size_t out_buf_size)
+static size_t mock_compress(const char* content, size_t content_len, char* out_buf,
+                            size_t out_buf_size)
 {
     (void)content_len;
     size_t half = content_len / 2;
@@ -61,14 +61,11 @@ static void test_add_section_valid(void)
     aegis_context_builder_t* b = NULL;
     expect_ok(aegis_context_builder_create(&b), "create");
 
-    expect_ok(aegis_context_builder_add_section(b, "system prompt",
-                                                 AEGIS_CONTEXT_SYSTEM, 100, 0),
+    expect_ok(aegis_context_builder_add_section(b, "system prompt", AEGIS_CONTEXT_SYSTEM, 100, 0),
               "add system");
-    expect_ok(aegis_context_builder_add_section(b, "goal text",
-                                                 AEGIS_CONTEXT_GOAL, 90, 0),
+    expect_ok(aegis_context_builder_add_section(b, "goal text", AEGIS_CONTEXT_GOAL, 90, 0),
               "add goal");
-    expect_ok(aegis_context_builder_add_section(b, "plan steps",
-                                                 AEGIS_CONTEXT_PLAN, 80, 0),
+    expect_ok(aegis_context_builder_add_section(b, "plan steps", AEGIS_CONTEXT_PLAN, 80, 0),
               "add plan");
 
     aegis_context_builder_destroy(b);
@@ -120,14 +117,10 @@ static void test_priority_sorting(void)
     expect_ok(aegis_context_builder_create(&b), "create");
 
     /* Add sections in reverse priority order. */
-    expect_ok(aegis_context_builder_add_section(b, "low",
-                                                 AEGIS_CONTEXT_HISTORY, 10, 0),
-              "add low");
-    expect_ok(aegis_context_builder_add_section(b, "high",
-                                                 AEGIS_CONTEXT_SYSTEM, 100, 0),
+    expect_ok(aegis_context_builder_add_section(b, "low", AEGIS_CONTEXT_HISTORY, 10, 0), "add low");
+    expect_ok(aegis_context_builder_add_section(b, "high", AEGIS_CONTEXT_SYSTEM, 100, 0),
               "add high");
-    expect_ok(aegis_context_builder_add_section(b, "medium",
-                                                 AEGIS_CONTEXT_GOAL, 50, 0),
+    expect_ok(aegis_context_builder_add_section(b, "medium", AEGIS_CONTEXT_GOAL, 50, 0),
               "add medium");
 
     aegis_context_t* ctx = NULL;
@@ -155,14 +148,11 @@ static void test_budget_truncation(void)
     expect_ok(aegis_context_builder_create(&b), "create");
 
     /* Add sections with explicit token estimates. */
-    expect_ok(aegis_context_builder_add_section(b, "section A",
-                                                 AEGIS_CONTEXT_SYSTEM, 100, 5),
+    expect_ok(aegis_context_builder_add_section(b, "section A", AEGIS_CONTEXT_SYSTEM, 100, 5),
               "add A");
-    expect_ok(aegis_context_builder_add_section(b, "section B",
-                                                 AEGIS_CONTEXT_GOAL, 90, 5),
+    expect_ok(aegis_context_builder_add_section(b, "section B", AEGIS_CONTEXT_GOAL, 90, 5),
               "add B");
-    expect_ok(aegis_context_builder_add_section(b, "section C",
-                                                 AEGIS_CONTEXT_PLAN, 80, 5),
+    expect_ok(aegis_context_builder_add_section(b, "section C", AEGIS_CONTEXT_PLAN, 80, 5),
               "add C");
 
     /* Budget of 12 tokens should include A and B (10 total) but truncate C. */
@@ -187,11 +177,9 @@ static void test_budget_unlimited(void)
     aegis_context_builder_t* b = NULL;
     expect_ok(aegis_context_builder_create(&b), "create");
 
-    expect_ok(aegis_context_builder_add_section(b, "content A",
-                                                 AEGIS_CONTEXT_SYSTEM, 100, 5),
+    expect_ok(aegis_context_builder_add_section(b, "content A", AEGIS_CONTEXT_SYSTEM, 100, 5),
               "add A");
-    expect_ok(aegis_context_builder_add_section(b, "content B",
-                                                 AEGIS_CONTEXT_GOAL, 90, 5),
+    expect_ok(aegis_context_builder_add_section(b, "content B", AEGIS_CONTEXT_GOAL, 90, 5),
               "add B");
 
     /* No budget (0) means unlimited. */
@@ -220,8 +208,7 @@ static void test_compression(void)
     memset(large, 'X', sizeof(large));
     large[sizeof(large) - 1] = '\0';
 
-    expect_ok(aegis_context_builder_add_section(b, large,
-                                                 AEGIS_CONTEXT_OBSERVATION, 50, 0),
+    expect_ok(aegis_context_builder_add_section(b, large, AEGIS_CONTEXT_OBSERVATION, 50, 0),
               "add large");
 
     /* Enable compression with threshold of 100 chars. */
@@ -265,8 +252,7 @@ static void test_accessors(void)
     aegis_context_builder_t* b = NULL;
     expect_ok(aegis_context_builder_create(&b), "create");
 
-    expect_ok(aegis_context_builder_add_section(b, "test content",
-                                                 AEGIS_CONTEXT_SYSTEM, 100, 0),
+    expect_ok(aegis_context_builder_add_section(b, "test content", AEGIS_CONTEXT_SYSTEM, 100, 0),
               "add content");
 
     aegis_context_t* ctx = NULL;
