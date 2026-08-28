@@ -353,9 +353,9 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                     }
                 }
             } else {
-                        aegis_scheduler_notify_complete(aa->scheduler, task);
-                        final = rc;
-                        goto done;
+                aegis_scheduler_notify_complete(aa->scheduler, task);
+                final = rc;
+                goto done;
             }
             if (rc != AEGIS_OK) {
                 // notify scheduler even on submit failure to avoid leak
