@@ -48,11 +48,16 @@ static const char *find_cli_bin(void) {
     for (int i = 0; rel_candidates[i]; i++) {
         const char *c = rel_candidates[i];
         if (c[0] == '/') {
-            snprintf(cand_abs, sizeof(cand_abs), "%s", c);
+            strncpy(cand_abs, c, sizeof(cand_abs) - 1);
+            cand_abs[sizeof(cand_abs) - 1] = '\0';
         } else if (init_cwd[0] != '\0') {
-            snprintf(cand_abs, sizeof(cand_abs), "%s/%s", init_cwd, c);
+            char tmp_join[PATH_MAX * 2];
+            snprintf(tmp_join, sizeof(tmp_join), "%s/%s", init_cwd, c);
+            strncpy(cand_abs, tmp_join, sizeof(cand_abs) - 1);
+            cand_abs[sizeof(cand_abs) - 1] = '\0';
         } else {
-            snprintf(cand_abs, sizeof(cand_abs), "%s", c);
+            strncpy(cand_abs, c, sizeof(cand_abs) - 1);
+            cand_abs[sizeof(cand_abs) - 1] = '\0';
         }
         if (access(cand_abs, X_OK) == 0) {
             snprintf(buf, sizeof(buf), "%s", cand_abs);
@@ -221,9 +226,9 @@ static void test_init_and_run(void) {
     assert_contains(out, "error: invalid --timeout", "invalid timeout");
 
     // inspect missing checkpoint
-    char miss_path[PATH_MAX];
+    char miss_path[PATH_MAX + 16];
     snprintf(miss_path, sizeof(miss_path), "%s/missing.bin", tmp);
-    char cmd[PATH_MAX + 64];
+    char cmd[PATH_MAX * 2];
     snprintf(cmd, sizeof(cmd), "inspect --checkpoint %s", miss_path);
     run_cli(cmd, &ec, out, sizeof(out));
     assert(ec != 0);
@@ -245,7 +250,7 @@ static void test_init_and_run(void) {
 
     // cleanup
     assert(chdir(cwd) == 0);
-    char rmcmd[PATH_MAX + 32];
+    char rmcmd[PATH_MAX * 2 + 64];
     snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s %s", tmp, tmp2);
     (void)system(rmcmd);
     printf("  PASS\n");
@@ -263,10 +268,10 @@ static void test_init_path(void) {
     int ec = -1;
     run_cli(init_cmd, &ec, out, sizeof(out));
     assert(ec == 0);
-    char expect_conf[PATH_MAX];
+    char expect_conf[PATH_MAX * 2];
     snprintf(expect_conf, sizeof(expect_conf), "%s/subdir/aegis.conf", tmp);
     assert(access(expect_conf, F_OK) == 0);
-    char expect_aegis[PATH_MAX];
+    char expect_aegis[PATH_MAX * 2];
     snprintf(expect_aegis, sizeof(expect_aegis), "%s/subdir/.aegis", tmp);
     assert(access(expect_aegis, F_OK) == 0);
     assert(chdir(cwd) == 0);
