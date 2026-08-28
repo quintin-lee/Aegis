@@ -18,15 +18,23 @@ void autonomous_checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal, 
         return;
     }
     aegis_cancellation_token_t* token = autonomous_get_token(aa);
-    /* Snapshot boundary: hold lock while copying iteration/state for consistency. */
-    uint32_t                 iteration = 0;
+    /* Snapshot boundary: hold lock while copying iteration/state/sequence for consistency. */
+    uint32_t                 seq       = 0;
+    uint64_t                 iteration = 0;
     aegis_autonomous_state_t st        = AEGIS_AUTO_CREATED;
     pthread_mutex_lock(&aa->lock);
-    iteration = aa->iteration;
-    st        = aa->state;
+    if (aa->runtime) {
+        seq       = (uint32_t)aa->runtime->checkpoint_sequence;
+        iteration = aa->runtime->iteration;
+        aa->runtime->checkpoint_sequence++;
+    } else {
+        iteration = aa->iteration;
+    }
+    st = aa->state;
     pthread_mutex_unlock(&aa->lock);
     const char* state_str = aegis_autonomous_state_str(st);
-    aegis_checkpoint_populate(ckpt, state_str, goal, plan, graph, iteration + 1);
+    aegis_checkpoint_populate(ckpt, state_str, goal, plan, graph, seq + 1);
+    aegis_checkpoint_set_iteration(ckpt, iteration);
     aegis_checkpoint_write(ckpt, path, token);
     aegis_checkpoint_destroy(ckpt);
 }

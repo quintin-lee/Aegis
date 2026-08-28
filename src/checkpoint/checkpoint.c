@@ -183,11 +183,23 @@ aegis_status_t aegis_checkpoint_set_goal(aegis_checkpoint_t* ckpt, const char* g
     return AEGIS_OK;
 }
 
-/* ── Accessors ─────────────────────────────────────────────────────────────── */
-
 uint32_t aegis_checkpoint_version(const aegis_checkpoint_t* ckpt)
 {
     return ckpt ? ckpt->version : 0;
+}
+
+uint64_t aegis_checkpoint_iteration(const aegis_checkpoint_t* ckpt)
+{
+    return ckpt ? ckpt->iteration : 0;
+}
+
+aegis_status_t aegis_checkpoint_set_iteration(aegis_checkpoint_t* ckpt, uint64_t iter)
+{
+    if (!ckpt) {
+        return AEGIS_ERR_INVALID;
+    }
+    ckpt->iteration = iter;
+    return AEGIS_OK;
 }
 
 uint64_t aegis_checkpoint_timestamp(const aegis_checkpoint_t* ckpt)
@@ -249,15 +261,17 @@ aegis_status_t aegis_checkpoint_serialize(const aegis_checkpoint_t* ckpt, char**
         return AEGIS_ERR_NOMEM;
     }
 
-    int n = snprintf(buf, est,
-                     AEGIS_CHECKPOINT_MAGIC
-                     " v%u\n"
-                     "# TS=%lu\n"
-                     "# AGENT_STATE=%s\n"
-                     "# GOAL=%s\n"
-                     "# PLAN_VERSION=%u\n",
-                     ckpt->version, (unsigned long)ckpt->timestamp, ckpt->agent_state,
-                     ckpt->goal ? ckpt->goal : "", ckpt->plan_version);
+    int n =
+        snprintf(buf, est,
+                 AEGIS_CHECKPOINT_MAGIC
+                 " v%u\n"
+                 "# TS=%lu\n"
+                 "# AGENT_STATE=%s\n"
+                 "# GOAL=%s\n"
+                 "# PLAN_VERSION=%u\n"
+                 "# ITERATION=%lu\n",
+                 ckpt->version, (unsigned long)ckpt->timestamp, ckpt->agent_state,
+                 ckpt->goal ? ckpt->goal : "", ckpt->plan_version, (unsigned long)ckpt->iteration);
     if (n < 0 || (size_t)n >= est) {
         free(buf);
         return AEGIS_ERR_NOMEM;
@@ -385,6 +399,8 @@ aegis_status_t aegis_checkpoint_deserialize(const char* text, aegis_checkpoint_t
                 }
             } else if (strncmp(p, "PLAN_VERSION=", 13) == 0) {
                 ckpt->plan_version = (uint32_t)strtoul(p + 13, NULL, 10);
+            } else if (strncmp(p, "ITERATION=", 10) == 0) {
+                ckpt->iteration = (uint64_t)strtoull(p + 10, NULL, 10);
             }
             p = line_end ? line_end + 1 : line_start + line_len;
         } else {

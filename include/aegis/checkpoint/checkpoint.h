@@ -124,6 +124,13 @@ aegis_status_t aegis_checkpoint_populate(aegis_checkpoint_t* ckpt, const char* a
 uint32_t aegis_checkpoint_version(const aegis_checkpoint_t* ckpt);
 
 /**
+ * @brief Get checkpoint iteration (runtime iteration snapshot).
+ */
+uint64_t aegis_checkpoint_iteration(const aegis_checkpoint_t* ckpt);
+
+aegis_status_t aegis_checkpoint_set_iteration(aegis_checkpoint_t* ckpt, uint64_t iter);
+
+/**
  * @brief Get the checkpoint timestamp (seconds since epoch).
  */
 uint64_t aegis_checkpoint_timestamp(const aegis_checkpoint_t* ckpt);

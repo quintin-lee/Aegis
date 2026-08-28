@@ -1,10 +1,6 @@
 /**
  * @file autonomous_agent_internal.h
  * @brief Internal definitions for autonomous runtime modules.
- *
- * Not part of public API. All autonomous submodules include this header
- * to share the agent struct and internal helpers. Public header
- * include/aegis/autonomous_agent.h exposes only the opaque handle.
  */
 #ifndef AEGIS_AUTONOMOUS_INTERNAL_H
 #define AEGIS_AUTONOMOUS_INTERNAL_H
@@ -18,6 +14,8 @@
 #include "aegis/checkpoint/checkpoint.h"
 #include "aegis/task/graph.h"
 #include "aegis/common/cancellation/cancellation.h"
+#include "aegis/reflection/reflection.h"
+#include "aegis/replanner/replanner.h"
 
 #include <pthread.h>
 #include <stdbool.h>
@@ -25,6 +23,25 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/** Runtime context — owns Plan/Graph/Critique/Reflection state. */
+typedef struct aegis_autonomous_runtime {
+    char                     goal[512];
+    aegis_plan_t*            plan;
+    aegis_task_graph_t*      graph;
+    uint64_t                 iteration;
+    uint64_t                 checkpoint_sequence;
+    aegis_critique_t         last_critique;
+    aegis_reflection_t*      last_reflection;
+    char*                    replan_feedback;
+    uint64_t                 tasks_executed;
+    uint64_t                 tasks_failed;
+    uint64_t                 tasks_retried;
+    uint64_t                 plans_generated;
+    uint64_t                 replans;
+    bool                     recovering;
+    aegis_cancellation_token_t* token;
+} aegis_autonomous_runtime_t;
 
 struct aegis_autonomous_agent {
     aegis_autonomous_agent_config_t cfg;
@@ -34,12 +51,13 @@ struct aegis_autonomous_agent {
     aegis_executor_t*               executor;
     aegis_critic_t*                 critic;
     aegis_cancellation_token_t*     owned_token;
-    aegis_security_policy_t*        owned_security_policy; /**< allow-all when cfg.security_policy NULL but tools present */
+    aegis_security_policy_t*        owned_security_policy;
     bool                            recovered;
     aegis_autonomous_state_t        state;
     pthread_mutex_t                 lock;
     uint32_t                        iteration;
     uint32_t                        tasks_executed;
+    aegis_autonomous_runtime_t*     runtime;
 };
 
 /** Return effective cancellation token (borrowed). */
@@ -48,10 +66,13 @@ aegis_cancellation_token_t* autonomous_get_token(aegis_autonomous_agent_t* aa);
 /** State transition with validation, lock, and post-unlock publish. */
 aegis_status_t autonomous_transition(aegis_autonomous_agent_t* aa,
                                      aegis_autonomous_state_t  target);
-
-/** Check if a transition is allowed per table (no lock). */
 bool autonomous_transition_allowed(aegis_autonomous_state_t from,
                                    aegis_autonomous_state_t to);
+
+/* Runtime lifecycle */
+aegis_status_t autonomous_runtime_create(aegis_autonomous_runtime_t** out);
+void           autonomous_runtime_destroy(aegis_autonomous_runtime_t* rt);
+void           autonomous_runtime_reset(aegis_autonomous_runtime_t* rt);
 
 /* Lifecycle helpers */
 aegis_status_t autonomous_lifecycle_init(aegis_autonomous_agent_t* aa);
@@ -62,27 +83,27 @@ void autonomous_checkpoint_save(aegis_autonomous_agent_t* aa,
                                 const char*               goal,
                                 aegis_plan_t*             plan,
                                 aegis_task_graph_t*       graph);
+aegis_status_t autonomous_checkpoint_restore(aegis_autonomous_agent_t* aa,
+                                             const char*               path);
 
-/* Planning / Execution / Evaluation / Reflection / Replanning stubs */
-aegis_status_t autonomous_planning_run(aegis_autonomous_agent_t* aa,
-                                       const char*               goal,
-                                       aegis_plan_t**            out_plan);
-aegis_status_t autonomous_execution_run(aegis_autonomous_agent_t* aa,
-                                        aegis_plan_t*             plan,
-                                        aegis_task_graph_t**      out_graph,
-                                        const char*               goal);
-aegis_status_t autonomous_evaluation_run(aegis_autonomous_agent_t* aa,
-                                         const char*               goal,
-                                         aegis_plan_t*             plan,
-                                         aegis_task_graph_t*       graph,
-                                         int*                      out_result);
-aegis_status_t autonomous_reflection_run(aegis_autonomous_agent_t* aa,
-                                         aegis_task_graph_t*       graph,
-                                         const char**              out_feedback);
-aegis_status_t autonomous_replanning_run(aegis_autonomous_agent_t* aa,
-                                         aegis_plan_t*             old_plan,
-                                         const char*               feedback,
-                                         aegis_plan_t**            out_new_plan);
+/* Core loop */
+aegis_status_t autonomous_loop_run(aegis_autonomous_agent_t* agent,
+                                   aegis_autonomous_runtime_t* runtime,
+                                   const char* goal,
+                                   aegis_autonomous_result_t* out_result);
+
+/* Submodules */
+aegis_status_t autonomous_plan(aegis_autonomous_agent_t* agent,
+                               aegis_autonomous_runtime_t* runtime,
+                               const char* goal);
+aegis_status_t autonomous_execute(aegis_autonomous_agent_t* agent,
+                                  aegis_autonomous_runtime_t* runtime);
+aegis_status_t autonomous_evaluate(aegis_autonomous_agent_t* agent,
+                                   aegis_autonomous_runtime_t* runtime);
+aegis_status_t autonomous_reflect(aegis_autonomous_agent_t* agent,
+                                  aegis_autonomous_runtime_t* runtime);
+aegis_status_t autonomous_replan(aegis_autonomous_agent_t* agent,
+                                 aegis_autonomous_runtime_t* runtime);
 
 #ifdef __cplusplus
 }
