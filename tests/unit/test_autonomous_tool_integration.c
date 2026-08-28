@@ -123,9 +123,9 @@ static void test_tool_dispatch_vs_default_work(void)
     teardown_registry(reg, ctx, ops, def.name);
 }
 
-static void test_no_tool_registry_falls_back_to_default_work(void)
+static void test_no_tool_registry_returns_error(void)
 {
-    printf("[test] fallback to default_work when no tool_registry ...\n");
+    printf("[test] no tool_registry returns error ...\n");
 
     const char* resp[] = {"STEP|-1|computational||step1|do thing\n"};
     aegis_provider_registry_t* reg = NULL;
@@ -145,8 +145,8 @@ static void test_no_tool_registry_falls_back_to_default_work(void)
     aegis_autonomous_result_t result = {0};
     aegis_status_t rc = aegis_autonomous_agent_run(aa, "fallback goal", &result);
     printf("  rc=%d tasks=%u final=%d\n", (int)rc, result.tasks_executed, (int)result.final_status);
-    assert(rc == AEGIS_OK);
-    assert(result.tasks_executed == 1);
+    assert(rc == AEGIS_ERR_NOT_FOUND || rc == AEGIS_ERR_NOT_FOUND);
+    assert(result.tasks_executed == 0);
     printf("  tasks_executed=%u PASS\n", result.tasks_executed);
 
     aegis_autonomous_agent_destroy(aa);
@@ -210,7 +210,7 @@ static void test_security_gate_denies_unauthorized_tool(void)
 int main(void)
 {
     test_tool_dispatch_vs_default_work();
-    test_no_tool_registry_falls_back_to_default_work();
+    test_no_tool_registry_returns_error();
     test_security_gate_denies_unauthorized_tool();
     printf("test_autonomous_tool_integration: all cases passed\n");
     return 0;

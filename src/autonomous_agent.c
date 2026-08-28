@@ -61,38 +61,6 @@ static void checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal, aegi
     aegis_checkpoint_destroy(ckpt);
 }
 
-static aegis_status_t default_work(aegis_task_t* task, const aegis_cancellation_token_t* token,
-                                   void* user)
-{
-    (void)user;
-    const char* name = aegis_task_name(task);
-    if (!name) {
-        name = "";
-    }
-    // cooperative cancellation / timeout polling
-    // simulate work: if name contains "slow", sleep 200ms in 10ms chunks
-    // if name contains "fail_once" or "fail", return error
-    if (strstr(name, "slow") != NULL) {
-        for (int i = 0; i < 20; i++) {
-            if (token && aegis_cancellation_token_is_cancelled(token)) {
-                return AEGIS_ERR_CANCELLED;
-            }
-            struct timespec ts = {0, 10 * 1000000L};
-            nanosleep(&ts, NULL);
-        }
-    }
-    if (token && aegis_cancellation_token_is_cancelled(token)) {
-        return AEGIS_ERR_CANCELLED;
-    }
-    if (strstr(name, "fail") != NULL) {
-        // generic failure
-        return AEGIS_ERR_TOOL;
-    }
-    // success: optionally set output
-    const char ok[] = "ok";
-    aegis_task_set_output(task, ok, sizeof(ok));
-    return AEGIS_OK;
-}
 
 
 /** Transition state with validation. Returns AEGIS_OK on success. */
@@ -350,7 +318,7 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                 aegis_task_set_timeout_ms(task, ms);
             }
             // Dispatch tool-type tasks through the tool registry when available;
-            // otherwise fall back to default_work (stub).
+            // Tool execution requires explicit work function; no fallback.
             uint32_t tid = aegis_task_id(task);
             if (aegis_task_type(task) == AEGIS_TASK_TYPE_TOOL && aa->cfg.tool_registry != NULL) {
                 const char* tool_name = aegis_task_name(task);
@@ -379,11 +347,15 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                     if (rc != AEGIS_OK) {
                         /* Tool not found or validation failed — fall back to stub. */
                         aegis_tool_args_destroy(args);
-                        rc = aegis_executor_submit(aa->executor, task, default_work, NULL);
+                        aegis_scheduler_notify_complete(aa->scheduler, task);
+                        final = rc;
+                        goto done;
                     }
                 }
             } else {
-                rc = aegis_executor_submit(aa->executor, task, default_work, NULL);
+                        aegis_scheduler_notify_complete(aa->scheduler, task);
+                        final = rc;
+                        goto done;
             }
             if (rc != AEGIS_OK) {
                 // notify scheduler even on submit failure to avoid leak
