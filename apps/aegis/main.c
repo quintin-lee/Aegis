@@ -3,7 +3,7 @@
  * @brief Aegis CLI: main entry point and command dispatch.
  */
 #define _POSIX_C_SOURCE 200809L
-#include "aegis/cli_helpers.h"
+#include "cli_helpers.h"
 
 int main(int argc, char** argv)
 {

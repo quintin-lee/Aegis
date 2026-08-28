@@ -50,6 +50,8 @@ if(AEGIS_FORMAT_CODE)
             src/**/*.c
             include/aegis/*.h
             include/aegis/**/*.h
+            apps/**/*.c
+            apps/**/*.h
             tests/unit/**/*.c
         )
 
@@ -210,15 +212,15 @@ if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
     add_dependencies(aegis_shell pre_build_format)
 endif()
 
-# ── Aegis CLI (Application layer, public API only) ──────────────────────────
+# ── Aegis CLI (Application layer, private — not installed as library) ─────────
 add_executable(aegis
-    src/cli_main.c
-    src/cli_helpers.c
-    src/cli_init.c
-    src/cli_run.c
-    src/cli_status.c
-    src/cli_cancel.c
-    src/cli_inspect.c
+    apps/aegis/main.c
+    apps/aegis/cli_helpers.c
+    apps/aegis/cli_init.c
+    apps/aegis/cli_run.c
+    apps/aegis/cli_status.c
+    apps/aegis/cli_cancel.c
+    apps/aegis/cli_inspect.c
 )
 target_link_libraries(aegis PRIVATE aegis_core)
 target_compile_definitions(aegis PRIVATE AEGIS_VERSION_STRING="${AEGIS_VERSION_STRING}")

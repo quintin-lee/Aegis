@@ -3,7 +3,7 @@
  * @brief CLI helper implementations (moved from header to avoid unused warnings).
  */
 #define _POSIX_C_SOURCE 200809L
-#include "aegis/cli_helpers.h"
+#include "cli_helpers.h"
 
 /* Implementation moved from header to fix -Wunused-function warnings */
 
