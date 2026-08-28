@@ -5,11 +5,11 @@
 #include "aegis/task/task.h"
 #include "aegis/types.h"
 
-
 /* Forward declarations to avoid executor dependency */
 typedef struct aegis_executor aegis_executor_t;
-typedef struct aegis_task aegis_task_t;
-typedef aegis_status_t (*aegis_work_fn)(aegis_task_t* task, const aegis_cancellation_token_t* token, void* user);
+typedef struct aegis_task     aegis_task_t;
+typedef aegis_status_t (*aegis_work_fn)(aegis_task_t* task, const aegis_cancellation_token_t* token,
+                                        void* user);
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
