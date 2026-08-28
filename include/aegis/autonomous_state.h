@@ -29,21 +29,21 @@ extern "C" {
 
 /** Autonomous agent state enum. */
 typedef enum aegis_autonomous_state {
-    AEGIS_AUTO_CREATED        = 0,   /**< Initial state after create. */
-    AEGIS_AUTO_INITIALIZING,         /**< During create/initialization. */
-    AEGIS_AUTO_READY,                /**< Ready to run. */
-    AEGIS_AUTO_PLANNING,             /**< Generating plan from goal. */
-    AEGIS_AUTO_SCHEDULING,           /**< Building task graph. */
-    AEGIS_AUTO_EXECUTING,            /**< Running tasks in loop. */
-    AEGIS_AUTO_EVALUATING,           /**< Critic evaluating results. */
-    AEGIS_AUTO_REFLECTING,           /**< Reflection on execution. */
-    AEGIS_AUTO_REPLANNING,           /**< Replanning based on reflection. */
-    AEGIS_AUTO_CHECKPOINTING,        /**< Saving checkpoint. */
-    AEGIS_AUTO_RECOVERING,           /**< Restoring from checkpoint. */
-    AEGIS_AUTO_COMPLETED,            /**< Successfully finished. */
-    AEGIS_AUTO_FAILED,               /**< Failed irrecoverably. */
-    AEGIS_AUTO_CANCELLING,           /**< Cancellation requested. */
-    AEGIS_AUTO_CANCELLED,            /**< Cancelled successfully. */
+    AEGIS_AUTO_CREATED = 0,   /**< Initial state after create. */
+    AEGIS_AUTO_INITIALIZING,  /**< During create/initialization. */
+    AEGIS_AUTO_READY,         /**< Ready to run. */
+    AEGIS_AUTO_PLANNING,      /**< Generating plan from goal. */
+    AEGIS_AUTO_SCHEDULING,    /**< Building task graph. */
+    AEGIS_AUTO_EXECUTING,     /**< Running tasks in loop. */
+    AEGIS_AUTO_EVALUATING,    /**< Critic evaluating results. */
+    AEGIS_AUTO_REFLECTING,    /**< Reflection on execution. */
+    AEGIS_AUTO_REPLANNING,    /**< Replanning based on reflection. */
+    AEGIS_AUTO_CHECKPOINTING, /**< Saving checkpoint. */
+    AEGIS_AUTO_RECOVERING,    /**< Restoring from checkpoint. */
+    AEGIS_AUTO_COMPLETED,     /**< Successfully finished. */
+    AEGIS_AUTO_FAILED,        /**< Failed irrecoverably. */
+    AEGIS_AUTO_CANCELLING,    /**< Cancellation requested. */
+    AEGIS_AUTO_CANCELLED,     /**< Cancelled successfully. */
 } aegis_autonomous_state_t;
 
 /** String representation of state. */

@@ -247,7 +247,6 @@ static void print_version(void)
 
 /* ── init ──────────────────────────────────────────────────────────────────── */
 
-
 /* Command prototypes */
 extern int cmd_init(int argc, char** argv);
 extern int cmd_run(int argc, char** argv);

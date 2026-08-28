@@ -61,10 +61,9 @@ static void checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal, aegi
     aegis_checkpoint_destroy(ckpt);
 }
 
-
-
 /** Transition state with validation. Returns AEGIS_OK on success. */
-static aegis_status_t aa_transition(aegis_autonomous_agent_t* aa, aegis_autonomous_state_t new_state)
+static aegis_status_t aa_transition(aegis_autonomous_agent_t* aa,
+                                    aegis_autonomous_state_t  new_state)
 {
     /* Simple validation: no transition from terminal states */
     if (aa->state == AEGIS_AUTO_COMPLETED || aa->state == AEGIS_AUTO_FAILED ||
@@ -138,7 +137,7 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
     }
 
     aa->state = AEGIS_AUTO_READY;
-    *out = aa;
+    *out      = aa;
     return AEGIS_OK;
 
 fail:
@@ -353,8 +352,9 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                     }
                 }
             } else {
+                /* Non-tool tasks require explicit work function */
                 aegis_scheduler_notify_complete(aa->scheduler, task);
-                final = rc;
+                final = AEGIS_ERR_NOT_FOUND;
                 goto done;
             }
             if (rc != AEGIS_OK) {

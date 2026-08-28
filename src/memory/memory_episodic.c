@@ -112,5 +112,3 @@ aegis_status_t aegis_episodic_memory_range(const aegis_episodic_memory_t* mem, u
     *out_count = idx;
     return AEGIS_OK;
 }
-
-

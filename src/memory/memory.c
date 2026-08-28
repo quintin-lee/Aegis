@@ -12,7 +12,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 aegis_status_t aegis_memory_create(aegis_memory_t** out)
 {
     AEGIS_CHECK_OUT(out);
@@ -653,4 +652,3 @@ aegis_status_t aegis_procedural_memory_search(const aegis_procedural_memory_t* m
     *out_count = idx;
     return AEGIS_OK;
 }
-

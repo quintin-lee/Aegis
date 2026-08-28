@@ -103,5 +103,3 @@ aegis_status_t aegis_semantic_memory_get(const aegis_semantic_memory_t* mem, con
     }
     return AEGIS_ERR_NOT_FOUND;
 }
-
-

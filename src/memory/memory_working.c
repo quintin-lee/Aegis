@@ -165,5 +165,3 @@ aegis_status_t aegis_working_memory_top(const aegis_working_memory_t* mem, size_
     *out_count = count;
     return AEGIS_OK;
 }
-
-
