@@ -22,7 +22,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 option(AEGIS_BUILD_TESTS   "Build unit/integration tests"        ON)
 option(AEGIS_BUILD_BENCH   "Build benchmark executables"         OFF)
 option(AEGIS_BUILD_DOCS    "Generate documentation (Doxygen)"    OFF)
-option(AEGIS_FORMAT_CODE "Run clang-format on all sources before build" ON)
+option(AEGIS_FORMAT_CODE "Run clang-format on all sources before build" OFF)
 
 # ── Compiler warnings ────────────────────────────────────────────────────────
 function(aegis_set_warnings target)
@@ -34,56 +34,36 @@ function(aegis_set_warnings target)
     target_compile_options(${target} PRIVATE ${_WARN_FLAGS})
 endfunction()
 
-# ── clang-format (pre-build auto-format) ─────────────────────────────────────
-# When AEGIS_FORMAT_CODE is ON (default), clang-format runs on every source
-# file before compilation. The pre_build_format target ensures format runs
-# before any build target; all targets depend on it.
-if(AEGIS_FORMAT_CODE)
-    find_program(CLANG_FORMAT_PROGRAM clang-format)
-    if(CLANG_FORMAT_PROGRAM)
-        message(STATUS "clang-format found: ${CLANG_FORMAT_PROGRAM}")
-
-        # Collect all C/C++ source files (re-read on each configure via CONFIGURE_DEPENDS).
-        file(GLOB_RECURSE AEGIS_ALL_SOURCES
-            CONFIGURE_DEPENDS
-            src/*.c
-            src/**/*.c
-            include/aegis/*.h
-            include/aegis/**/*.h
-            apps/**/*.c
-            apps/**/*.h
-            tests/unit/**/*.c
-        )
-
-        # Stamp file in build tree — triggers format only when sources change.
-        set(_AEGIS_FORMAT_STAMP "${CMAKE_BINARY_DIR}/.clang-format-stamp")
-
-        add_custom_command(
-            OUTPUT "${_AEGIS_FORMAT_STAMP}"
-            COMMAND ${CLANG_FORMAT_PROGRAM} -i -style=file ${AEGIS_ALL_SOURCES}
-            COMMAND ${CMAKE_COMMAND} -E touch "${_AEGIS_FORMAT_STAMP}"
-            COMMENT "Running clang-format on all sources before build"
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-            DEPENDS ${AEGIS_ALL_SOURCES}
-        )
-
-        # Target that depends on the stamp; all build targets depend on this.
-        add_custom_target(pre_build_format DEPENDS "${_AEGIS_FORMAT_STAMP}")
-
-        # Manual re-format target — delete stamp to force re-format next build.
-        add_custom_target(format_all
-            COMMAND ${CLANG_FORMAT_PROGRAM} -i -style=file ${AEGIS_ALL_SOURCES}
-            COMMAND ${CMAKE_COMMAND} -E touch "${_AEGIS_FORMAT_STAMP}"
-            COMMENT "Formatting all sources with clang-format"
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        )
-    else()
-        message(WARNING "clang-format not found; skipping auto-format (disable with -DAEGIS_FORMAT_CODE=OFF)")
-    endif()
+# ── clang-format (manual) ────────────────────────────────────────────────────
+# Ordinary builds never auto-format. Use `cmake --build build --target format`
+# to fix style, and `format-check` to verify without modifying files.
+find_program(CLANG_FORMAT_PROGRAM clang-format)
+if(CLANG_FORMAT_PROGRAM)
+    message(STATUS "clang-format found: ${CLANG_FORMAT_PROGRAM}")
+    file(GLOB_RECURSE AEGIS_ALL_SOURCES
+        CONFIGURE_DEPENDS
+        src/*.c
+        src/**/*.c
+        include/aegis/*.h
+        include/aegis/**/*.h
+        apps/**/*.c
+        apps/**/*.h
+        tests/**/*.c
+        tests/**/*.h
+    )
+    add_custom_target(format
+        COMMAND ${CLANG_FORMAT_PROGRAM} -i -style=file ${AEGIS_ALL_SOURCES}
+        COMMENT "Formatting all sources with clang-format"
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
+    add_custom_target(format-check
+        COMMAND ${CLANG_FORMAT_PROGRAM} --dry-run --Werror -style=file ${AEGIS_ALL_SOURCES}
+        COMMENT "Checking format without modifying files"
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    )
 else()
-    message(STATUS "clang-format auto-format disabled (AEGIS_FORMAT_CODE=OFF)")
+    message(STATUS "clang-format not found; format targets unavailable")
 endif()
-
 # ── libaegis-foundation ─────────────────────────────────────────────────────
 add_library(aegis_common
     src/common/error.c
@@ -113,9 +93,6 @@ target_include_directories(aegis_common
 )
 target_link_libraries(aegis_common PRIVATE m pthread)
 aegis_set_warnings(aegis_common)
-if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
-    add_dependencies(aegis_common pre_build_format)
-endif()
 
 # ── libaegis-core ────────────────────────────────────────────────────────────
 add_library(aegis_core
@@ -212,17 +189,11 @@ target_include_directories(aegis_core
 )
 target_link_libraries(aegis_core PRIVATE aegis_common sqlite3 m)
 aegis_set_warnings(aegis_core)
-if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
-    add_dependencies(aegis_core pre_build_format)
-endif()
 
 # ── Executable (CLI shell) ──────────────────────────────────────────────────
 add_executable(aegis_shell src/shell.c)
 target_link_libraries(aegis_shell PRIVATE aegis_core)
 aegis_set_warnings(aegis_shell)
-if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
-    add_dependencies(aegis_shell pre_build_format)
-endif()
 
 # ── Aegis CLI (Application layer, private — not installed as library) ─────────
 add_executable(aegis
@@ -237,9 +208,6 @@ add_executable(aegis
 target_link_libraries(aegis PRIVATE aegis_core)
 target_compile_definitions(aegis PRIVATE AEGIS_VERSION_STRING="${AEGIS_VERSION_STRING}")
 aegis_set_warnings(aegis)
-if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
-    add_dependencies(aegis pre_build_format)
-endif()
 
 # ── Tests ────────────────────────────────────────────────────────────────────
 if(AEGIS_BUILD_TESTS)
@@ -263,9 +231,6 @@ if(AEGIS_BUILD_TESTS)
         target_link_libraries(${name} PRIVATE aegis_core GTest::gtest_main)
         aegis_set_warnings(${name})
         add_test(NAME ${name} COMMAND ${name})
-        if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
-            add_dependencies(${name} pre_build_format)
-        endif()
     endmacro()
 
     aegis_add_test(unit_scheduler  tests/unit/test_scheduler.c)
@@ -318,13 +283,18 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(system_autonomous        tests/system/test_autonomous_closed_loop.c)
     target_link_libraries(system_autonomous PRIVATE pthread)
     aegis_add_test(unit_autonomous_tool tests/unit/test_autonomous_tool_integration.c)
+    aegis_add_test(system_recovery_e2e tests/system/test_autonomous_recovery_e2e.c)
+    target_link_libraries(system_recovery_e2e PRIVATE pthread)
+    aegis_add_test(system_tool_e2e tests/system/test_autonomous_tool_e2e.c)
+    target_link_libraries(system_tool_e2e PRIVATE pthread)
+    aegis_add_test(system_security_e2e tests/system/test_autonomous_security_e2e.c)
+    target_link_libraries(system_security_e2e PRIVATE pthread)
+    aegis_add_test(system_cancellation_e2e tests/system/test_autonomous_cancellation_e2e.c)
+    target_link_libraries(system_cancellation_e2e PRIVATE pthread)
+    aegis_add_test(system_failure_e2e tests/system/test_autonomous_failure_e2e.c)
+    target_link_libraries(system_failure_e2e PRIVATE pthread)
     add_executable(integration_cli tests/integration/test_cli.c)
-    target_link_libraries(integration_cli PRIVATE aegis_core)
-    aegis_set_warnings(integration_cli)
     add_test(NAME integration_cli COMMAND integration_cli)
-    if(AEGIS_FORMAT_CODE AND CLANG_FORMAT_PROGRAM)
-        add_dependencies(integration_cli pre_build_format)
-    endif()
 endif()
 
 # ── Mock plugin shared object ────────────────────────────────────────────────

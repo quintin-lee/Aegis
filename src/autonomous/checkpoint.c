@@ -20,17 +20,15 @@ void autonomous_checkpoint_save(aegis_autonomous_agent_t* aa,
         return;
     }
     aegis_cancellation_token_t* token = autonomous_get_token(aa);
-    /* Snapshot boundary: hold lock while copying state that will be persisted
-     * to ensure a consistent view. For now we populate with minimal data. */
+    /* Snapshot boundary: hold lock while copying iteration/state for consistency. */
+    uint32_t                   iteration = 0;
+    aegis_autonomous_state_t st        = AEGIS_AUTO_CREATED;
     pthread_mutex_lock(&aa->lock);
-    uint32_t iteration = aa->iteration;
+    iteration = aa->iteration;
+    st        = aa->state;
     pthread_mutex_unlock(&aa->lock);
-    aegis_checkpoint_populate(ckpt, NULL, NULL, plan, graph, 0);
-    if (goal) {
-        aegis_checkpoint_set_goal(ckpt, goal);
-    }
-    /* Use iteration as plan_version hint for recovery validation. */
-    (void)iteration;
+    const char* state_str = aegis_autonomous_state_str(st);
+    aegis_checkpoint_populate(ckpt, state_str, goal, plan, graph, iteration + 1);
     aegis_checkpoint_write(ckpt, path, token);
     aegis_checkpoint_destroy(ckpt);
 }

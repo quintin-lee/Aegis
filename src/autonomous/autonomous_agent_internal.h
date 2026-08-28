@@ -34,6 +34,7 @@ struct aegis_autonomous_agent {
     aegis_executor_t*               executor;
     aegis_critic_t*                 critic;
     aegis_cancellation_token_t*     owned_token;
+    aegis_security_policy_t*        owned_security_policy; /**< allow-all when cfg.security_policy NULL but tools present */
     bool                            recovered;
     aegis_autonomous_state_t        state;
     pthread_mutex_t                 lock;
