@@ -15,7 +15,7 @@
 #ifndef AEGIS_REPLANNER_H
 #define AEGIS_REPLANNER_H
 
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/planner/planner.h"
 #include "aegis/status.h"
 

@@ -1,7 +1,7 @@
 #ifndef AEGIS_PROVIDER_H
 #define AEGIS_PROVIDER_H
 
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/types.h"
 
 #include <stddef.h>

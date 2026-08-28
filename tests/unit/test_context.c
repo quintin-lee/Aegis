@@ -11,7 +11,7 @@
  *   - Accessors
  */
 #include "aegis/context/context.h"
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

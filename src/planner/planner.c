@@ -10,7 +10,7 @@
  */
 #include "planner_internal.h"
 
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/provider/llm.h"
 #include "aegis/planner/planner.h"
 #include "aegis/strategy/strategy.h"

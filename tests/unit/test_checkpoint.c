@@ -7,7 +7,7 @@
 #include "aegis/planner/plan.h"
 #include "aegis/task/graph.h"
 #include "aegis/task/task.h"
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -68,7 +68,7 @@ static void test_populate_empty(void)
 {
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
-    expect_ok(aegis_checkpoint_populate(ckpt, NULL, NULL, NULL, 0), "populate empty");
+    expect_ok(aegis_checkpoint_populate(ckpt, NULL, NULL, NULL, NULL, 0), "populate empty");
     assert(aegis_checkpoint_version(ckpt) == 1);
     assert(strcmp(aegis_checkpoint_agent_state(ckpt), "CREATED") == 0);
     assert(strcmp(aegis_checkpoint_goal(ckpt), "") == 0);
@@ -84,7 +84,7 @@ static void test_populate_with_agent(void)
 
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
-    expect_ok(aegis_checkpoint_populate(ckpt, agent, NULL, NULL, 5), "populate");
+    expect_ok(aegis_checkpoint_populate(ckpt, "RUNNING", "achieve world peace", NULL, NULL, 5), "populate");
     assert(aegis_checkpoint_version(ckpt) == 5);
     assert(strcmp(aegis_checkpoint_goal(ckpt), "achieve world peace") == 0);
 
@@ -97,7 +97,7 @@ static void test_populate_with_plan(void)
     aegis_plan_t* plan = make_test_plan("build a house");
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
-    expect_ok(aegis_checkpoint_populate(ckpt, NULL, plan, NULL, 0), "populate");
+    expect_ok(aegis_checkpoint_populate(ckpt, NULL, NULL, plan, NULL, 0), "populate");
     assert(aegis_checkpoint_plan_version(ckpt) > 0);
     assert(aegis_checkpoint_plan_text(ckpt) != NULL);
     assert(strlen(aegis_checkpoint_plan_text(ckpt)) > 0);
@@ -111,7 +111,7 @@ static void test_populate_with_graph(void)
     aegis_task_graph_t* g = make_test_graph(3, AEGIS_TASK_SUCCESS);
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
-    expect_ok(aegis_checkpoint_populate(ckpt, NULL, NULL, g, 0), "populate");
+    expect_ok(aegis_checkpoint_populate(ckpt, NULL, NULL, NULL, g, 0), "populate");
     assert(aegis_checkpoint_task_count(ckpt) == 3);
 
     const aegis_checkpoint_task_snapshot_t* snap0 = aegis_checkpoint_task_snapshot(ckpt, 0);
@@ -136,7 +136,7 @@ static void test_serialize_deserialize(void)
 
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
-    expect_ok(aegis_checkpoint_populate(ckpt, agent, plan, g, 3), "populate");
+    expect_ok(aegis_checkpoint_populate(ckpt, "RUNNING", "achieve world peace", plan, g, 5), "populate");
 
     char* serialized = NULL;
     expect_ok(aegis_checkpoint_serialize(ckpt, &serialized), "serialize");
@@ -146,9 +146,9 @@ static void test_serialize_deserialize(void)
     aegis_checkpoint_t* restored = NULL;
     expect_ok(aegis_checkpoint_deserialize(serialized, &restored), "deserialize");
     assert(restored != NULL);
-    assert(aegis_checkpoint_version(restored) == 3);
-    assert(strcmp(aegis_checkpoint_agent_state(restored), "CREATED") == 0);
-    assert(strcmp(aegis_checkpoint_goal(restored), "solve puzzle") == 0);
+    assert(aegis_checkpoint_version(restored) == 5);
+    assert(strcmp(aegis_checkpoint_agent_state(restored), "RUNNING") == 0);
+    assert(strcmp(aegis_checkpoint_goal(restored), "achieve world peace") == 0);
     assert(aegis_checkpoint_plan_version(restored) > 0);
     assert(aegis_checkpoint_task_count(restored) == 2);
 
@@ -173,7 +173,7 @@ static void test_write_read_roundtrip(void)
 
     aegis_checkpoint_t* ckpt = NULL;
     expect_ok(aegis_checkpoint_create(&ckpt), "create");
-    expect_ok(aegis_checkpoint_populate(ckpt, agent, plan, g, 1), "populate");
+    expect_ok(aegis_checkpoint_populate(ckpt, "RUNNING", "test goal", NULL, NULL, 1), "populate");
 
     char path[256];
     snprintf(path, sizeof(path), "/tmp/aegis_test_checkpoint_%d.chk", (int)getpid());

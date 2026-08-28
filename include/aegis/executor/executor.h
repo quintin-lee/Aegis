@@ -3,7 +3,7 @@
 
 #include "aegis/types.h"
 #include "aegis/task/task.h"
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include <stddef.h>
 #include <stdint.h>
 

@@ -5,6 +5,7 @@
  *        register/find race.
  */
 #include "aegis/tool/tool.h"
+#include "aegis/executor/executor.h"
 #include "aegis/common/time.h"
 
 #include <assert.h>

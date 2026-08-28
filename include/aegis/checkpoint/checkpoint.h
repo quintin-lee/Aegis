@@ -27,10 +27,9 @@
 #ifndef AEGIS_CHECKPOINT_H
 #define AEGIS_CHECKPOINT_H
 
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/status.h"
 #include "aegis/types.h"
-#include "aegis/agent/agent.h"
 #include "aegis/task/task.h"
 #include "aegis/task/graph.h"
 
@@ -115,9 +114,9 @@ void aegis_checkpoint_destroy(aegis_checkpoint_t* ckpt);
  * @param version  Checkpoint version (monotonic; 0 = auto-increment from existing).
  * @return AEGIS_OK or AEGIS_ERR_NOMEM.
  */
-aegis_status_t aegis_checkpoint_populate(aegis_checkpoint_t* ckpt, const aegis_agent_t* agent,
-                                         const aegis_plan_t* plan, const aegis_task_graph_t* graph,
-                                         uint32_t version);
+aegis_status_t aegis_checkpoint_populate(aegis_checkpoint_t* ckpt, const char* agent_state,
+                                         const char* goal, const aegis_plan_t* plan,
+                                         const aegis_task_graph_t* graph, uint32_t version);
 
 /**
  * @brief Get the checkpoint version.

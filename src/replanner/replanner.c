@@ -8,7 +8,7 @@
  */
 #include "planner_internal.h"
 
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/planner/plan.h"
 #include "aegis/planner/planner.h"
 #include "aegis/replanner/replanner.h"

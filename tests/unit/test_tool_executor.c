@@ -5,6 +5,7 @@
  *        dispatched through aegis_tool_submit().
  */
 #include "aegis/tool/tool.h"
+#include "aegis/executor/executor.h"
 #include "aegis/common/time.h"
 
 #include <assert.h>

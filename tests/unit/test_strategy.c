@@ -5,7 +5,7 @@
  *        planner binding/routing semantics, and a compact register/find
  *        race case.
  */
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/provider/llm.h"
 #include "aegis/planner/plan.h"
 #include "aegis/planner/planner.h"

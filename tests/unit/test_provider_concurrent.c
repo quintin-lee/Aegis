@@ -2,7 +2,7 @@
  * @file test_provider_concurrent.c
  * @brief Concurrency tests: registry race hammer + concurrent dispatch.
  */
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/provider/llm.h"
 
 #include <assert.h>

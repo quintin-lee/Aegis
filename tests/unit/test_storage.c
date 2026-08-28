@@ -7,7 +7,7 @@
  *   - Null safety
  */
 #include "aegis/storage/storage.h"
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

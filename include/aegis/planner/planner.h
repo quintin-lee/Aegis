@@ -25,7 +25,7 @@
 #ifndef AEGIS_PLANNER_H
 #define AEGIS_PLANNER_H
 
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/planner/plan.h"
 #include "aegis/provider/provider.h"
 #include "aegis/status.h"

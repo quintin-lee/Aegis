@@ -8,8 +8,7 @@
 #include <sys/types.h>
 #include "aegis/checkpoint/checkpoint.h"
 #include "aegis/status.h"
-#include "aegis/executor/cancellation.h"
-#include "aegis/agent/agent.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/task/task.h"
 #include "aegis/task/graph.h"
 #include "aegis/planner/plan.h"
@@ -54,17 +53,6 @@ static uint32_t crc32_compute(const uint8_t* data, size_t len, uint32_t crc)
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
 
-static const char* agent_state_name(aegis_agent_state_t s)
-{
-    static const char* names[] = {"CREATED",    "INITIALIZING", "READY",  "RUNNING",   "PAUSED",
-                                  "CANCELLING", "COMPLETED",    "FAILED", "CANCELLED", "ABORTED"};
-    size_t             idx     = (size_t)s;
-    if (idx >= sizeof(names) / sizeof(names[0])) {
-        return "UNKNOWN";
-    }
-    return names[idx];
-}
-
 static const char* task_state_name(aegis_task_state_t s)
 {
     static const char* names[] = {"PENDING", "READY",  "RUNNING",   "WAITING",
@@ -103,30 +91,27 @@ void aegis_checkpoint_destroy(aegis_checkpoint_t* ckpt)
 
 /* ── Populate ──────────────────────────────────────────────────────────────── */
 
-aegis_status_t aegis_checkpoint_populate(aegis_checkpoint_t* ckpt, const aegis_agent_t* agent,
-                                         const aegis_plan_t* plan, const aegis_task_graph_t* graph,
-                                         uint32_t version)
+aegis_status_t aegis_checkpoint_populate(aegis_checkpoint_t* ckpt, const char* agent_state,
+                                         const char* goal, const aegis_plan_t* plan,
+                                         const aegis_task_graph_t* graph, uint32_t version)
 {
     if (!ckpt) {
         return AEGIS_ERR_INVALID;
     }
 
-    if (agent) {
-        snprintf(ckpt->agent_state, sizeof(ckpt->agent_state), "%s",
-                 agent_state_name(aegis_agent_state(agent)));
+    if (agent_state) {
+        strncpy(ckpt->agent_state, agent_state, sizeof(ckpt->agent_state) - 1);
+        ckpt->agent_state[sizeof(ckpt->agent_state) - 1] = '\0';
     } else {
         snprintf(ckpt->agent_state, sizeof(ckpt->agent_state), "CREATED");
     }
 
     free(ckpt->goal);
     ckpt->goal = NULL;
-    if (agent) {
-        const char* goal = aegis_agent_get_goal(agent);
-        if (goal) {
-            ckpt->goal = strdup(goal);
-            if (!ckpt->goal) {
-                return AEGIS_ERR_NOMEM;
-            }
+    if (goal) {
+        ckpt->goal = strdup(goal);
+        if (!ckpt->goal) {
+            return AEGIS_ERR_NOMEM;
         }
     }
 

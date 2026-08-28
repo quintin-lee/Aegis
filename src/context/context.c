@@ -13,7 +13,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/context/context.h"
 #include "aegis/status.h"
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 
 #include "context_internal.h"
 #include "lifecycle.h"

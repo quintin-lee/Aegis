@@ -10,6 +10,7 @@
  */
 #include "cancellation_internal.h"
 #include "task_internal.h"
+#include "aegis/executor/executor.h"
 #include "tool_internal.h"
 
 #include "aegis/common/time.h"

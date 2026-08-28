@@ -16,7 +16,7 @@
 #include "aegis/provider/embedding.h"
 #include "aegis/status.h"
 #include "../internal/lifecycle.h"
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 
 #include <stdio.h>
 #include <stdlib.h>

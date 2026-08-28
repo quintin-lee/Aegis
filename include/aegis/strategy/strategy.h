@@ -30,7 +30,7 @@
 #ifndef AEGIS_STRATEGY_H
 #define AEGIS_STRATEGY_H
 
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/planner/plan.h"
 #include "aegis/status.h"
 #include "aegis/types.h"

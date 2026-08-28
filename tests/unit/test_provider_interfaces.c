@@ -3,7 +3,7 @@
  * @brief Unit tests: mock LLM / embedding / storage providers dispatched
  *        end-to-end through the registry, including gate and error paths.
  */
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/provider/embedding.h"
 #include "aegis/provider/llm.h"
 #include "aegis/storage/storage.h"

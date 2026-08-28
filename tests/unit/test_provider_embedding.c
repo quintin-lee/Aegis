@@ -5,7 +5,7 @@
 #include "aegis/provider/embedding.h"
 #include "aegis/provider/provider_embedding_hash.h"
 #include "aegis/provider/provider.h"
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

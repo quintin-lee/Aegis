@@ -51,7 +51,7 @@ static void checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal, aegi
         return;
     }
     // agent is NULL (we don't have aegis_agent_t), pass NULL per API
-    aegis_checkpoint_populate(ckpt, NULL, plan, graph, 0);
+    aegis_checkpoint_populate(ckpt, NULL, NULL, plan, graph, 0);
     if (goal) {
         aegis_checkpoint_set_goal(ckpt, goal);
     }
@@ -232,7 +232,7 @@ aegis_status_t aegis_autonomous_agent_checkpoint_save(aegis_autonomous_agent_t* 
         return rc;
     }
     // populate with minimal data (no plan/graph) just to test write
-    aegis_checkpoint_populate(ckpt, NULL, NULL, NULL, 0);
+    aegis_checkpoint_populate(ckpt, NULL, NULL, NULL, NULL, 0);
     rc = aegis_checkpoint_write(ckpt, p, get_token(aa));
     aegis_checkpoint_destroy(ckpt);
     return rc;

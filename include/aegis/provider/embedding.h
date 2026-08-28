@@ -1,7 +1,7 @@
 #ifndef AEGIS_EMBEDDING_H
 #define AEGIS_EMBEDDING_H
 
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/provider/provider.h"
 
 #include <stddef.h>

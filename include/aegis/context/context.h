@@ -23,7 +23,7 @@
 #define AEGIS_CONTEXT_H
 
 #include "aegis/status.h"
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/types.h"
 
 #include <stdint.h>

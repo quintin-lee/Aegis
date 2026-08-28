@@ -20,7 +20,7 @@
 #ifndef AEGIS_STORAGE_H
 #define AEGIS_STORAGE_H
 
-#include "aegis/executor/cancellation.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/provider/provider.h"
 #include "aegis/status.h"
 

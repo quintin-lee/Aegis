@@ -98,6 +98,7 @@ add_library(aegis_common
     src/common/vector.c
     src/common/list.c
     src/common/time.c
+    src/common/cancellation/cancellation.c
 )
 target_include_directories(aegis_common
     PUBLIC
@@ -106,7 +107,6 @@ target_include_directories(aegis_common
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src/internal
         ${PROJECT_SOURCE_DIR}/providers
-        ${PROJECT_SOURCE_DIR}/strategies
         ${PROJECT_SOURCE_DIR}/strategies
 )
 target_link_libraries(aegis_common PRIVATE m pthread)
@@ -130,7 +130,6 @@ add_library(aegis_core
     src/scheduler/scheduler.c
     # Executor
     src/executor/executor.c
-    src/executor/cancellation.c
     # Tool
     src/tool/tool.c
     src/tool/tool_call.c
@@ -189,7 +188,6 @@ target_include_directories(aegis_core
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src/internal
         ${PROJECT_SOURCE_DIR}/providers
-        ${PROJECT_SOURCE_DIR}/strategies
         ${PROJECT_SOURCE_DIR}/strategies
 )
 target_link_libraries(aegis_core PRIVATE aegis_common sqlite3 m)
