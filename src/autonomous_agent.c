@@ -268,6 +268,7 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
     aegis_cancellation_token_t* token          = get_token(aa);
     uint32_t                    iterations     = 0;
     uint32_t                    tasks_executed = 0;
+    uint32_t                    loop_count     = 0; /* actual entries into loop body */
     aegis_plan_t*               plan           = NULL;
     aegis_task_graph_t*         graph          = NULL;
     aegis_status_t              final          = AEGIS_OK;
@@ -280,6 +281,7 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
     }
 
     for (iterations = 0; iterations < aa->cfg.max_iterations; iterations++) {
+        loop_count++;
         if (token && aegis_cancellation_token_is_cancelled(token)) {
             final = AEGIS_ERR_CANCELLED;
             break;
@@ -436,7 +438,7 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
         break;
     }
 
-    if (iterations >= aa->cfg.max_iterations && final == AEGIS_OK) {
+    if (loop_count >= aa->cfg.max_iterations && final == AEGIS_OK) {
         // if we exhausted iterations without success, mark busy
         // check last critique was not success
         final = AEGIS_ERR_BUSY;
@@ -456,7 +458,7 @@ done:
 
     if (out_result) {
         out_result->final_status              = final;
-        out_result->iterations                = iterations + 1;
+        out_result->iterations                = loop_count;
         out_result->tasks_executed            = tasks_executed;
         out_result->recovered_from_checkpoint = aa->recovered;
     }
