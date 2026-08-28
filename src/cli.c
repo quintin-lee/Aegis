@@ -21,9 +21,9 @@
 #define _POSIX_C_SOURCE 200809L
 #endif
 #include "aegis/autonomous_agent.h"
-#include "aegis/checkpoint.h"
-#include "aegis/provider.h"
-#include "aegis/provider_llm_mock.h"
+#include "aegis/checkpoint/checkpoint.h"
+#include "aegis/provider/provider.h"
+#include "aegis/provider/provider_llm_mock.h"
 #include "aegis/status.h"
 
 #include <errno.h>

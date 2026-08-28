@@ -4,12 +4,12 @@
  *        provider registry: DSL parsing e2e, failure modes, replanning,
  *        cancellation gate.
  */
-#include "aegis/cancellation.h"
-#include "aegis/llm.h"
-#include "aegis/plan.h"
-#include "aegis/planner.h"
-#include "aegis/provider.h"
-#include "aegis/replanner.h"
+#include "aegis/executor/cancellation.h"
+#include "aegis/provider/llm.h"
+#include "aegis/planner/plan.h"
+#include "aegis/planner/planner.h"
+#include "aegis/provider/provider.h"
+#include "aegis/replanner/replanner.h"
 
 #include <assert.h>
 #include <stdio.h>

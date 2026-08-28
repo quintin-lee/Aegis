@@ -4,7 +4,7 @@
  *        per-invocation result verification, and a concurrent
  *        register/find race.
  */
-#include "aegis/tool.h"
+#include "aegis/tool/tool.h"
 #include "aegis/common/time.h"
 
 #include <assert.h>

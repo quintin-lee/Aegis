@@ -4,7 +4,7 @@
  *        Result, using mock tools registered in a real registry and
  *        dispatched through aegis_tool_submit().
  */
-#include "aegis/tool.h"
+#include "aegis/tool/tool.h"
 #include "aegis/common/time.h"
 
 #include <assert.h>

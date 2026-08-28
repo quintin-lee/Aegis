@@ -2,7 +2,7 @@
  * @file test_event_bus.c
  * @brief Tests for event bus publish/subscribe/unsubscribe.
  */
-#include "aegis/event.h"
+#include "aegis/event/event.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

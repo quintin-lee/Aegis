@@ -8,10 +8,10 @@
 #ifndef AEGIS_PLANNER_INTERNAL_H
 #define AEGIS_PLANNER_INTERNAL_H
 
-#include "aegis/plan.h"
-#include "aegis/planner.h"
-#include "aegis/provider.h"
-#include "aegis/task.h"
+#include "aegis/planner/plan.h"
+#include "aegis/planner/planner.h"
+#include "aegis/provider/provider.h"
+#include "aegis/task/task.h"
 
 #include <stddef.h>
 #include <stdint.h>

@@ -2,10 +2,10 @@
  * @file test_provider_embedding.c
  * @brief Unit tests for the hash-based embedding provider.
  */
-#include "aegis/embedding.h"
-#include "aegis/provider_embedding_hash.h"
-#include "aegis/provider.h"
-#include "aegis/cancellation.h"
+#include "aegis/provider/embedding.h"
+#include "aegis/provider/provider_embedding_hash.h"
+#include "aegis/provider/provider.h"
+#include "aegis/executor/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

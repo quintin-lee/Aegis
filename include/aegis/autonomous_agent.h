@@ -13,10 +13,10 @@
 
 #include "aegis/types.h"
 #include "aegis/status.h"
-#include "aegis/cancellation.h"
-#include "aegis/provider.h"
-#include "aegis/tool.h"
-#include "aegis/security.h"
+#include "aegis/executor/cancellation.h"
+#include "aegis/provider/provider.h"
+#include "aegis/tool/tool.h"
+#include "aegis/security/security.h"
 
 #include <stdbool.h>
 #include <stddef.h>

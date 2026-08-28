@@ -2,12 +2,12 @@
  * @file test_checkpoint.c
  * @brief Unit tests for the Checkpoint module.
  */
-#include "aegis/checkpoint.h"
-#include "aegis/agent.h"
-#include "aegis/plan.h"
-#include "aegis/graph.h"
-#include "aegis/task.h"
-#include "aegis/cancellation.h"
+#include "aegis/checkpoint/checkpoint.h"
+#include "aegis/agent/agent.h"
+#include "aegis/planner/plan.h"
+#include "aegis/task/graph.h"
+#include "aegis/task/task.h"
+#include "aegis/executor/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

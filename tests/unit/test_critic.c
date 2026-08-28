@@ -8,11 +8,11 @@
  *   - REPLAN_REQUIRED : cancellation/skipped with incomplete work, or terminal
  *                       state but unsatisfactory outcome
  */
-#include "aegis/cancellation.h"
-#include "aegis/critic.h"
-#include "aegis/graph.h"
-#include "aegis/plan.h"
-#include "aegis/task.h"
+#include "aegis/executor/cancellation.h"
+#include "aegis/critic/critic.h"
+#include "aegis/task/graph.h"
+#include "aegis/planner/plan.h"
+#include "aegis/task/task.h"
 
 #include <assert.h>
 #include <stdio.h>

@@ -9,7 +9,7 @@
 
 #include "aegis/common/hashmap.h"
 #include "aegis/common/mutex.h"
-#include "aegis/tool.h"
+#include "aegis/tool/tool.h"
 
 /** One owned name -> owned-value binding inside an argument list. */
 typedef struct aegis_tool_arg_entry {

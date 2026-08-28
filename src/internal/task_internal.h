@@ -7,7 +7,7 @@
 #ifndef AEGIS_TASK_INTERNAL_H
 #define AEGIS_TASK_INTERNAL_H
 
-#include "aegis/task.h"
+#include "aegis/task/task.h"
 #include "aegis/common/mutex.h"
 #include <stdint.h>
 #include <stdbool.h>

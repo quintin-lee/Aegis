@@ -7,7 +7,7 @@
 #ifndef AEGIS_EVENT_INTERNAL_H
 #define AEGIS_EVENT_INTERNAL_H
 
-#include "aegis/event.h"
+#include "aegis/event/event.h"
 #include "aegis/common/mutex.h"
 #include <stdint.h>
 #include <stddef.h>

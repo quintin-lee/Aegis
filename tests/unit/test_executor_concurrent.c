@@ -13,8 +13,8 @@
  * are read only after a successful wait() (happens-before via the
  * executor's internal lock).
  */
-#include "aegis/executor.h"
-#include "aegis/task.h"
+#include "aegis/executor/executor.h"
+#include "aegis/task/task.h"
 #include "aegis/common/time.h"
 
 #include <assert.h>

@@ -2,8 +2,8 @@
  * @file test_security.c
  * @brief Unit tests for the Security module.
  */
-#include "aegis/security.h"
-#include "aegis/cancellation.h"
+#include "aegis/security/security.h"
+#include "aegis/executor/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

@@ -7,8 +7,8 @@
 #ifndef AEGIS_AGENT_INTERNAL_H
 #define AEGIS_AGENT_INTERNAL_H
 
-#include "aegis/agent.h"
-#include "aegis/event.h"
+#include "aegis/agent/agent.h"
+#include "aegis/event/event.h"
 #include "aegis/common/mutex.h"
 #include "aegis/common/atomic.h"
 #include <stdbool.h>

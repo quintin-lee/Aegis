@@ -25,7 +25,7 @@
 #ifndef AEGIS_EXECUTOR_INTERNAL_H
 #define AEGIS_EXECUTOR_INTERNAL_H
 
-#include "aegis/executor.h"
+#include "aegis/executor/executor.h"
 #include "aegis/common/thread.h"
 #include "cancellation_internal.h"
 

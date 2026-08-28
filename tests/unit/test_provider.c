@@ -2,7 +2,7 @@
  * @file test_provider.c
  * @brief Unit tests: provider registry, lifecycle, ownership semantics.
  */
-#include "aegis/provider.h"
+#include "aegis/provider/provider.h"
 
 #include <assert.h>
 #include <stdio.h>

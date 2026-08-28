@@ -5,8 +5,8 @@
 #ifndef AEGIS_INTERNAL_SECURITY_H
 #define AEGIS_INTERNAL_SECURITY_H
 
-#include "aegis/security.h"
-#include "aegis/cancellation.h"
+#include "aegis/security/security.h"
+#include "aegis/executor/cancellation.h"
 
 
 #include <stdint.h>

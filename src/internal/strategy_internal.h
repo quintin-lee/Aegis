@@ -8,7 +8,7 @@
 #ifndef AEGIS_STRATEGY_INTERNAL_H
 #define AEGIS_STRATEGY_INTERNAL_H
 
-#include "aegis/strategy.h"
+#include "aegis/strategy/strategy.h"
 
 #include "aegis/common/mutex.h"
 #include "aegis/common/hashmap.h"

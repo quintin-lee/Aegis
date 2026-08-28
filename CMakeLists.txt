@@ -105,6 +105,9 @@ target_include_directories(aegis_common
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src/internal
+        ${PROJECT_SOURCE_DIR}/providers
+        ${PROJECT_SOURCE_DIR}/strategies
+        ${PROJECT_SOURCE_DIR}/strategies
 )
 target_link_libraries(aegis_common PRIVATE m pthread)
 aegis_set_warnings(aegis_common)
@@ -114,48 +117,69 @@ endif()
 
 # ── libaegis-core ────────────────────────────────────────────────────────────
 add_library(aegis_core
-    src/task.c
-    src/scheduler.c
-    src/executor.c
-    src/cancellation.c
-    src/tool.c
-    src/tool_schema.c
-    src/tool_registry.c
-    src/tool_call.c
-    src/provider.c
-    src/provider_registry.c
-    src/llm.c
-    src/embedding.c
-    src/storage.c
-    src/plan.c
-    src/planner.c
-    src/replanner.c
-    src/reflection.c
-    src/strategy_registry.c
-    src/providers/strategies/plan_execute.c
-    src/runtime.c
-    src/config.c
-    src/event.c
-    src/event_bus.c
-    src/agent.c
-    src/goal.c
+    # Agent & Runtime
+    src/agent/agent.c
+    src/agent/goal.c
+    src/runtime/runtime.c
+    src/runtime/config.c
+    # Task & Graph
+    src/task/task.c
+    src/task/graph.c
+    src/task/dependency.c
+    # Scheduler
+    src/scheduler/scheduler.c
+    # Executor
+    src/executor/executor.c
+    src/executor/cancellation.c
+    # Tool
+    src/tool/tool.c
+    src/tool/tool_call.c
+    src/tool/tool_registry.c
+    src/tool/tool_schema.c
+    # Provider
+    src/provider/provider.c
+    src/provider/provider_registry.c
+    src/provider/llm.c
+    src/provider/embedding.c
+    # Planner
+    src/planner/plan.c
+    src/planner/planner.c
+    # Strategy
+    src/strategy/strategy_registry.c
+    # Context
+    src/context/context.c
+    # Memory
+    src/memory/memory.c
+    # Critic
+    src/critic/critic.c
+    # Reflection
+    src/reflection/reflection.c
+    # Replanner
+    src/replanner/replanner.c
+    # Storage
+    src/storage/storage.c
+    src/storage/storage_store.c
+    # Checkpoint
+    src/checkpoint/checkpoint.c
+    # Security
+    src/security/security.c
+    # Event
+    src/event/event.c
+    src/event/event_bus.c
+    # Plugin
+    src/plugin/plugin.c
+    # Observability
+    src/observability/log.c
+    src/observability/metrics.c
+    src/observability/trace.c
+    # Provider implementations
+    providers/llm/mock/llm_mock.c
+    providers/embedding/embedding_hash.c
+    providers/storage/sqlite/storage_sqlite.c
+    strategies/plan_execute/plan_execute.c
+    # CLI
+    src/shell.c
     src/status.c
-    src/dependency.c
-    src/critic.c
-    src/graph.c
-    src/memory.c
-    src/memory_mock.c
-    src/context.c
-    src/storage_store.c
-    src/checkpoint.c
-    src/security.c
-    src/log.c
-    src/metrics.c
-    src/trace.c
-    src/plugin.c
-    src/providers/llm_mock.c
-    src/providers/storage_sqlite.c
-    src/providers/embedding_hash.c
     src/autonomous_agent.c
 )
 target_include_directories(aegis_core
@@ -164,6 +188,9 @@ target_include_directories(aegis_core
         $<INSTALL_INTERFACE:include>
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src/internal
+        ${PROJECT_SOURCE_DIR}/providers
+        ${PROJECT_SOURCE_DIR}/strategies
+        ${PROJECT_SOURCE_DIR}/strategies
 )
 target_link_libraries(aegis_core PRIVATE aegis_common sqlite3 m)
 aegis_set_warnings(aegis_core)

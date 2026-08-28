@@ -8,7 +8,7 @@
  *   - Procedural memory: put/search by keyword
  *   - Null safety
  */
-#include "aegis/memory.h"
+#include "aegis/memory/memory.h"
 
 #include <assert.h>
 #include <stdio.h>

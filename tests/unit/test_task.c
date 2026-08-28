@@ -2,7 +2,7 @@
  * @file test_task.c
  * @brief Tests for task lifecycle, properties, and state.
  */
-#include "aegis/task.h"
+#include "aegis/task/task.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

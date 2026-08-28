@@ -2,8 +2,8 @@
  * @file test_agent.c
  * @brief Tests for agent state machine and lifecycle.
  */
-#include "aegis/agent.h"
-#include "aegis/event.h"
+#include "aegis/agent/agent.h"
+#include "aegis/event/event.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

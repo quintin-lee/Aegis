@@ -2,7 +2,7 @@
  * @file test_log.c
  * @brief Unit tests for the Logging module.
  */
-#include "aegis/log.h"
+#include "aegis/observability/log.h"
 
 #include <assert.h>
 #include <stdio.h>

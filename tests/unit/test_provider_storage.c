@@ -2,10 +2,10 @@
  * @file test_provider_storage.c
  * @brief Unit tests for the SQLite storage provider.
  */
-#include "aegis/storage.h"
-#include "aegis/provider_storage_sqlite.h"
-#include "aegis/provider.h"
-#include "aegis/cancellation.h"
+#include "aegis/storage/storage.h"
+#include "aegis/provider/provider_storage_sqlite.h"
+#include "aegis/provider/provider.h"
+#include "aegis/executor/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

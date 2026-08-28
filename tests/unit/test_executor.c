@@ -7,8 +7,8 @@
  * pointers only, and each test destroys its tasks after the executor
  * is gone — which also exercises destroy-time cleanup under ASan.
  */
-#include "aegis/executor.h"
-#include "aegis/task.h"
+#include "aegis/executor/executor.h"
+#include "aegis/task/task.h"
 #include "aegis/common/time.h"
 
 #include <assert.h>

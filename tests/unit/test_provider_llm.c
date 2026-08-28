@@ -2,10 +2,10 @@
  * @file test_provider_llm.c
  * @brief Unit tests for the mock LLM provider.
  */
-#include "aegis/llm.h"
-#include "aegis/provider_llm_mock.h"
-#include "aegis/provider.h"
-#include "aegis/cancellation.h"
+#include "aegis/provider/llm.h"
+#include "aegis/provider/provider_llm_mock.h"
+#include "aegis/provider/provider.h"
+#include "aegis/executor/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

@@ -15,7 +15,7 @@
 #ifndef AEGIS_CANCELLATION_INTERNAL_H
 #define AEGIS_CANCELLATION_INTERNAL_H
 
-#include "aegis/cancellation.h"
+#include "aegis/executor/cancellation.h"
 #include <stdint.h>
 
 /** Cancellation reason flags. */

@@ -7,7 +7,7 @@
 #ifndef AEGIS_CONTEXT_INTERNAL_H
 #define AEGIS_CONTEXT_INTERNAL_H
 
-#include "aegis/context.h"
+#include "aegis/context/context.h"
 #include "aegis/common/vector.h"
 
 #include <stddef.h>

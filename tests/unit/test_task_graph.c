@@ -3,8 +3,8 @@
 #include <stdlib.h>
  * @brief Tests for task graph DAG operations, cycle detection, and queries.
  */
-#include "aegis/graph.h"
-#include "aegis/task.h"
+#include "aegis/task/graph.h"
+#include "aegis/task/task.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

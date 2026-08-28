@@ -2,7 +2,7 @@
  * @file test_runtime_concurrent.c
  * @brief Concurrent stress test for aegis_runtime.
  */
-#include "aegis/runtime.h"
+#include "aegis/runtime/runtime.h"
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>

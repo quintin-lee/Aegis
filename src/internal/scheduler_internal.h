@@ -12,8 +12,8 @@
 #ifndef AEGIS_SCHEDULER_INTERNAL_H
 #define AEGIS_SCHEDULER_INTERNAL_H
 
-#include "aegis/scheduler.h"
-#include "aegis/graph.h"
+#include "aegis/scheduler/scheduler.h"
+#include "aegis/task/graph.h"
 #include "aegis/common/mutex.h"
 #include "graph_internal.h"
 #include <stdint.h>

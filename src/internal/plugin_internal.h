@@ -5,7 +5,7 @@
 #ifndef AEGIS_INTERNAL_PLUGIN_H
 #define AEGIS_INTERNAL_PLUGIN_H
 
-#include "aegis/plugin.h"
+#include "aegis/plugin/plugin.h"
 
 #include <dlfcn.h>
 #include <pthread.h>

@@ -8,7 +8,7 @@
 #ifndef AEGIS_RUNTIME_INTERNAL_H
 #define AEGIS_RUNTIME_INTERNAL_H
 
-#include "aegis/runtime.h"
+#include "aegis/runtime/runtime.h"
 #include "aegis/common/thread.h"
 #include "aegis/common/mutex.h"
 #include "aegis/common/atomic.h"

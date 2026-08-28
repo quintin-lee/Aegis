@@ -2,8 +2,8 @@
  * @file test_task_concurrent.c
  * @brief Concurrent stress test for task graph operations.
  */
-#include "aegis/graph.h"
-#include "aegis/task.h"
+#include "aegis/task/graph.h"
+#include "aegis/task/task.h"
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>

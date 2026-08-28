@@ -7,7 +7,7 @@
 #ifndef AEGIS_CHECKPOINT_INTERNAL_H
 #define AEGIS_CHECKPOINT_INTERNAL_H
 
-#include "aegis/checkpoint.h"
+#include "aegis/checkpoint/checkpoint.h"
 
 #include <stdint.h>
 #include <stddef.h>

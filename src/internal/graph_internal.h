@@ -7,7 +7,7 @@
 #ifndef AEGIS_GRAPH_INTERNAL_H
 #define AEGIS_GRAPH_INTERNAL_H
 
-#include "aegis/graph.h"
+#include "aegis/task/graph.h"
 #include "aegis/common/mutex.h"
 #include "aegis/common/vector.h"
 #include <stdint.h>

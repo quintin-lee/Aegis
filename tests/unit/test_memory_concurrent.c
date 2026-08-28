@@ -5,7 +5,7 @@
  * Verifies that external locking provides correct concurrent access to
  * memory stores (which are documented as NOT thread-safe internally).
  */
-#include "aegis/memory.h"
+#include "aegis/memory/memory.h"
 
 #include <assert.h>
 #include <pthread.h>

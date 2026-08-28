@@ -1,7 +1,7 @@
 #include "aegis/autonomous_agent.h"
-#include "aegis/provider_llm_mock.h"
-#include "aegis/provider.h"
-#include "aegis/llm.h"
+#include "aegis/provider/provider_llm_mock.h"
+#include "aegis/provider/provider.h"
+#include "aegis/provider/llm.h"
 
 #include <assert.h>
 #include <pthread.h>

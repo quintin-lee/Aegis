@@ -7,7 +7,7 @@
 #ifndef AEGIS_MEMORY_INTERNAL_H
 #define AEGIS_MEMORY_INTERNAL_H
 
-#include "aegis/memory.h"
+#include "aegis/memory/memory.h"
 #include "aegis/common/vector.h"
 
 #include <stdint.h>

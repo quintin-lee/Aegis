@@ -9,7 +9,7 @@
 #ifndef AEGIS_MEMORY_MOCK_H
 #define AEGIS_MEMORY_MOCK_H
 
-#include "aegis/storage.h"
+#include "aegis/storage/storage.h"
 #include "aegis/status.h"
 
 #include <stddef.h>

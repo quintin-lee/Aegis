@@ -8,8 +8,8 @@
  * After fix (_Atomic uint32_t): all IDs are unique even under heavy
  * concurrent creation. Test must pass without any duplicate IDs.
  */
-#include "aegis/graph.h"
-#include "aegis/task.h"
+#include "aegis/task/graph.h"
+#include "aegis/task/task.h"
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>

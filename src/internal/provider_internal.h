@@ -3,7 +3,7 @@
 
 #include "aegis/common/hashmap.h"
 #include "aegis/common/mutex.h"
-#include "aegis/provider.h"
+#include "aegis/provider/provider.h"
 
 #include <stddef.h>
 

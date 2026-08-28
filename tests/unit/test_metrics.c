@@ -2,7 +2,7 @@
  * @file test_metrics.c
  * @brief Unit tests for the Metrics module.
  */
-#include "aegis/metrics.h"
+#include "aegis/observability/metrics.h"
 
 #include <assert.h>
 #include <stdio.h>

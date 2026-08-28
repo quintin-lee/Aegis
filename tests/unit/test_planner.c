@@ -5,11 +5,11 @@
  * Pure planner-module tests - no LLM provider involved (see
  * test_planner_llm.c for the model-backed flows).
  */
-#include "aegis/graph.h"
-#include "aegis/plan.h"
-#include "aegis/reflection.h"
-#include "aegis/task.h"
-#include "aegis/executor.h"
+#include "aegis/task/graph.h"
+#include "aegis/planner/plan.h"
+#include "aegis/reflection/reflection.h"
+#include "aegis/task/task.h"
+#include "aegis/executor/executor.h"
 
 #include <assert.h>
 #include <stdio.h>

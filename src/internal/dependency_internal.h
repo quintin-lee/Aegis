@@ -7,7 +7,7 @@
 #ifndef AEGIS_DEPENDENCY_INTERNAL_H
 #define AEGIS_DEPENDENCY_INTERNAL_H
 
-#include "aegis/dependency.h"
+#include "aegis/task/dependency.h"
 
 /** Internal dependency structure. */
 struct aegis_dependency {

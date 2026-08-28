@@ -11,9 +11,9 @@
  *   4. Liveness: mixed poll/next/notify/introspection from many threads
  *      makes progress without deadlock or livelock.
  */
-#include "aegis/scheduler.h"
-#include "aegis/graph.h"
-#include "aegis/task.h"
+#include "aegis/scheduler/scheduler.h"
+#include "aegis/task/graph.h"
+#include "aegis/task/task.h"
 #include <assert.h>
 #include <pthread.h>
 #include <stdatomic.h>

@@ -6,7 +6,7 @@
  * dependencies. Suitable for unit tests only.
  */
 #define _POSIX_C_SOURCE 200809L
-#include "aegis/memory_mock.h"
+#include "aegis/provider/memory_mock.h"
 #include "aegis/status.h"
 
 #include <stdlib.h>

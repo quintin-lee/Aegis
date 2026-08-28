@@ -3,8 +3,8 @@
  * @brief Unit tests for the task scheduler: lifecycle, ordering,
  *        dependency gating, duplicate-dispatch prevention, policy hook.
  */
-#include "aegis/scheduler.h"
-#include "aegis/task.h"
+#include "aegis/scheduler/scheduler.h"
+#include "aegis/task/task.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

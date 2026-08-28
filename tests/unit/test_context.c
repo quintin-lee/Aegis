@@ -10,8 +10,8 @@
  *   - Cancellation
  *   - Accessors
  */
-#include "aegis/context.h"
-#include "aegis/cancellation.h"
+#include "aegis/context/context.h"
+#include "aegis/executor/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

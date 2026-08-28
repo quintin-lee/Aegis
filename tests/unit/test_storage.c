@@ -6,8 +6,8 @@
  *   - Query (returns ERR_PROVIDER as expected for mock backend)
  *   - Null safety
  */
-#include "aegis/storage.h"
-#include "aegis/cancellation.h"
+#include "aegis/storage/storage.h"
+#include "aegis/executor/cancellation.h"
 
 #include <assert.h>
 #include <stdio.h>

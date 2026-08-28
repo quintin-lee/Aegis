@@ -3,7 +3,7 @@
  * @brief Unit tests for the Tool ABI: typed values, argument lists,
  *        schema validation, results, and the registry.
  */
-#include "aegis/tool.h"
+#include "aegis/tool/tool.h"
 
 #include <assert.h>
 #include <stdio.h>

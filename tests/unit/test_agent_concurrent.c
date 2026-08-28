@@ -2,7 +2,7 @@
  * @file test_agent_concurrent.c
  * @brief Concurrent stress test for agent state machine.
  */
-#include "aegis/agent.h"
+#include "aegis/agent/agent.h"
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>

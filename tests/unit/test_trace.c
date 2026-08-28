@@ -2,7 +2,7 @@
  * @file test_trace.c
  * @brief Unit tests for the Trace module.
  */
-#include "aegis/trace.h"
+#include "aegis/observability/trace.h"
 
 #include <assert.h>
 #include <stdio.h>

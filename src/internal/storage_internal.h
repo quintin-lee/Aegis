@@ -7,7 +7,7 @@
 #ifndef AEGIS_STORAGE_INTERNAL_H
 #define AEGIS_STORAGE_INTERNAL_H
 
-#include "aegis/storage.h"
+#include "aegis/storage/storage.h"
 #include "aegis/common/hashmap.h"
 #include "aegis/common/vector.h"
 

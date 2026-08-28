@@ -6,10 +6,10 @@
  *   gcc -shared -fPIC -o tests/plugin/mock_plugin.so tests/plugin/plugin_mock.c \
  *       -Iinclude -Isrc/internal -laegis_core
  */
-#include "aegis/plugin.h"
-#include "aegis/provider.h"
-#include "aegis/strategy.h"
-#include "aegis/tool.h"
+#include "aegis/plugin/plugin.h"
+#include "aegis/provider/provider.h"
+#include "aegis/strategy/strategy.h"
+#include "aegis/tool/tool.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -2,8 +2,8 @@
  * @file test_runtime.c
  * @brief Tests for aegis_runtime lifecycle.
  */
-#include "aegis/runtime.h"
-#include "aegis/config.h"
+#include "aegis/runtime/runtime.h"
+#include "aegis/runtime/config.h"
 #include <assert.h>
 #include <stdio.h>
 

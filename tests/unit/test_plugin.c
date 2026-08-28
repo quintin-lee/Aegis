@@ -2,7 +2,7 @@
  * @file test_plugin.c
  * @brief Unit tests for the Plugin loading subsystem.
  */
-#include "aegis/plugin.h"
+#include "aegis/plugin/plugin.h"
 #include "aegis/status.h"
 
 #include <assert.h>

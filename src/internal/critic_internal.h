@@ -7,8 +7,8 @@
 #ifndef AEGIS_CRITIC_INTERNAL_H
 #define AEGIS_CRITIC_INTERNAL_H
 
-#include "aegis/critic.h"
-#include "aegis/task.h"
+#include "aegis/critic/critic.h"
+#include "aegis/task/task.h"
 
 #include <stddef.h>
 
