@@ -187,13 +187,26 @@ add_library(aegis_core
     src/status.c
     src/autonomous_state.c
     src/autonomous_agent.c
+    # Autonomous runtime (modularized)
+    src/autonomous/state_machine.c
+    src/autonomous/lifecycle.c
+    src/autonomous/checkpoint.c
+    src/autonomous/recovery.c
+    src/autonomous/planning.c
+    src/autonomous/execution.c
+    src/autonomous/evaluation.c
+    src/autonomous/reflection.c
+    src/autonomous/replanning.c
+    src/autonomous/loop.c
 )
 target_include_directories(aegis_core
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>
     PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
         ${PROJECT_SOURCE_DIR}/src/internal
+        ${PROJECT_SOURCE_DIR}/src/autonomous
         ${PROJECT_SOURCE_DIR}/providers
         ${PROJECT_SOURCE_DIR}/strategies
 )

@@ -32,6 +32,10 @@ const char* aegis_status_str(aegis_status_t status)
         return "provider_error";
     case AEGIS_ERR_TOOL:
         return "tool_error";
+    case AEGIS_ERR_MAX_ITERATIONS:
+        return "max_iterations";
+    case AEGIS_ERR_INVALID_STATE:
+        return "invalid_state";
     default:
         return "unknown";
     }

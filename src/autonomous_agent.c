@@ -16,62 +16,28 @@
 #include "task_internal.h"
 #include "aegis/task/task.h"
 
+#include "autonomous/autonomous_agent_internal.h"
+
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
 
-struct aegis_autonomous_agent {
-    aegis_autonomous_agent_config_t cfg;
-    char*                           llm_name_copy;
-    aegis_planner_t*                planner;
-    aegis_scheduler_t*              scheduler;
-    aegis_executor_t*               executor;
-    aegis_critic_t*                 critic;
-    aegis_cancellation_token_t*     owned_token;
-    bool                            recovered;
-    aegis_autonomous_state_t        state;
-};
-
 static aegis_cancellation_token_t* get_token(aegis_autonomous_agent_t* aa)
 {
-    if (aa->cfg.cancel_token) {
-        return aa->cfg.cancel_token;
-    }
-    return aa->owned_token;
+    return autonomous_get_token(aa);
 }
 
 static void checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal, aegis_plan_t* plan,
                             aegis_task_graph_t* graph)
 {
-    const char* path = aa->cfg.checkpoint_path;
-    if (!path) {
-        return;
-    }
-    aegis_checkpoint_t* ckpt = NULL;
-    if (aegis_checkpoint_create(&ckpt) != AEGIS_OK) {
-        return;
-    }
-    // agent is NULL (we don't have aegis_agent_t), pass NULL per API
-    aegis_checkpoint_populate(ckpt, NULL, NULL, plan, graph, 0);
-    if (goal) {
-        aegis_checkpoint_set_goal(ckpt, goal);
-    }
-    aegis_checkpoint_write(ckpt, path, get_token(aa));
-    aegis_checkpoint_destroy(ckpt);
+    autonomous_checkpoint_save(aa, goal, plan, graph);
 }
 
-/** Transition state with validation. Returns AEGIS_OK on success. */
 static aegis_status_t aa_transition(aegis_autonomous_agent_t* aa,
                                     aegis_autonomous_state_t  new_state)
 {
-    /* Simple validation: no transition from terminal states */
-    if (aa->state == AEGIS_AUTO_COMPLETED || aa->state == AEGIS_AUTO_FAILED ||
-        aa->state == AEGIS_AUTO_CANCELLED) {
-        return AEGIS_ERR_INVALID;
-    }
-    aa->state = new_state;
-    return AEGIS_OK;
+    return autonomous_transition(aa, new_state);
 }
 
 aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**             out,
@@ -101,10 +67,25 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
     }
     aa->cfg.llm_provider_name = aa->llm_name_copy;
 
-    // cancellation token
+    if (pthread_mutex_init(&aa->lock, NULL) != 0) {
+        free(aa->llm_name_copy);
+        free(aa);
+        return AEGIS_ERR_INTERNAL;
+    }
+    aa->state = AEGIS_AUTO_CREATED;
+    /* Transition CREATED -> INITIALIZING */
+    aegis_status_t tr = autonomous_transition(aa, AEGIS_AUTO_INITIALIZING);
+    if (tr != AEGIS_OK) {
+        pthread_mutex_destroy(&aa->lock);
+        free(aa->llm_name_copy);
+        free(aa);
+        return tr;
+    }
+
     if (!cfg->cancel_token) {
         aegis_status_t rc = aegis_cancellation_token_create(&aa->owned_token);
         if (rc != AEGIS_OK) {
+            pthread_mutex_destroy(&aa->lock);
             free(aa->llm_name_copy);
             free(aa);
             return rc;
@@ -136,8 +117,12 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
         goto fail;
     }
 
-    aa->state = AEGIS_AUTO_READY;
-    *out      = aa;
+    tr = autonomous_transition(aa, AEGIS_AUTO_READY);
+    if (tr != AEGIS_OK) {
+        rc = tr;
+        goto fail;
+    }
+    *out = aa;
     return AEGIS_OK;
 
 fail:
@@ -156,6 +141,7 @@ fail:
     if (aa->owned_token) {
         aegis_cancellation_token_destroy(aa->owned_token);
     }
+    pthread_mutex_destroy(&aa->lock);
     free(aa->llm_name_copy);
     free(aa);
     return rc;
@@ -181,6 +167,7 @@ void aegis_autonomous_agent_destroy(aegis_autonomous_agent_t* aa)
     if (aa->owned_token) {
         aegis_cancellation_token_destroy(aa->owned_token);
     }
+    pthread_mutex_destroy(&aa->lock);
     free(aa->llm_name_copy);
     free(aa);
 }
@@ -195,6 +182,8 @@ aegis_status_t aegis_autonomous_agent_cancel(aegis_autonomous_agent_t* aa)
         return AEGIS_ERR_INVALID;
     }
     aegis_cancellation_token_request_cancel(tok);
+    /* Best-effort transition to CANCELLING if allowed. */
+    (void)autonomous_transition(aa, AEGIS_AUTO_CANCELLING);
     return AEGIS_OK;
 }
 
@@ -208,13 +197,11 @@ aegis_status_t aegis_autonomous_agent_checkpoint_save(aegis_autonomous_agent_t* 
     if (!p) {
         return AEGIS_ERR_INVALID;
     }
-    // create empty checkpoint for validation that path is writable
     aegis_checkpoint_t* ckpt = NULL;
     aegis_status_t      rc   = aegis_checkpoint_create(&ckpt);
     if (rc != AEGIS_OK) {
         return rc;
     }
-    // populate with minimal data (no plan/graph) just to test write
     aegis_checkpoint_populate(ckpt, NULL, NULL, NULL, NULL, 0);
     rc = aegis_checkpoint_write(ckpt, p, get_token(aa));
     aegis_checkpoint_destroy(ckpt);
@@ -239,7 +226,11 @@ aegis_status_t aegis_autonomous_agent_restore(aegis_autonomous_agent_t* aa, cons
         return AEGIS_ERR_NOT_FOUND;
     }
     aegis_checkpoint_destroy(ckpt);
+    pthread_mutex_lock(&aa->lock);
     aa->recovered = true;
+    pthread_mutex_unlock(&aa->lock);
+    (void)autonomous_transition(aa, AEGIS_AUTO_RECOVERING);
+    (void)autonomous_transition(aa, AEGIS_AUTO_READY);
     return AEGIS_OK;
 }
 
@@ -253,14 +244,32 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
     aegis_cancellation_token_t* token          = get_token(aa);
     uint32_t                    iterations     = 0;
     uint32_t                    tasks_executed = 0;
-    uint32_t                    loop_count     = 0; /* actual entries into loop body */
+    uint32_t                    loop_count     = 0;
     aegis_plan_t*               plan           = NULL;
     aegis_task_graph_t*         graph          = NULL;
     aegis_status_t              final          = AEGIS_OK;
 
-    // initial plan
+    /* Ensure we start from READY. Restore may have left us in READY already. */
+    pthread_mutex_lock(&aa->lock);
+    aegis_autonomous_state_t cur = aa->state;
+    pthread_mutex_unlock(&aa->lock);
+    if (cur != AEGIS_AUTO_READY) {
+        /* Try to bring to READY if we were in RECOVERING or similar. */
+        if (cur == AEGIS_AUTO_RECOVERING) {
+            (void)autonomous_transition(aa, AEGIS_AUTO_READY);
+        } else if (cur == AEGIS_AUTO_CREATED || cur == AEGIS_AUTO_INITIALIZING) {
+            (void)autonomous_transition(aa, AEGIS_AUTO_READY);
+        }
+    }
+
     aa_transition(aa, AEGIS_AUTO_PLANNING);
     aegis_status_t rc = aegis_planner_plan(aa->planner, goal_text, token, &plan);
+    if (rc != AEGIS_OK) {
+        (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
+        final = rc;
+        goto done;
+    }
+    rc = autonomous_transition(aa, AEGIS_AUTO_SCHEDULING);
     if (rc != AEGIS_OK) {
         final = rc;
         goto done;
@@ -270,33 +279,37 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
         loop_count++;
         if (token && aegis_cancellation_token_is_cancelled(token)) {
             final = AEGIS_ERR_CANCELLED;
+            (void)autonomous_transition(aa, AEGIS_AUTO_CANCELLING);
             break;
         }
 
-        // materialize
         if (graph) {
             aegis_scheduler_destroy(aa->scheduler);
             aa->scheduler = NULL;
             aegis_scheduler_create(&aa->scheduler);
             aegis_task_graph_destroy(graph);
             graph = NULL;
+            /* Re-planned: need to go PLANNING -> SCHEDULING again is already done,
+             * but for loop continuation we are already in SCHEDULING. */
         }
         rc = aegis_plan_materialize(plan, &graph);
         if (rc != AEGIS_OK) {
+            (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
             final = rc;
             break;
         }
         rc = aegis_scheduler_attach(aa->scheduler, graph);
         if (rc != AEGIS_OK) {
+            (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
             final = rc;
             break;
         }
 
         aa_transition(aa, AEGIS_AUTO_EXECUTING);
-        // inner loop: dispatch ready tasks
         while (1) {
             if (token && aegis_cancellation_token_is_cancelled(token)) {
                 final = AEGIS_ERR_CANCELLED;
+                (void)autonomous_transition(aa, AEGIS_AUTO_CANCELLING);
                 break;
             }
             size_t enqueued = 0;
@@ -304,24 +317,20 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
             aegis_task_t* task = NULL;
             rc                 = aegis_scheduler_next(aa->scheduler, &task);
             if (rc == AEGIS_ERR_NOT_FOUND) {
-                // no more ready tasks
                 break;
             }
             if (rc != AEGIS_OK) {
+                (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
                 final = rc;
                 break;
             }
-            // set timeout
             if (aa->cfg.default_task_timeout_ns > 0) {
                 long ms = (long)(aa->cfg.default_task_timeout_ns / 1000000ULL);
                 aegis_task_set_timeout_ms(task, ms);
             }
-            // Dispatch tool-type tasks through the tool registry when available;
-            // Tool execution requires explicit work function; no fallback.
             uint32_t tid = aegis_task_id(task);
             if (aegis_task_type(task) == AEGIS_TASK_TYPE_TOOL && aa->cfg.tool_registry != NULL) {
                 const char* tool_name = aegis_task_name(task);
-                /* Security gate: check policy before dispatching tool. */
                 if (aa->cfg.security_policy) {
                     aegis_tool_def_t def;
                     aegis_status_t   find_rc = aegis_tool_registry_find(
@@ -330,9 +339,9 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                         rc = aegis_security_gate((aegis_security_policy_t*)aa->cfg.security_policy,
                                                  NULL, tool_name, def.capabilities, token);
                         if (rc != AEGIS_OK) {
-                            /* Permission denied — report and skip. */
                             aegis_scheduler_notify_complete(aa->scheduler, task);
                             final = AEGIS_ERR_PERM;
+                            (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
                             goto done;
                         }
                     }
@@ -344,84 +353,92 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                                            (aegis_tool_registry_t*)aa->cfg.tool_registry, task,
                                            tool_name, args);
                     if (rc != AEGIS_OK) {
-                        /* Tool not found or validation failed — fall back to stub. */
                         aegis_tool_args_destroy(args);
                         aegis_scheduler_notify_complete(aa->scheduler, task);
                         final = rc;
+                        (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
                         goto done;
                     }
                 }
             } else {
-                /* Non-tool tasks require explicit work function */
                 aegis_scheduler_notify_complete(aa->scheduler, task);
                 final = AEGIS_ERR_NOT_FOUND;
+                (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
                 goto done;
             }
             if (rc != AEGIS_OK) {
-                // notify scheduler even on submit failure to avoid leak
                 aegis_scheduler_notify_complete(aa->scheduler, task);
                 final = rc;
+                (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
                 break;
             }
             aegis_exec_result_t eres;
             rc = aegis_executor_wait(aa->executor, tid, &eres, -1);
-            // always notify scheduler
             aegis_scheduler_notify_complete(aa->scheduler, task);
             if (rc != AEGIS_OK) {
+                (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
                 final = rc;
                 break;
             }
+            pthread_mutex_lock(&aa->lock);
+            aa->tasks_executed++;
+            pthread_mutex_unlock(&aa->lock);
             tasks_executed++;
-            // checkpoint double-write after each task
+
+            /* Checkpointing: EXECUTING -> CHECKPOINTING -> EXECUTING */
+            (void)autonomous_transition(aa, AEGIS_AUTO_CHECKPOINTING);
             checkpoint_save(aa, goal_text, plan, graph);
+            (void)autonomous_transition(aa, AEGIS_AUTO_EXECUTING);
 
             if (eres.outcome == AEGIS_EXEC_TIMED_OUT) {
                 final = AEGIS_ERR_TIMEOUT;
+                (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
                 break;
             }
             if (eres.outcome == AEGIS_EXEC_CANCELLED) {
                 final = AEGIS_ERR_CANCELLED;
+                (void)autonomous_transition(aa, AEGIS_AUTO_CANCELLING);
                 break;
             }
-            // on FAILED, continue to next ready tasks; executor already retried per policy
         }
 
-        // check cancellation/timeout that broke inner loop
         if (final == AEGIS_ERR_CANCELLED || final == AEGIS_ERR_TIMEOUT) {
             checkpoint_save(aa, goal_text, plan, graph);
             break;
         }
         if (final != AEGIS_OK && final != AEGIS_ERR_NOT_FOUND) {
-            // inner error
             checkpoint_save(aa, goal_text, plan, graph);
             break;
         }
-        // round checkpoint
         checkpoint_save(aa, goal_text, plan, graph);
 
-        // critic evaluate
+        (void)autonomous_transition(aa, AEGIS_AUTO_EVALUATING);
         aegis_critique_t critique;
         memset(&critique, 0, sizeof(critique));
         rc = aegis_critic_evaluate(aa->critic, goal_text, plan, graph, token, &critique);
         if (rc == AEGIS_ERR_CANCELLED) {
             final = AEGIS_ERR_CANCELLED;
+            (void)autonomous_transition(aa, AEGIS_AUTO_CANCELLING);
             break;
         }
         if (rc != AEGIS_OK) {
+            (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
             final = rc;
             break;
         }
         if (critique.result == AEGIS_CRITIQUE_SUCCESS) {
+            (void)autonomous_transition(aa, AEGIS_AUTO_COMPLETED);
             final = AEGIS_OK;
             break;
         }
         if (critique.result == AEGIS_CRITIQUE_REPLAN_REQUIRED ||
             critique.result == AEGIS_CRITIQUE_PARTIAL ||
             critique.result == AEGIS_CRITIQUE_FAILURE) {
-            // reflection + replan
+            (void)autonomous_transition(aa, AEGIS_AUTO_REFLECTING);
             aegis_reflection_t* refl = NULL;
             rc                       = aegis_reflection_create(&refl, graph);
             if (rc != AEGIS_OK) {
+                (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
                 final = rc;
                 break;
             }
@@ -429,28 +446,40 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
             if (!feedback || feedback[0] == '\0') {
                 feedback = "plan failed, need revision";
             }
+            (void)autonomous_transition(aa, AEGIS_AUTO_REPLANNING);
             aegis_plan_t* new_plan = NULL;
             rc                     = aegis_replan(aa->planner, plan, feedback, token, &new_plan);
             aegis_reflection_destroy(refl);
             if (rc != AEGIS_OK) {
+                (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
                 final = rc;
                 break;
             }
-            // version bump is done inside replan, but ensure monotonic
             aegis_plan_destroy(plan);
-            plan  = new_plan;
-            final = AEGIS_OK;  // continue loop to try new plan
+            plan = new_plan;
+            (void)autonomous_transition(aa, AEGIS_AUTO_PLANNING);
+            (void)autonomous_transition(aa, AEGIS_AUTO_SCHEDULING);
+            final = AEGIS_OK;
             continue;
         }
-        // other results (INVALID) => fail
+        (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
         final = AEGIS_ERR_INTERNAL;
         break;
     }
 
     if (loop_count >= aa->cfg.max_iterations && final == AEGIS_OK) {
-        // if we exhausted iterations without success, mark busy
-        // check last critique was not success
-        final = AEGIS_ERR_BUSY;
+        final = AEGIS_ERR_MAX_ITERATIONS;
+        (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
+    } else if (final == AEGIS_ERR_CANCELLED) {
+        (void)autonomous_transition(aa, AEGIS_AUTO_CANCELLED);
+    } else if (final != AEGIS_OK) {
+        /* Ensure FAILED if not already terminal. */
+        pthread_mutex_lock(&aa->lock);
+        aegis_autonomous_state_t st = aa->state;
+        pthread_mutex_unlock(&aa->lock);
+        if (st != AEGIS_AUTO_FAILED && st != AEGIS_AUTO_CANCELLED && st != AEGIS_AUTO_COMPLETED) {
+            (void)autonomous_transition(aa, AEGIS_AUTO_FAILED);
+        }
     }
 
 done:
@@ -460,18 +489,21 @@ done:
     if (plan) {
         aegis_plan_destroy(plan);
     }
-    // Recreate scheduler if we destroyed it last iteration.
     if (!aa->scheduler) {
         (void)aegis_scheduler_create(&aa->scheduler);
     }
 
     if (out_result) {
+        pthread_mutex_lock(&aa->lock);
+        bool rec = aa->recovered;
+        pthread_mutex_unlock(&aa->lock);
         out_result->final_status              = final;
         out_result->iterations                = loop_count;
         out_result->tasks_executed            = tasks_executed;
-        out_result->recovered_from_checkpoint = aa->recovered;
+        out_result->recovered_from_checkpoint = rec;
     }
-    // Reset run-state flags so the agent can be reused for another goal.
+    pthread_mutex_lock(&aa->lock);
     aa->recovered = false;
+    pthread_mutex_unlock(&aa->lock);
     return final;
 }
