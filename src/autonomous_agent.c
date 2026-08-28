@@ -1,4 +1,5 @@
 #include "aegis/autonomous_agent.h"
+#include "aegis/autonomous_state.h"
 
 #include "aegis/checkpoint/checkpoint.h"
 #include "aegis/provider/provider.h"
@@ -29,6 +30,7 @@ struct aegis_autonomous_agent {
     aegis_critic_t*                 critic;
     aegis_cancellation_token_t*     owned_token;
     bool                            recovered;
+    aegis_autonomous_state_t        state;
 };
 
 static aegis_cancellation_token_t* get_token(aegis_autonomous_agent_t* aa)
@@ -89,6 +91,19 @@ static aegis_status_t default_work(aegis_task_t* task, const aegis_cancellation_
     // success: optionally set output
     const char ok[] = "ok";
     aegis_task_set_output(task, ok, sizeof(ok));
+    return AEGIS_OK;
+}
+
+
+/** Transition state with validation. Returns AEGIS_OK on success. */
+static aegis_status_t aa_transition(aegis_autonomous_agent_t* aa, aegis_autonomous_state_t new_state)
+{
+    /* Simple validation: no transition from terminal states */
+    if (aa->state == AEGIS_AUTO_COMPLETED || aa->state == AEGIS_AUTO_FAILED ||
+        aa->state == AEGIS_AUTO_CANCELLED) {
+        return AEGIS_ERR_INVALID;
+    }
+    aa->state = new_state;
     return AEGIS_OK;
 }
 
@@ -154,6 +169,7 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
         goto fail;
     }
 
+    aa->state = AEGIS_AUTO_READY;
     *out = aa;
     return AEGIS_OK;
 
@@ -276,6 +292,7 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
     aegis_status_t              final          = AEGIS_OK;
 
     // initial plan
+    aa_transition(aa, AEGIS_AUTO_PLANNING);
     aegis_status_t rc = aegis_planner_plan(aa->planner, goal_text, token, &plan);
     if (rc != AEGIS_OK) {
         final = rc;
@@ -308,6 +325,7 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
             break;
         }
 
+        aa_transition(aa, AEGIS_AUTO_EXECUTING);
         // inner loop: dispatch ready tasks
         while (1) {
             if (token && aegis_cancellation_token_is_cancelled(token)) {
