@@ -339,12 +339,11 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                 /* Security gate: check policy before dispatching tool. */
                 if (aa->cfg.security_policy) {
                     aegis_tool_def_t def;
-                    aegis_status_t find_rc = aegis_tool_registry_find(
+                    aegis_status_t   find_rc = aegis_tool_registry_find(
                         (aegis_tool_registry_t*)aa->cfg.tool_registry, tool_name, &def);
                     if (find_rc == AEGIS_OK) {
-                        rc = aegis_security_gate(
-                            (aegis_security_policy_t*)aa->cfg.security_policy,
-                            NULL, tool_name, def.capabilities, token);
+                        rc = aegis_security_gate((aegis_security_policy_t*)aa->cfg.security_policy,
+                                                 NULL, tool_name, def.capabilities, token);
                         if (rc != AEGIS_OK) {
                             /* Permission denied — report and skip. */
                             aegis_scheduler_notify_complete(aa->scheduler, task);
@@ -354,10 +353,11 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
                     }
                 }
                 aegis_tool_args_t* args = NULL;
-                rc = aegis_tool_args_create(&args);
+                rc                      = aegis_tool_args_create(&args);
                 if (rc == AEGIS_OK) {
-                    rc = aegis_tool_submit(aa->executor, (aegis_tool_registry_t *)aa->cfg.tool_registry,
-                                           task, tool_name, args);
+                    rc = aegis_tool_submit(aa->executor,
+                                           (aegis_tool_registry_t*)aa->cfg.tool_registry, task,
+                                           tool_name, args);
                     if (rc != AEGIS_OK) {
                         /* Tool not found or validation failed — fall back to stub. */
                         aegis_tool_args_destroy(args);

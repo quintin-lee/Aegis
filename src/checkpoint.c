@@ -25,8 +25,8 @@
 
 /* ── CRC32 ─────────────────────────────────────────────────────────────────── */
 
-static uint32_t           crc32_table[256];
-static pthread_once_t     crc32_once = PTHREAD_ONCE_INIT;
+static uint32_t       crc32_table[256];
+static pthread_once_t crc32_once = PTHREAD_ONCE_INIT;
 
 static void crc32_init_table_once(void)
 {
