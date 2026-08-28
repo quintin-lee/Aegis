@@ -11,6 +11,8 @@
 #include "aegis/replanner.h"
 #include "aegis/scheduler.h"
 #include "aegis/tool.h"
+#include "aegis/security.h"
+#include "internal/task_internal.h"
 #include "aegis/task.h"
 
 #include <stdlib.h>
@@ -334,6 +336,23 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
             uint32_t tid = aegis_task_id(task);
             if (aegis_task_type(task) == AEGIS_TASK_TYPE_TOOL && aa->cfg.tool_registry != NULL) {
                 const char* tool_name = aegis_task_name(task);
+                /* Security gate: check policy before dispatching tool. */
+                if (aa->cfg.security_policy) {
+                    aegis_tool_def_t def;
+                    aegis_status_t find_rc = aegis_tool_registry_find(
+                        (aegis_tool_registry_t*)aa->cfg.tool_registry, tool_name, &def);
+                    if (find_rc == AEGIS_OK) {
+                        rc = aegis_security_gate(
+                            (aegis_security_policy_t*)aa->cfg.security_policy,
+                            NULL, tool_name, def.capabilities, token);
+                        if (rc != AEGIS_OK) {
+                            /* Permission denied — report and skip. */
+                            aegis_scheduler_notify_complete(aa->scheduler, task);
+                            final = AEGIS_ERR_PERM;
+                            goto done;
+                        }
+                    }
+                }
                 aegis_tool_args_t* args = NULL;
                 rc = aegis_tool_args_create(&args);
                 if (rc == AEGIS_OK) {

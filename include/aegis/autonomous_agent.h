@@ -16,6 +16,7 @@
 #include "aegis/cancellation.h"
 #include "aegis/provider.h"
 #include "aegis/tool.h"
+#include "aegis/security.h"
 
 #include <stdbool.h>
 #include <stddef.h>
@@ -40,6 +41,7 @@ typedef struct aegis_autonomous_agent_config {
     const char*                      checkpoint_path;   /**< Borrowed, optional. */
     aegis_cancellation_token_t* cancel_token;   /**< Borrowed, optional. Internal token if NULL. */
     const aegis_tool_registry_t* tool_registry;   /**< Borrowed, optional. */
+    const aegis_security_policy_t* security_policy; /**< Borrowed, optional. */
     uint32_t                    max_iterations; /**< 0 => 5. */
     uint64_t                    default_task_timeout_ns; /**< 0 => no timeout. */
 } aegis_autonomous_agent_config_t;
