@@ -149,6 +149,10 @@ add_library(aegis_core
     src/context/context.c
     # Memory
     src/memory/memory.c
+    src/memory/memory_working.c
+    src/memory/memory_episodic.c
+    src/memory/memory_semantic.c
+    src/memory/memory_procedural.c
     # Critic
     src/critic/critic.c
     # Reflection
