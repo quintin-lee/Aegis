@@ -388,7 +388,6 @@ aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx,
     /* ops are file-scope const, owned by registry, not freed by destroy */
     static const aegis_llm_ops_t ops = {
         .complete = openai_llm_complete,
-        .stream   = openai_llm_stream,
     };
 
     aegis_provider_def_t def = {
