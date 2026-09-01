@@ -40,6 +40,8 @@ typedef struct {
     size_t pending_cap;
     size_t response_bytes;
     bool saw_done;
+    bool call_started[16];
+    bool call_ended[16];
 } sse_state_t;
 
 static int checked_grow(json_buf_t* b, size_t extra)
@@ -200,6 +202,8 @@ fail:
     return NULL;
 }
 
+static int json_uint_after(const char* json, const char* key, uint32_t* out);
+
 static const char* json_string_after(const char* json, const char* key)
 {
     const char* p = strstr(json, key);
@@ -243,6 +247,13 @@ static int emit_record(sse_state_t* s, const char* record, size_t len)
     while (len && (*record == ' ' || *record == '\t')) { ++record; --len; }
     if (len == 6 && memcmp(record, "[DONE]", 6) == 0) {
         aegis_model_stream_event_t ev = {.type = AEGIS_MODEL_STREAM_END};
+        for (uint32_t i = 0; i < 16; ++i) {
+            if (s->call_started[i] && !s->call_ended[i]) {
+                aegis_model_stream_event_t end = {.type = AEGIS_MODEL_STREAM_TOOL_CALL_END, .index = i};
+                if (s->callback(&end, s->callback_user) != AEGIS_OK) return 0;
+                s->call_ended[i] = true;
+            }
+        }
         if (s->callback(&ev, s->callback_user) != AEGIS_OK) return 0;
         s->saw_done = true;
         return 1;
@@ -266,28 +277,36 @@ static int emit_record(sse_state_t* s, const char* record, size_t len)
     const char* tool_name = json_string_after(json, "\"name\"");
     const char* call_id = json_string_after(json, "\"id\"");
     const char* arguments = json_string_after(json, "\"arguments\"");
+    uint32_t tool_index = 0;
+    const char* index_key = strstr(json, "\"index\"");
+    if (index_key) {
+        uint32_t parsed_index = 0;
+        if (json_uint_after(json, "\"index\"", &parsed_index)) tool_index = parsed_index;
+    }
     if (tool_name || arguments) {
         char name[512] = {0}, id[256] = {0};
         size_t name_len = tool_name ? copy_json_string(tool_name, name, sizeof(name)) : 0;
         size_t id_len = call_id ? copy_json_string(call_id, id, sizeof(id)) : 0;
         if ((tool_name && !name_len) || (call_id && !id_len)) { free(json); return 0; }
         aegis_model_stream_event_t start = {
-            .type = AEGIS_MODEL_STREAM_TOOL_CALL_START, .index = 0,
+            .type = AEGIS_MODEL_STREAM_TOOL_CALL_START, .index = tool_index,
             .tool_name = tool_name ? name : NULL, .call_id = call_id ? id : NULL};
-        if ((tool_name || call_id) && s->callback(&start, s->callback_user) != AEGIS_OK) { free(json); return 0; }
+        if (tool_index >= 16) { free(json); return 0; }
+        if (!s->call_started[tool_index] && (tool_name || call_id)) {
+            if (s->callback(&start, s->callback_user) != AEGIS_OK) { free(json); return 0; }
+            s->call_started[tool_index] = true;
+        }
         if (arguments) {
             char* arg = malloc(len + 1);
             if (!arg) { free(json); return 0; }
             size_t arg_len = copy_json_string(arguments, arg, len + 1);
             aegis_model_stream_event_t delta = {.type = AEGIS_MODEL_STREAM_TOOL_CALL_DELTA,
-                                                 .data = arg, .len = arg_len, .index = 0,
+                                                 .data = arg, .len = arg_len, .index = tool_index,
                                                  .tool_name = name, .call_id = id};
             aegis_status_t rc = s->callback(&delta, s->callback_user);
             free(arg);
             if (rc != AEGIS_OK) { free(json); return 0; }
-            aegis_model_stream_event_t end = {.type = AEGIS_MODEL_STREAM_TOOL_CALL_END,
-                                               .index = 0, .tool_name = name, .call_id = id};
-            if (s->callback(&end, s->callback_user) != AEGIS_OK) { free(json); return 0; }
+            (void)id;
         }
     }
     free(json);
