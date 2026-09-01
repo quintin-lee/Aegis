@@ -54,6 +54,7 @@ add_library(aegis_common
     src/common/list.c
     src/common/time.c
     src/common/cancellation/cancellation.c
+    src/status.c
 )
 target_include_directories(aegis_common
     PUBLIC
