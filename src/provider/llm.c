@@ -57,6 +57,16 @@ aegis_status_t aegis_llm_complete(const aegis_provider_registry_t* reg, const ch
     }
 
     return ops->complete(ops->ctx, req, token, out);
+    if (!ops || !ops->complete) {
+        fprintf(stderr, "error: invalid LLM ops or complete callback\n");
+        return AEGIS_ERR_PROVIDER;
+    }
+    if (!ops->ctx) {
+        fprintf(stderr, "error: invalid LLM context\n");
+        return AEGIS_ERR_PROVIDER;
+    }
+    return ops->complete(ops->ctx, req, token, out);
+}
 }
 
 aegis_status_t aegis_llm_stream(const aegis_provider_registry_t* reg, const char* name,
