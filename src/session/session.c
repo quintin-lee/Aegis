@@ -127,37 +127,59 @@ const aegis_message_list_t* aegis_session_messages(const aegis_session_t* s)
 
 aegis_status_t aegis_session_compact(aegis_session_t* s, size_t keep_messages)
 {
-    if (!s || !s->messages) return AEGIS_ERR_INVALID;
+    if (!s || !s->messages) {
+        return AEGIS_ERR_INVALID;
+    }
     size_t count = aegis_message_list_count(s->messages);
-    if (keep_messages >= count) return AEGIS_OK;
+    if (keep_messages >= count) {
+        return AEGIS_OK;
+    }
     size_t start = count - keep_messages;
-    size_t end = count;
-    if (start < count && aegis_message_role(aegis_message_list_at(s->messages, start)) == AEGIS_MESSAGE_TOOL) {
+    size_t end   = count;
+    if (start < count &&
+        aegis_message_role(aegis_message_list_at(s->messages, start)) == AEGIS_MESSAGE_TOOL) {
         const char* call_id = aegis_message_tool_call_id(aegis_message_list_at(s->messages, start));
         while (start > 0) {
-            const aegis_message_t* prev = aegis_message_list_at(s->messages, start - 1);
-            bool owns_call = false;
+            const aegis_message_t* prev      = aegis_message_list_at(s->messages, start - 1);
+            bool                   owns_call = false;
             for (size_t j = 0; j < aegis_message_tool_call_count(prev); ++j) {
                 const aegis_tool_call_t* c = aegis_message_tool_call_at(prev, j);
-                if (call_id && c && strcmp(call_id, aegis_tool_call_id(c)) == 0) { owns_call = true; break; }
+                if (call_id && c && strcmp(call_id, aegis_tool_call_id(c)) == 0) {
+                    owns_call = true;
+                    break;
+                }
             }
-            if (owns_call) { --start; break; }
+            if (owns_call) {
+                --start;
+                break;
+            }
             --start;
         }
     }
-    if (start < count && aegis_message_tool_call_count(aegis_message_list_at(s->messages, start)) > 0 &&
-        start + 1 < count && aegis_message_role(aegis_message_list_at(s->messages, start + 1)) == AEGIS_MESSAGE_TOOL) {
+    if (start < count &&
+        aegis_message_tool_call_count(aegis_message_list_at(s->messages, start)) > 0 &&
+        start + 1 < count &&
+        aegis_message_role(aegis_message_list_at(s->messages, start + 1)) == AEGIS_MESSAGE_TOOL) {
         end = start + 1;
-        while (end < count && aegis_message_role(aegis_message_list_at(s->messages, end)) == AEGIS_MESSAGE_TOOL) ++end;
+        while (end < count &&
+               aegis_message_role(aegis_message_list_at(s->messages, end)) == AEGIS_MESSAGE_TOOL) {
+            ++end;
+        }
     }
     aegis_message_list_t* retained = NULL;
-    if (aegis_message_list_create(&retained) != AEGIS_OK) return AEGIS_ERR_NOMEM;
+    if (aegis_message_list_create(&retained) != AEGIS_OK) {
+        return AEGIS_ERR_NOMEM;
+    }
     for (size_t i = start; i < end; ++i) {
-        aegis_status_t st = aegis_message_list_append(retained, aegis_message_list_at(s->messages, i));
-        if (st != AEGIS_OK) { aegis_message_list_destroy(retained); return st; }
+        aegis_status_t st =
+            aegis_message_list_append(retained, aegis_message_list_at(s->messages, i));
+        if (st != AEGIS_OK) {
+            aegis_message_list_destroy(retained);
+            return st;
+        }
     }
     aegis_message_list_destroy(s->messages);
-    s->messages = retained;
+    s->messages   = retained;
     s->updated_at = now_ms();
     return AEGIS_OK;
 }
@@ -259,7 +281,7 @@ aegis_status_t aegis_session_save(const aegis_session_t* s, const char* path)
         return AEGIS_ERR_INVALID;
     }
     return AEGIS_OK;
-}    // Loader restores session metadata, messages, and tool calls from JSONL
+}  // Loader restores session metadata, messages, and tool calls from JSONL
 aegis_status_t aegis_session_load(const char* path, aegis_session_t** out)
 {
     if (!path || !out) {
@@ -317,22 +339,66 @@ aegis_status_t aegis_session_load(const char* path, aegis_session_t** out)
 
     while (fgets(line, sizeof(line), f)) {
         if (strstr(line, "\"type\":\"tool_call\"")) {
-            char msg_id[64] = "", call_id[128] = "", name[256] = "", args[4096] = "";
+            char        msg_id[64] = "", call_id[128] = "", name[256] = "", args[4096] = "";
             const char* q = strstr(line, "\"msg_id\":\"");
-            if (q) { q += strlen("\"msg_id\":\""); size_t k = 0; while (*q && *q != '"' && k < sizeof(msg_id)-1) msg_id[k++] = *q++; msg_id[k] = 0; }
+            if (q) {
+                q += strlen("\"msg_id\":\"");
+                size_t k = 0;
+                while (*q && *q != '"' && k < sizeof(msg_id) - 1) {
+                    msg_id[k++] = *q++;
+                }
+                msg_id[k] = 0;
+            }
             q = strstr(line, "\"call_id\":\"");
-            if (q) { q += strlen("\"call_id\":\""); size_t k = 0; while (*q && *q != '"' && k < sizeof(call_id)-1) call_id[k++] = *q++; call_id[k] = 0; }
+            if (q) {
+                q += strlen("\"call_id\":\"");
+                size_t k = 0;
+                while (*q && *q != '"' && k < sizeof(call_id) - 1) {
+                    call_id[k++] = *q++;
+                }
+                call_id[k] = 0;
+            }
             q = strstr(line, "\"name\":\"");
-            if (q) { q += strlen("\"name\":\""); size_t k = 0; while (*q && *q != '"' && k < sizeof(name)-1) name[k++] = *q++; name[k] = 0; }
+            if (q) {
+                q += strlen("\"name\":\"");
+                size_t k = 0;
+                while (*q && *q != '"' && k < sizeof(name) - 1) {
+                    name[k++] = *q++;
+                }
+                name[k] = 0;
+            }
             q = strstr(line, "\"args\":\"");
-            if (q) { q += strlen("\"args\":\""); size_t k = 0; while (*q && *q != '"' && k < sizeof(args)-1) { if (*q == '\\' && q[1]) { ++q; args[k++] = *q++; } else args[k++] = *q++; } args[k] = 0; }
-            int index = -1; q = strstr(line, "\"index\":"); if (q) index = atoi(q + strlen("\"index\":"));
+            if (q) {
+                q += strlen("\"args\":\"");
+                size_t k = 0;
+                while (*q && *q != '"' && k < sizeof(args) - 1) {
+                    if (*q == '\\' && q[1]) {
+                        ++q;
+                        args[k++] = *q++;
+                    } else {
+                        args[k++] = *q++;
+                    }
+                }
+                args[k] = 0;
+            }
+            int index = -1;
+            q         = strstr(line, "\"index\":");
+            if (q) {
+                index = atoi(q + strlen("\"index\":"));
+            }
             for (size_t i = 0; i < aegis_session_message_count(s); ++i) {
                 aegis_message_t* m = (aegis_message_t*)aegis_session_message_at(s, i);
                 if (m && strcmp(aegis_message_id(m), msg_id) == 0) {
                     aegis_tool_call_t* c = NULL;
-                    if (aegis_tool_call_create(&c) == AEGIS_OK && aegis_tool_call_set_id(c, call_id) == AEGIS_OK && aegis_tool_call_set_name(c, name) == AEGIS_OK && aegis_tool_call_set_arguments(c, args) == AEGIS_OK && aegis_tool_call_set_index(c, index) == AEGIS_OK) aegis_message_add_tool_call(m, c);
-                    aegis_tool_call_destroy(c); break;
+                    if (aegis_tool_call_create(&c) == AEGIS_OK &&
+                        aegis_tool_call_set_id(c, call_id) == AEGIS_OK &&
+                        aegis_tool_call_set_name(c, name) == AEGIS_OK &&
+                        aegis_tool_call_set_arguments(c, args) == AEGIS_OK &&
+                        aegis_tool_call_set_index(c, index) == AEGIS_OK) {
+                        aegis_message_add_tool_call(m, c);
+                    }
+                    aegis_tool_call_destroy(c);
+                    break;
                 }
             }
         } else if (strstr(line, "\"type\":\"message\"")) {
@@ -348,8 +414,15 @@ aegis_status_t aegis_session_load(const char* path, aegis_session_t** out)
                 role_str[k] = '\0';
             }
             char        message_id[64] = "";
-            const char* mip = strstr(line, "\"id\":\"");
-            if (mip) { mip += strlen("\"id\":\""); size_t k=0; while (*mip && *mip!='"' && k+1<sizeof(message_id)) message_id[k++]=*mip++; message_id[k]=0; }
+            const char* mip            = strstr(line, "\"id\":\"");
+            if (mip) {
+                mip += strlen("\"id\":\"");
+                size_t k = 0;
+                while (*mip && *mip != '"' && k + 1 < sizeof(message_id)) {
+                    message_id[k++] = *mip++;
+                }
+                message_id[k] = 0;
+            }
             char        content[4096] = "";
             const char* cp            = strstr(line, "\"content\":\"");
             if (cp) {
@@ -380,8 +453,19 @@ aegis_status_t aegis_session_load(const char* path, aegis_session_t** out)
             aegis_message_t* m = NULL;
             if (aegis_message_create(role, &m) == AEGIS_OK) {
                 const char* mid = strstr(line, "\"id\":\"");
-                if (mid) { mid += strlen("\"id\":\""); char idbuf[64] = ""; size_t k = 0; while (*mid && *mid != '"' && k < sizeof(idbuf)-1) idbuf[k++] = *mid++; idbuf[k] = 0; aegis_message_set_id(m, idbuf); }
-                if (message_id[0]) aegis_message_set_id(m, message_id);
+                if (mid) {
+                    mid += strlen("\"id\":\"");
+                    char   idbuf[64] = "";
+                    size_t k         = 0;
+                    while (*mid && *mid != '"' && k < sizeof(idbuf) - 1) {
+                        idbuf[k++] = *mid++;
+                    }
+                    idbuf[k] = 0;
+                    aegis_message_set_id(m, idbuf);
+                }
+                if (message_id[0]) {
+                    aegis_message_set_id(m, message_id);
+                }
                 aegis_message_set_content(m, content);
                 aegis_session_append_message(s, m);
                 aegis_message_destroy(m);

@@ -35,8 +35,8 @@ static void test_create_append(void)
 
 static void test_save_load(void)
 {
-    char tmpl[] = "/tmp/aegis_sess_XXXXXX";
-    char* tmp = mkdtemp(tmpl);
+    char  tmpl[] = "/tmp/aegis_sess_XXXXXX";
+    char* tmp    = mkdtemp(tmpl);
     assert(tmp);
     char path[1024];
     snprintf(path, sizeof(path), "%s/sess.jsonl", tmp);
@@ -67,8 +67,8 @@ static void test_save_load(void)
 
 static void test_tool_call_round_trip(void)
 {
-    char tmpl[] = "/tmp/aegis_tool_sess_XXXXXX";
-    char* tmp = mkdtemp(tmpl);
+    char  tmpl[] = "/tmp/aegis_tool_sess_XXXXXX";
+    char* tmp    = mkdtemp(tmpl);
     assert(tmp);
     char path[1024];
     snprintf(path, sizeof(path), "%s/sess.jsonl", tmp);
@@ -81,7 +81,9 @@ static void test_tool_call_round_trip(void)
     expect_ok(aegis_tool_call_create(&call), "call");
     expect_ok(aegis_tool_call_set_id(call, "call-42"), "call id");
     expect_ok(aegis_tool_call_set_name(call, "read"), "call name");
-    expect_ok(aegis_tool_call_set_arguments(call, "{\"path\":\"README.md\",\"note\":\"a\\n\\\"quote\\\"\"}"), "call args");
+    expect_ok(aegis_tool_call_set_arguments(
+                  call, "{\"path\":\"README.md\",\"note\":\"a\\n\\\"quote\\\"\"}"),
+              "call args");
     expect_ok(aegis_tool_call_set_index(call, 3), "call index");
     expect_ok(aegis_message_add_tool_call(assistant, call), "attach call");
     expect_ok(aegis_session_append_message(s, assistant), "append assistant");
@@ -95,7 +97,8 @@ static void test_tool_call_round_trip(void)
     const aegis_tool_call_t* restored_call = aegis_message_tool_call_at(restored, 0);
     assert(strcmp(aegis_tool_call_id(restored_call), "call-42") == 0);
     assert(strcmp(aegis_tool_call_name(restored_call), "read") == 0);
-    assert(strcmp(aegis_tool_call_arguments(restored_call), "{\"path\":\"README.md\",\"note\":\"a\\n\\\"quote\\\"\"}") == 0);
+    assert(strcmp(aegis_tool_call_arguments(restored_call),
+                  "{\"path\":\"README.md\",\"note\":\"a\\n\\\"quote\\\"\"}") == 0);
     assert(aegis_tool_call_index(restored_call) == 3);
 
     aegis_tool_call_destroy(call);
@@ -114,7 +117,8 @@ static void test_compact(void)
     for (int i = 0; i < 3; ++i) {
         aegis_message_t* m = NULL;
         expect_ok(aegis_message_create(AEGIS_MESSAGE_USER, &m), "compact message");
-        char content[32]; snprintf(content, sizeof(content), "message-%d", i);
+        char content[32];
+        snprintf(content, sizeof(content), "message-%d", i);
         expect_ok(aegis_message_set_content(m, content), "compact content");
         expect_ok(aegis_session_append_message(s, m), "compact append");
         aegis_message_destroy(m);
