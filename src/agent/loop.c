@@ -101,26 +101,39 @@ aegis_status_t aegis_agent_loop_resume(aegis_agent_loop_t* l)
     return AEGIS_OK;
 }
 
-// Helper: build message list from session + system prompt via context engine
+// Build a bounded request history while preserving message roles, tool calls,
+// and protocol ordering. Structured messages cannot be represented losslessly
+// by the generic context-section builder.
 static aegis_status_t build_context_messages(aegis_agent_loop_t* l, aegis_message_list_t** out)
 {
-    // For now, directly use session messages plus system prompt
+    if (!l || !out) {
+        return AEGIS_ERR_INVALID;
+    }
+    *out = NULL;
     aegis_message_list_t* list = NULL;
-    aegis_status_t        st   = aegis_message_list_create(&list);
+    aegis_status_t st = aegis_message_list_create(&list);
     if (st != AEGIS_OK) {
         return st;
     }
     if (l->system_prompt) {
         aegis_message_t* sys = NULL;
-        aegis_message_create(AEGIS_MESSAGE_SYSTEM, &sys);
-        aegis_message_set_content(sys, l->system_prompt);
-        aegis_message_list_append(list, sys);
+        st = aegis_message_create(AEGIS_MESSAGE_SYSTEM, &sys);
+        if (st == AEGIS_OK) st = aegis_message_set_content(sys, l->system_prompt);
+        if (st == AEGIS_OK) st = aegis_message_list_append(list, sys);
         aegis_message_destroy(sys);
+        if (st != AEGIS_OK) { aegis_message_list_destroy(list); return st; }
     }
     size_t n = aegis_session_message_count(l->session);
-    for (size_t i = 0; i < n; i++) {
-        const aegis_message_t* m = aegis_session_message_at(l->session, i);
-        aegis_message_list_append(list, m);
+    size_t first = n > 128 ? n - 128 : 0;
+    for (size_t i = first; i < n; ++i) {
+        if (l->token && aegis_cancellation_token_is_cancelled(l->token)) {
+            aegis_message_list_destroy(list);
+            return AEGIS_ERR_CANCELLED;
+        }
+        const aegis_message_t* msg = aegis_session_message_at(l->session, i);
+        if (!msg) continue;
+        st = aegis_message_list_append(list, msg);
+        if (st != AEGIS_OK) { aegis_message_list_destroy(list); return st; }
     }
     *out = list;
     return AEGIS_OK;

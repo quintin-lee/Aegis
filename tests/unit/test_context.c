@@ -11,6 +11,7 @@
  *   - Accessors
  */
 #include "aegis/context/context.h"
+#include "aegis/message/message.h"
 #include "aegis/common/cancellation/cancellation.h"
 
 #include <assert.h>
@@ -172,6 +173,27 @@ static void test_budget_truncation(void)
     aegis_context_builder_destroy(b);
 }
 
+static void test_message_budget_truncation(void)
+{
+    aegis_context_builder_t* b = NULL;
+    expect_ok(aegis_context_builder_create(&b), "create");
+    expect_ok(aegis_context_builder_add_section(b, "system", AEGIS_CONTEXT_SYSTEM, 100, 5),
+              "add system");
+    expect_ok(aegis_context_builder_add_section(b, "recent", AEGIS_CONTEXT_HISTORY, 90, 5),
+              "add recent");
+    expect_ok(aegis_context_builder_add_section(b, "old", AEGIS_CONTEXT_HISTORY, 10, 5),
+              "add old");
+    aegis_context_builder_set_budget(b, 10);
+
+    aegis_message_list_t* list = NULL;
+    expect_ok(aegis_context_build_messages(b, NULL, &list), "build messages");
+    assert(aegis_message_list_count(list) == 2);
+    assert(strstr(aegis_message_content(aegis_message_list_at(list, 0)), "system") != NULL);
+    assert(strstr(aegis_message_content(aegis_message_list_at(list, 1)), "recent") != NULL);
+    aegis_message_list_destroy(list);
+    aegis_context_builder_destroy(b);
+}
+
 static void test_budget_unlimited(void)
 {
     aegis_context_builder_t* b = NULL;
@@ -292,6 +314,7 @@ int main(void)
     test_build_empty();
     test_priority_sorting();
     test_budget_truncation();
+    test_message_budget_truncation();
     test_budget_unlimited();
     test_compression();
     test_cancellation();

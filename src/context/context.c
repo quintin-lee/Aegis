@@ -342,19 +342,12 @@ aegis_status_t aegis_context_build_messages(const aegis_context_builder_t*    bu
         aegis_vector_get(builder->sections, i, &it);
         items[i] = it;
     }
-    // sort by priority desc
-    for (size_t i = 0; i < n; i++) {
-        for (size_t j = i + 1; j < n; j++) {
-            if (items[i]->priority < items[j]->priority) {
-                aegis_context_item_t* tmp = items[i];
-                items[i]                  = items[j];
-                items[j]                  = tmp;
-            }
-        }
-    }
-
+    /* Message order is part of the conversation protocol. Do not sort the
+     * history by priority: emit system sections first, then preserve the
+     * original insertion order for all conversational messages. */
     size_t cumulative = 0;
-    for (size_t i = 0; i < n; i++) {
+    for (int pass = 0; pass < 2; ++pass) {
+      for (size_t i = 0; i < n; i++) {
         if (token && aegis_cancellation_token_is_cancelled(token)) {
             free(items);
             aegis_message_list_destroy(list);
@@ -364,11 +357,15 @@ aegis_status_t aegis_context_build_messages(const aegis_context_builder_t*    bu
         if (!item || !item->content) {
             continue;
         }
+        bool is_system = item->source == AEGIS_CONTEXT_SYSTEM;
+        if ((pass == 0) != is_system) {
+            continue;
+        }
         size_t seg_tokens = item->token_estimate
                                 ? item->token_estimate
                                 : estimate_tokens(item->content, strlen(item->content));
         if (builder->token_budget > 0 && cumulative + seg_tokens > builder->token_budget) {
-            continue;  // skip, truncated
+            break;  // preserve priority order; later sections cannot displace this one
         }
         cumulative += seg_tokens;
 
@@ -401,6 +398,7 @@ aegis_status_t aegis_context_build_messages(const aegis_context_builder_t*    bu
             aegis_message_list_destroy(list);
             return st;
         }
+      }
     }
     free(items);
     *out = list;
