@@ -2,12 +2,16 @@
 #include "aegis/coding/coding_agent.h"
 #include "aegis/coding/coding_tools.h"
 #include "aegis/coding/mutations.h"
+#include "aegis/skill/registry.h"
+#include "aegis/skill/loader.h"
 #include "aegis/session/session.h"
 #include "aegis/agent/loop.h"
 #include "aegis/model/model.h"
 #include "aegis/tool/tool.h"
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 struct aegis_coding_agent {
     aegis_session_t*        session;
@@ -15,6 +19,7 @@ struct aegis_coding_agent {
     aegis_tool_registry_t*  tools;
     aegis_mutation_queue_t* mq;
     aegis_agent_loop_t*     loop;
+    aegis_skill_registry_t* skills;
     bool                    owns_tools;
 };
 
@@ -72,10 +77,22 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
             free(a);
             return st;
         }
+        // Load skills (best effort, not fatal)
+        aegis_skill_registry_create(&a->skills);
+        if (a->skills) {
+            const char* home = getenv("HOME");
+            if (home) {
+                char path[1024];
+                snprintf(path, sizeof(path), "%s/.aegis/skills", home);
+                aegis_skill_loader_load_dir(a->skills, path);
+            }
+            char proj_path[1024];
+            snprintf(proj_path, sizeof(proj_path), "%s/.aegis/skills", cfg->project_root ? cfg->project_root : ".");
+            aegis_skill_loader_load_dir(a->skills, proj_path);
+        }
     }
 
     aegis_agent_loop_config_t lcfg = {
-        .session       = a->session,
         .model         = a->model,
         .tools         = a->tools,
         .system_prompt = "You are a coding agent. Use tools to help the user.",
@@ -83,6 +100,7 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     st = aegis_agent_loop_create(&lcfg, &a->loop);
     if (st != AEGIS_OK) {
         if (a->owns_tools) {
+            if (a->skills) aegis_skill_registry_destroy(a->skills);
             aegis_mutation_queue_destroy(a->mq);
             aegis_tool_registry_destroy(a->tools);
         }
@@ -104,6 +122,7 @@ void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
     if (a->loop) {
         aegis_agent_loop_destroy(a->loop);
     }
+    if (a->skills) aegis_skill_registry_destroy(a->skills);
     if (a->owns_tools) {
         if (a->mq) {
             aegis_mutation_queue_destroy(a->mq);
