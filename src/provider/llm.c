@@ -52,21 +52,14 @@ aegis_status_t aegis_llm_complete(const aegis_provider_registry_t* reg, const ch
     if (!ops || !ops->complete) {
         return AEGIS_ERR_PROVIDER;
     }
+    if (!ops->ctx) {
+        return AEGIS_ERR_PROVIDER;
+    }
     if (token && aegis_cancellation_token_is_cancelled(token)) {
         return AEGIS_ERR_CANCELLED;
     }
 
     return ops->complete(ops->ctx, req, token, out);
-    if (!ops || !ops->complete) {
-        fprintf(stderr, "error: invalid LLM ops or complete callback\n");
-        return AEGIS_ERR_PROVIDER;
-    }
-    if (!ops->ctx) {
-        fprintf(stderr, "error: invalid LLM context\n");
-        return AEGIS_ERR_PROVIDER;
-    }
-    return ops->complete(ops->ctx, req, token, out);
-}
 }
 
 aegis_status_t aegis_llm_stream(const aegis_provider_registry_t* reg, const char* name,
@@ -105,11 +98,17 @@ aegis_status_t aegis_llm_stream(const aegis_provider_registry_t* reg, const char
 
     /* If provider supports native streaming, use it. */
     if (ops->stream) {
+        if (!ops->ctx) {
+            return AEGIS_ERR_PROVIDER;
+        }
         return ops->stream(ops->ctx, req, token, yield, yield_user);
     }
 
     /* Fallback: non-streaming complete, yield as single chunk. */
     if (!ops->complete) {
+        return AEGIS_ERR_PROVIDER;
+    }
+    if (!ops->ctx) {
         return AEGIS_ERR_PROVIDER;
     }
     aegis_llm_response_t resp;
