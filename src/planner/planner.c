@@ -155,8 +155,9 @@ static aegis_status_t parse_dep_list(char* field, size_t len, int64_t* deps, siz
 {
     trim(&field, &len);
     *dep_count = 0;
-    if (len == 0) {
-        return AEGIS_OK; /* No dependencies. */
+    if (len == 0 || (len == 1 && field[0] == '-') ||
+        (len == 2 && field[0] == '-' && field[1] == '1')) {
+        return AEGIS_OK; /* No dependencies; provider sentinel is accepted. */
     }
     size_t count = 0;
     char*  save  = NULL;
@@ -286,7 +287,23 @@ static aegis_status_t parse_response_into(const char* text, aegis_plan_t* plan)
         char*  s    = line;
         size_t slen = len;
         trim(&s, &slen);
+        if (slen == 0 || s[0] == '#' || (slen >= 3 && s[0] == '`' && s[1] == '`' && s[2] == '`')) {
+            free(line);
+            if (!nl) {
+                break;
+            }
+            cursor = nl + 1;
+            continue;
+        }
         if (slen > 0 && s[0] != '#') {
+            if (strncmp(s, "STEP|", 5) != 0) {
+                free(line);
+                if (!nl) {
+                    break;
+                }
+                cursor = nl + 1;
+                continue;
+            }
             aegis_status_t rc = parse_step_line(s, plan);
             if (rc != AEGIS_OK) {
                 free(line);
