@@ -196,6 +196,7 @@ static char* build_body(const openai_llm_ctx_t* ctx,
         "{\"model\":\"%s\","
          "\"messages\":[{\"role\":\"user\",\"content\":\"",
         model);
+    if (n < 0 || (size_t)n >= est) {
         free(buf);
         return NULL;
     }
