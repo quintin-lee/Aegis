@@ -28,7 +28,7 @@ aegis_status_t aegis_skill_loader_load_dir(aegis_skill_registry_t* reg, const ch
             continue;
         }
         // Look for SKILL.md or skill.md
-        char skill_file[1024];
+        char skill_file[2048];
         snprintf(skill_file, sizeof(skill_file), "%s/SKILL.md", path);
         FILE* f = fopen(skill_file, "r");
         if (!f) {

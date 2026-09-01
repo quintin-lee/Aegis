@@ -388,6 +388,7 @@ static aegis_status_t openai_llm_stream(void* ctx_ptr,
                                          aegis_llm_stream_fn yield,
                                          void* yield_user)
 {
+    (void)yield_user;
     openai_llm_ctx_t* ctx = (openai_llm_ctx_t*)ctx_ptr;
     if (!ctx || !yield) {
         return AEGIS_ERR_INVALID;
@@ -433,10 +434,6 @@ static aegis_status_t openai_llm_stream(void* ctx_ptr,
         free(body);
         return AEGIS_ERR_NOMEM;
     }
-
-    /* Buffer for SSE line accumulation */
-    char line_buf[4096];
-    size_t line_len = 0;
 
     struct curl_slist* headers = NULL;
     char auth_hdr[1024];
@@ -485,6 +482,7 @@ aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx,
     /* ops are file-scope const, owned by registry, not freed by destroy */
     static const aegis_llm_ops_t ops = {
         .complete = openai_llm_complete,
+        .stream   = openai_llm_stream,
     };
 
     aegis_provider_def_t def = {
