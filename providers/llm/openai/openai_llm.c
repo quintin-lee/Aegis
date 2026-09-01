@@ -369,6 +369,92 @@ static aegis_status_t openai_llm_complete(void* ctx_ptr,
     out->len  = strlen(content);
     return AEGIS_OK;
 }
+/* ── Streaming callback ─────────────────────────────────────────────────── */
+
+static aegis_status_t openai_llm_stream(void* ctx_ptr,
+                                         const aegis_llm_request_t* req,
+                                         const aegis_cancellation_token_t* token,
+                                         aegis_llm_stream_fn yield,
+                                         void* yield_user)
+{
+    openai_llm_ctx_t* ctx = (openai_llm_ctx_t*)ctx_ptr;
+    if (!ctx || !yield) {
+        return AEGIS_ERR_INVALID;
+    }
+
+    if (token && aegis_cancellation_token_is_cancelled(token)) {
+        return AEGIS_ERR_CANCELLED;
+    }
+
+    char* body = build_body(ctx, req);
+    if (!body) {
+        return AEGIS_ERR_NOMEM;
+    }
+
+    /* Resolve API key */
+    const char* api_key = ctx->api_key;
+    if (!api_key || api_key[0] == '\0') {
+        api_key = getenv("OPENAI_API_KEY");
+    }
+    if (!api_key || api_key[0] == '\0') {
+        api_key = getenv("AEGIS_OPENAI_API_KEY");
+    }
+    if (!api_key || api_key[0] == '\0') {
+        free(body);
+        fprintf(stderr, "error: no OpenAI API key\n");
+        return AEGIS_ERR_PERM;
+    }
+
+    /* Resolve base URL */
+    const char* base_url = ctx->base_url;
+    if (!base_url || base_url[0] == '\0') {
+        base_url = getenv("AEGIS_OPENAI_BASE_URL");
+    }
+    if (!base_url || base_url[0] == '\0') {
+        base_url = OPENAI_DEFAULT_BASE_URL;
+    }
+
+    char url[2048];
+    snprintf(url, sizeof(url), "%s/chat/completions", base_url);
+
+    CURL* curl = curl_easy_init();
+    if (!curl) {
+        free(body);
+        return AEGIS_ERR_NOMEM;
+    }
+
+    /* Buffer for SSE line accumulation */
+    char line_buf[4096];
+    size_t line_len = 0;
+
+    struct curl_slist* headers = NULL;
+    char auth_hdr[1024];
+    snprintf(auth_hdr, sizeof(auth_hdr), "Authorization: Bearer %s", api_key);
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    headers = curl_slist_append(headers, auth_hdr);
+    headers = curl_slist_append(headers, "Accept: text/event-stream");
+
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 60000L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+
+    /* Use a custom write function that processes SSE lines */
+    CURLcode res = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+    curl_slist_free_all(headers);
+    free(body);
+
+    if (res != CURLE_OK) {
+        fprintf(stderr, "error: curl: %s\n", curl_easy_strerror(res));
+        return AEGIS_ERR_PROVIDER;
+    }
+
+    return AEGIS_OK;
+}
 /* ── Factory ─────────────────────────────────────────────────────────────── */
 
 aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx,
