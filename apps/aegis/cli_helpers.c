@@ -158,12 +158,17 @@ void print_usage(FILE* out)
     fprintf(out, "Usage: aegis <command> [options]\n\n");
     fprintf(out, "Commands:\n");
     fprintf(out, "  init [--path DIR] [--force]    Initialize a new aegis project\n");
-    fprintf(out, "  run [--goal TEXT]              Run autonomous agent\n");
+    fprintf(out, "  run [--goal TEXT] [options]    Run autonomous agent\n");
+    fprintf(out, "      --provider NAME           LLM provider: llm-mock (default), llm-openai\n");
+    fprintf(out, "      --model MODEL             Model id (default: gpt-4o-mini for openai)\n");
+    fprintf(out, "      --api-key KEY             OpenAI API key\n");
+    fprintf(out, "      --base-url URL            OpenAI-compatible base URL\n");
+    fprintf(out, "      --max-iterations N        Max iterations (default: 5)\n");
+    fprintf(out, "      --timeout MS              Per-task timeout in ms (default: unlimited)\n");
     fprintf(out, "  status                         Show agent status\n");
     fprintf(out, "  cancel                         Cancel running agent\n");
     fprintf(out, "  inspect                        Inspect checkpoint\n");
     fprintf(out, "  --help, -h                     Show this help\n");
-    fprintf(out, "  --version, -v                  Show version\n");
 }
 
 void print_version(void)

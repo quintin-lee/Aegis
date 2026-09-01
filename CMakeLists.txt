@@ -66,8 +66,17 @@ add_subdirectory(src/agent)
 add_subdirectory(src/coding)
 add_subdirectory(src/skill)
 add_subdirectory(src/extension)
-include(cmake/AegisLibraries.cmake)
+# ── Optional providers ───────────────────────────────────────────────────
+if(AEGIS_OPENAI_PROVIDER)
+    find_package(CURL REQUIRED)
+    message(STATUS "OpenAI provider enabled (libcurl found)")
+    add_subdirectory(providers/llm/openai)
+else()
+    message(STATUS "OpenAI provider disabled (AEGIS_OPENAI_PROVIDER=OFF)")
+endif()
 
+# ── Fine-grained libraries ───────────────────────────────────────────────
+ include(cmake/AegisLibraries.cmake)
 # ── Executables ──────────────────────────────────────────────────────────
 add_executable(aegis_shell src/autonomous/src/shell.c)
 target_link_libraries(aegis_shell PRIVATE aegis_core)
