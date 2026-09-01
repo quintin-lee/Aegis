@@ -360,7 +360,14 @@ static aegis_status_t openai_llm_complete(void* ctx_ptr,
     }
 
     if (http_code != 200) {
-        fprintf(stderr, "error: HTTP %ld\n", http_code);
+        fprintf(stderr, "error: OpenAI-compatible endpoint returned HTTP %ld\n", http_code);
+        if (http_code == 401 || http_code == 403) {
+            fprintf(stderr, "hint: authentication failed; verify --api-key and provider-specific token format\n");
+        } else if (http_code == 404) {
+            fprintf(stderr, "hint: verify --base-url includes the API version and that the model endpoint exists\n");
+        } else if (http_code == 400) {
+            fprintf(stderr, "hint: verify --model and request compatibility with the selected endpoint\n");
+        }
         if (wbuf.buf) {
             fprintf(stderr, "response: %.512s\n", wbuf.buf);
         }
