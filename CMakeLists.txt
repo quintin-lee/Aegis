@@ -99,6 +99,8 @@ add_library(aegis_core
     # Agent & Runtime
     src/agent/agent.c
     src/agent/goal.c
+    src/agent/loop.c
+    src/agent/state.c
     src/runtime/runtime.c
     src/runtime/config.c
     # Task & Graph
@@ -124,6 +126,27 @@ add_library(aegis_core
     src/planner/planner.c
     # Strategy
     src/strategy/strategy_registry.c
+    src/strategy/autonomous_strategy.c
+    # Message (Phase1)
+    src/message/role.c
+    src/message/tool_call.c
+    src/message/tool_result.c
+    src/message/message.c
+    # Model (Phase2)
+    src/model/response.c
+    src/model/stream.c
+    src/model/model.c
+    # Session (Phase3)
+    src/session/session.c
+    # Coding (Phase6)
+    src/coding/mutations.c
+    src/coding/coding_tools.c
+    src/coding/coding_agent.c
+    # Skill / Extension (Phase9)
+    src/skill/skill.c
+    src/skill/registry.c
+    src/skill/loader.c
+    src/extension/extension.c
     # Context
     src/context/context.c
     # Memory
@@ -204,6 +227,7 @@ add_executable(aegis
     apps/aegis/cli_status.c
     apps/aegis/cli_cancel.c
     apps/aegis/cli_inspect.c
+    apps/aegis/cli_interactive.c
 )
 target_link_libraries(aegis PRIVATE aegis_core)
 target_compile_definitions(aegis PRIVATE AEGIS_VERSION_STRING="${AEGIS_VERSION_STRING}")
@@ -261,14 +285,12 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_tool_executor    tests/unit/test_tool_executor.c)
     aegis_add_test(unit_tool_concurrent  tests/unit/test_tool_concurrent.c)
     aegis_add_test(unit_provider             tests/unit/test_provider.c)
-    aegis_add_test(unit_provider_interfaces  tests/unit/test_provider_interfaces.c)
-    aegis_add_test(unit_provider_concurrent  tests/unit/test_provider_concurrent.c)
-    aegis_add_test(unit_planner              tests/unit/test_planner.c)
-    aegis_add_test(unit_planner_llm          tests/unit/test_planner_llm.c)
+    aegis_add_test(unit_context            tests/unit/test_context.c)
+    aegis_add_test(unit_message            tests/unit/test_message.c)
+    aegis_add_test(unit_session            tests/unit/test_session.c)
+    aegis_add_test(unit_storage            tests/unit/test_storage.c)
     aegis_add_test(unit_memory             tests/unit/test_memory.c)
 
-    aegis_add_test(unit_context            tests/unit/test_context.c)
-    aegis_add_test(unit_storage            tests/unit/test_storage.c)
     aegis_add_test(unit_checkpoint         tests/unit/test_checkpoint.c)
     aegis_add_test(unit_log                tests/unit/test_log.c)
     aegis_add_test(unit_metrics            tests/unit/test_metrics.c)

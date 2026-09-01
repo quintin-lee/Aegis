@@ -10,8 +10,11 @@
  *
  * No LLM provider is referenced — the output is a plain string.
  */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-function"
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/context/context.h"
+#include "aegis/message/message.h"
 #include "aegis/status.h"
 #include "aegis/common/cancellation/cancellation.h"
 
@@ -305,7 +308,104 @@ aegis_status_t aegis_context_build(const aegis_context_builder_t*    builder,
     return AEGIS_OK;
 }
 
-/* ── Accessors ─────────────────────────────────────────────────────────────── */
+aegis_status_t aegis_context_build_messages(const aegis_context_builder_t*    builder,
+                                            const aegis_cancellation_token_t* token,
+                                            aegis_message_list_t**            out)
+{
+    if (!builder || !out) {
+        return AEGIS_ERR_INVALID;
+    }
+    *out = NULL;
+    if (token && aegis_cancellation_token_is_cancelled(token)) {
+        return AEGIS_ERR_CANCELLED;
+    }
+
+    aegis_message_list_t* list = NULL;
+    aegis_status_t        st   = aegis_message_list_create(&list);
+    if (st != AEGIS_OK) {
+        return st;
+    }
+
+    size_t n = aegis_vector_len(builder->sections);
+    if (n == 0) {
+        *out = list;
+        return AEGIS_OK;
+    }
+
+    aegis_context_item_t** items = malloc(sizeof(*items) * n);
+    if (!items) {
+        aegis_message_list_destroy(list);
+        return AEGIS_ERR_NOMEM;
+    }
+    for (size_t i = 0; i < n; i++) {
+        aegis_context_item_t* it = NULL;
+        aegis_vector_get(builder->sections, i, &it);
+        items[i] = it;
+    }
+    // sort by priority desc
+    for (size_t i = 0; i < n; i++) {
+        for (size_t j = i + 1; j < n; j++) {
+            if (items[i]->priority < items[j]->priority) {
+                aegis_context_item_t* tmp = items[i];
+                items[i]                  = items[j];
+                items[j]                  = tmp;
+            }
+        }
+    }
+
+    size_t cumulative = 0;
+    for (size_t i = 0; i < n; i++) {
+        if (token && aegis_cancellation_token_is_cancelled(token)) {
+            free(items);
+            aegis_message_list_destroy(list);
+            return AEGIS_ERR_CANCELLED;
+        }
+        aegis_context_item_t* item = items[i];
+        if (!item || !item->content) {
+            continue;
+        }
+        size_t seg_tokens = item->token_estimate
+                                ? item->token_estimate
+                                : estimate_tokens(item->content, strlen(item->content));
+        if (builder->token_budget > 0 && cumulative + seg_tokens > builder->token_budget) {
+            continue;  // skip, truncated
+        }
+        cumulative += seg_tokens;
+
+        aegis_message_role_t role;
+        switch (item->source) {
+        case AEGIS_CONTEXT_SYSTEM:
+        case AEGIS_CONTEXT_TOOL_DEFS:
+        case AEGIS_CONTEXT_MEMORY:
+            role = AEGIS_MESSAGE_SYSTEM;
+            break;
+        case AEGIS_CONTEXT_OBSERVATION:
+            role = AEGIS_MESSAGE_TOOL;
+            break;
+        default:
+            role = AEGIS_MESSAGE_USER;
+            break;
+        }
+        aegis_message_t* msg = NULL;
+        st                   = aegis_message_create(role, &msg);
+        if (st != AEGIS_OK) {
+            free(items);
+            aegis_message_list_destroy(list);
+            return st;
+        }
+        aegis_message_set_content(msg, item->content);
+        st = aegis_message_list_append(list, msg);
+        aegis_message_destroy(msg);
+        if (st != AEGIS_OK) {
+            free(items);
+            aegis_message_list_destroy(list);
+            return st;
+        }
+    }
+    free(items);
+    *out = list;
+    return AEGIS_OK;
+}
 
 size_t aegis_context_token_estimate(const aegis_context_t* ctx)
 {
@@ -330,3 +430,5 @@ void aegis_context_destroy(aegis_context_t* ctx)
     free(ctx->content);
     free(ctx);
 }
+
+#pragma GCC diagnostic pop

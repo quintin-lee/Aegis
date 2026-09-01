@@ -1,0 +1,333 @@
+#define _POSIX_C_SOURCE 200809L
+#include "aegis/session/session.h"
+#include "aegis/common/uuid.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+#include <time.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
+struct aegis_session {
+    char                  id[37];
+    char                  branch_id[37];
+    char                  parent_id[37];
+    char*                 project_root;
+    uint64_t              created_at;
+    uint64_t              updated_at;
+    aegis_message_list_t* messages;
+};
+
+static uint64_t now_ms(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+
+static void gen_uuid_str(char out[37])
+{
+    aegis_uuid_t u = aegis_uuid_generate();
+    aegis_uuid_format(&u, out, 37);
+}
+
+aegis_status_t aegis_session_create(const char* project_root, aegis_session_t** out)
+{
+    if (!out) {
+        return AEGIS_ERR_INVALID;
+    }
+    aegis_session_t* s = (aegis_session_t*)calloc(1, sizeof(*s));
+    if (!s) {
+        return AEGIS_ERR_NOMEM;
+    }
+    gen_uuid_str(s->id);
+    gen_uuid_str(s->branch_id);
+    s->parent_id[0] = '\0';
+    s->created_at   = now_ms();
+    s->updated_at   = s->created_at;
+    if (project_root) {
+        s->project_root = strdup(project_root);
+        if (!s->project_root) {
+            free(s);
+            return AEGIS_ERR_NOMEM;
+        }
+    }
+    aegis_status_t st = aegis_message_list_create(&s->messages);
+    if (st != AEGIS_OK) {
+        free(s->project_root);
+        free(s);
+        return st;
+    }
+    *out = s;
+    return AEGIS_OK;
+}
+
+void aegis_session_destroy(aegis_session_t* s)
+{
+    if (!s) {
+        return;
+    }
+    free(s->project_root);
+    if (s->messages) {
+        aegis_message_list_destroy(s->messages);
+    }
+    free(s);
+}
+
+const char* aegis_session_id(const aegis_session_t* s)
+{
+    return s ? s->id : NULL;
+}
+uint64_t aegis_session_created_at(const aegis_session_t* s)
+{
+    return s ? s->created_at : 0;
+}
+uint64_t aegis_session_updated_at(const aegis_session_t* s)
+{
+    return s ? s->updated_at : 0;
+}
+const char* aegis_session_branch_id(const aegis_session_t* s)
+{
+    return s ? s->branch_id : NULL;
+}
+const char* aegis_session_parent_id(const aegis_session_t* s)
+{
+    return s && s->parent_id[0] ? s->parent_id : NULL;
+}
+
+aegis_status_t aegis_session_append_message(aegis_session_t* s, const aegis_message_t* msg)
+{
+    if (!s || !msg) {
+        return AEGIS_ERR_INVALID;
+    }
+    aegis_status_t st = aegis_message_list_append(s->messages, msg);
+    if (st == AEGIS_OK) {
+        s->updated_at = now_ms();
+    }
+    return st;
+}
+
+size_t aegis_session_message_count(const aegis_session_t* s)
+{
+    return s && s->messages ? aegis_message_list_count(s->messages) : 0;
+}
+
+const aegis_message_t* aegis_session_message_at(const aegis_session_t* s, size_t idx)
+{
+    if (!s || !s->messages) {
+        return NULL;
+    }
+    return aegis_message_list_at(s->messages, idx);
+}
+
+const aegis_message_list_t* aegis_session_messages(const aegis_session_t* s)
+{
+    return s ? s->messages : NULL;
+}
+
+aegis_status_t aegis_session_fork(const aegis_session_t* src, aegis_session_t** out)
+{
+    if (!src || !out) {
+        return AEGIS_ERR_INVALID;
+    }
+    aegis_session_t* n  = NULL;
+    aegis_status_t   st = aegis_session_create(src->project_root, &n);
+    if (st != AEGIS_OK) {
+        return st;
+    }
+    // copy parent
+    strncpy(n->parent_id, src->id, sizeof(n->parent_id) - 1);
+    // clone messages
+    aegis_message_list_destroy(n->messages);
+    n->messages = NULL;
+    st          = aegis_message_list_clone(src->messages, &n->messages);
+    if (st != AEGIS_OK) {
+        aegis_session_destroy(n);
+        return st;
+    }
+    *out = n;
+    return AEGIS_OK;
+}
+
+// JSONL persistence — simple, one JSON object per line
+// We use a minimal JSON escaping for content
+
+static void json_escape(FILE* f, const char* s)
+{
+    if (!s) {
+        return;
+    }
+    for (const char* p = s; *p; p++) {
+        if (*p == '"' || *p == '\\') {
+            fputc('\\', f);
+        }
+        if (*p == '\n') {
+            fputs("\\n", f);
+            continue;
+        }
+        if (*p == '\r') {
+            fputs("\\r", f);
+            continue;
+        }
+        fputc(*p, f);
+    }
+}
+
+aegis_status_t aegis_session_save(const aegis_session_t* s, const char* path)
+{
+    if (!s || !path) {
+        return AEGIS_ERR_INVALID;
+    }
+    char tmp[1024];
+    snprintf(tmp, sizeof(tmp), "%s.tmp", path);
+    FILE* f = fopen(tmp, "w");
+    if (!f) {
+        return AEGIS_ERR_INVALID;
+    }
+    // session header
+    fprintf(f,
+            "{\"type\":\"session_start\",\"v\":1,\"id\":\"%s\",\"branch\":\"%s\",\"parent\":\"%s\","
+            "\"created\":%llu,\"project\":\"",
+            s->id, s->branch_id, s->parent_id, (unsigned long long)s->created_at);
+    json_escape(f, s->project_root ? s->project_root : "");
+    fputs("\"}\n", f);
+    size_t n = aegis_session_message_count(s);
+    for (size_t i = 0; i < n; i++) {
+        const aegis_message_t* m       = aegis_session_message_at(s, i);
+        const char*            role    = aegis_message_role_str(aegis_message_role(m));
+        const char*            content = aegis_message_content(m) ? aegis_message_content(m) : "";
+        const char*            id      = aegis_message_id(m) ? aegis_message_id(m) : "";
+        fprintf(f, "{\"type\":\"message\",\"id\":\"%s\",\"role\":\"%s\",\"content\":\"", id, role);
+        json_escape(f, content);
+        fputs("\"}\n", f);
+        // tool calls if any
+        size_t tc = aegis_message_tool_call_count(m);
+        for (size_t j = 0; j < tc; j++) {
+            const aegis_tool_call_t* c    = aegis_message_tool_call_at(m, j);
+            const char*              cid  = aegis_tool_call_id(c) ? aegis_tool_call_id(c) : "";
+            const char*              name = aegis_tool_call_name(c) ? aegis_tool_call_name(c) : "";
+            const char* args = aegis_tool_call_arguments(c) ? aegis_tool_call_arguments(c) : "";
+            fprintf(f, "{\"type\":\"tool_call\",\"msg_id\":\"%s\",\"call_id\":\"%s\",\"name\":\"",
+                    id, cid);
+            json_escape(f, name);
+            fputs("\",\"args\":\"", f);
+            json_escape(f, args);
+            fputs("\"}\n", f);
+        }
+    }
+    fclose(f);
+    if (rename(tmp, path) != 0) {
+        unlink(tmp);
+        return AEGIS_ERR_INVALID;
+    }
+    return AEGIS_OK;
+}
+
+// Very minimal loader: parses session_start and message lines, ignores tool_call details for now
+aegis_status_t aegis_session_load(const char* path, aegis_session_t** out)
+{
+    if (!path || !out) {
+        return AEGIS_ERR_INVALID;
+    }
+    FILE* f = fopen(path, "r");
+    if (!f) {
+        return AEGIS_ERR_NOT_FOUND;
+    }
+    aegis_session_t* s = NULL;
+    char             line[8192];
+    // peek first line for project
+    if (!fgets(line, sizeof(line), f)) {
+        fclose(f);
+        return AEGIS_ERR_INVALID;
+    }
+    // parse project from session_start (naive)
+    char        project[1024] = "";
+    const char* p             = strstr(line, "\"project\":\"");
+    if (p) {
+        p += 11;
+        size_t idx = 0;
+        while (*p && *p != '"' && idx < sizeof(project) - 1) {
+            if (*p == '\\' && *(p + 1)) {
+                p++;
+            }
+            project[idx++] = *p++;
+        }
+        project[idx] = '\0';
+    }
+    aegis_status_t st = aegis_session_create(project[0] ? project : NULL, &s);
+    if (st != AEGIS_OK) {
+        fclose(f);
+        return st;
+    }
+    // override id/branch from file if present
+    p = strstr(line, "\"id\":\"");
+    if (p) {
+        p += 6;
+        size_t k = 0;
+        while (*p && *p != '"' && k < 36) {
+            s->id[k++] = *p++;
+        }
+        s->id[k] = '\0';
+    }
+    p = strstr(line, "\"branch\":\"");
+    if (p) {
+        p += 10;
+        size_t k = 0;
+        while (*p && *p != '"' && k < 36) {
+            s->branch_id[k++] = *p++;
+        }
+        s->branch_id[k] = '\0';
+    }
+
+    while (fgets(line, sizeof(line), f)) {
+        if (strstr(line, "\"type\":\"message\"")) {
+            // parse role and content
+            char        role_str[16] = "";
+            const char* rp           = strstr(line, "\"role\":\"");
+            if (rp) {
+                rp += 8;
+                size_t k = 0;
+                while (*rp && *rp != '"' && k < 15) {
+                    role_str[k++] = *rp++;
+                }
+                role_str[k] = '\0';
+            }
+            char        content[4096] = "";
+            const char* cp            = strstr(line, "\"content\":\"");
+            if (cp) {
+                cp += 11;
+                size_t k = 0;
+                while (*cp && *cp != '"' && k < 4095) {
+                    if (*cp == '\\' && *(cp + 1) == 'n') {
+                        content[k++] = '\n';
+                        cp += 2;
+                        continue;
+                    }
+                    if (*cp == '\\' && *(cp + 1)) {
+                        cp++;
+                    }
+                    content[k++] = *cp++;
+                }
+            }
+            aegis_message_role_t role = AEGIS_MESSAGE_USER;
+            if (strcmp(role_str, "system") == 0) {
+                role = AEGIS_MESSAGE_SYSTEM;
+            } else if (strcmp(role_str, "assistant") == 0) {
+                role = AEGIS_MESSAGE_ASSISTANT;
+            } else if (strcmp(role_str, "tool") == 0) {
+                role = AEGIS_MESSAGE_TOOL;
+            } else if (strcmp(role_str, "event") == 0) {
+                role = AEGIS_MESSAGE_EVENT;
+            }
+            aegis_message_t* m = NULL;
+            if (aegis_message_create(role, &m) == AEGIS_OK) {
+                aegis_message_set_content(m, content);
+                aegis_session_append_message(s, m);
+                aegis_message_destroy(m);
+            }
+        }
+    }
+    fclose(f);
+    *out = s;
+    return AEGIS_OK;
+}

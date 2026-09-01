@@ -28,18 +28,6 @@ static aegis_cancellation_token_t* get_token(aegis_autonomous_agent_t* aa)
     return autonomous_get_token(aa);
 }
 
-static void checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal, aegis_plan_t* plan,
-                            aegis_task_graph_t* graph)
-{
-    autonomous_checkpoint_save(aa, goal, plan, graph);
-}
-
-static aegis_status_t aa_transition(aegis_autonomous_agent_t* aa,
-                                    aegis_autonomous_state_t  new_state)
-{
-    return autonomous_transition(aa, new_state);
-}
-
 aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**             out,
                                              const aegis_autonomous_agent_config_t* cfg)
 {

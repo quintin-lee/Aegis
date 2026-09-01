@@ -26,6 +26,9 @@
 #include "aegis/common/cancellation/cancellation.h"
 #include "aegis/types.h"
 
+/* Forward declare message list to avoid cycle; full include in .c */
+typedef struct aegis_message_list aegis_message_list_t;
+
 #include <stdint.h>
 #include <stddef.h>
 
@@ -192,6 +195,26 @@ const char* aegis_context_content(const aegis_context_t* ctx);
  * @param ctx Context handle (ownership: consumed).
  */
 void aegis_context_destroy(aegis_context_t* ctx);
+
+/* ── Message list builder (Phase4) ─────────────────────────────────────────── */
+
+/**
+ * @brief Build a message list from the builder's sections.
+ *
+ * Unlike aegis_context_build() which concatenates into a single string,
+ * this produces a structured message list ordered by priority (desc).
+ * Each section becomes a message with role derived from source:
+ *   SYSTEM/TOOL_DEFS → SYSTEM, GOAL → USER, etc.
+ * The caller owns the returned list.
+ *
+ * @param builder Builder (borrowed).
+ * @param token   Cancellation token (may be NULL).
+ * @param[out] out Receives the message list. Ownership: transferred.
+ * @return AEGIS_OK or AEGIS_ERR_NOMEM / CANCELLED.
+ */
+aegis_status_t aegis_context_build_messages(const aegis_context_builder_t*    builder,
+                                            const aegis_cancellation_token_t* token,
+                                            aegis_message_list_t**            out);
 
 #ifdef __cplusplus
 }
