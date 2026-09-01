@@ -21,6 +21,9 @@ typedef struct aegis_coding_agent aegis_coding_agent_t;
 typedef struct aegis_coding_agent_config {
     const char*            project_root;
     const char*            model;
+    const char*            provider;
+    const char*            api_key;
+    const char*            base_url;
     aegis_tool_registry_t* tools;  // borrowed, if NULL creates default coding tools
 } aegis_coding_agent_config_t;
 

@@ -8,6 +8,9 @@
 #include "aegis/agent/loop.h"
 #include "aegis/model/model.h"
 #include "aegis/tool/tool.h"
+#ifdef AEGIS_OPENAI_PROVIDER
+#include "structured_openai.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -15,8 +18,11 @@
 #include <stddef.h>
 
 struct aegis_coding_agent {
-    aegis_session_t*        session;
-    aegis_model_client_t*   model;
+    aegis_session_t*      session;
+    aegis_model_client_t* model;
+#ifdef AEGIS_OPENAI_PROVIDER
+    aegis_openai_model_ctx_t* openai_model;
+#endif
     aegis_tool_registry_t*  tools;
     aegis_mutation_queue_t* mq;
     aegis_agent_loop_t*     loop;
@@ -42,7 +48,19 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     }
 
     const char* model_name = cfg->model ? cfg->model : "mock";
-    st                     = aegis_model_client_create(model_name, &a->model);
+#ifdef AEGIS_OPENAI_PROVIDER
+    if (cfg->provider && strcmp(cfg->provider, "llm-openai") == 0) {
+        aegis_model_backend_t backend = {0};
+        st = aegis_openai_model_create(cfg->api_key, cfg->base_url, model_name, &a->openai_model,
+                                       &backend);
+        if (st == AEGIS_OK) {
+            st = aegis_model_client_create_with_backend(model_name, &backend, &a->model);
+        }
+    } else
+#endif
+    {
+        st = aegis_model_client_create(model_name, &a->model);
+    }
     if (st != AEGIS_OK) {
         aegis_session_destroy(a->session);
         free(a);
@@ -141,6 +159,11 @@ void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
     if (a->model) {
         aegis_model_client_destroy(a->model);
     }
+#ifdef AEGIS_OPENAI_PROVIDER
+    if (a->openai_model) {
+        aegis_openai_model_destroy(a->openai_model);
+    }
+#endif
     if (a->session) {
         aegis_session_destroy(a->session);
     }

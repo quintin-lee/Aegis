@@ -8,6 +8,7 @@
 struct aegis_model_client {
     char*                    model;
     aegis_model_capability_t caps;
+    aegis_model_backend_t    backend;
 };
 
 aegis_status_t aegis_model_client_create(const char* model, aegis_model_client_t** out)
@@ -29,6 +30,24 @@ aegis_status_t aegis_model_client_create(const char* model, aegis_model_client_t
     return AEGIS_OK;
 }
 
+aegis_status_t aegis_model_client_create_with_backend(const char*                  model,
+                                                      const aegis_model_backend_t* backend,
+                                                      aegis_model_client_t**       out)
+{
+    if (!model || !backend || !out || (!backend->complete && !backend->stream)) {
+        return AEGIS_ERR_INVALID;
+    }
+    aegis_model_client_t* c  = NULL;
+    aegis_status_t        st = aegis_model_client_create(model, &c);
+    if (st != AEGIS_OK) {
+        return st;
+    }
+    c->backend = *backend;
+    c->caps    = backend->capabilities;
+    *out       = c;
+    return AEGIS_OK;
+}
+
 void aegis_model_client_destroy(aegis_model_client_t* c)
 {
     if (!c) {
@@ -43,7 +62,7 @@ aegis_model_capability_t aegis_model_capabilities(const aegis_model_client_t* c)
     return c ? c->caps : 0;
 }
 
-// Compat: build prompt string from messages for old blob providers
+/* Compat helper retained for future provider dispatch. */
 static char* build_prompt_from_messages(const aegis_message_list_t* msgs)
 {
     if (!msgs) {
@@ -70,9 +89,12 @@ static char* build_prompt_from_messages(const aegis_message_list_t* msgs)
         if (!content) {
             content = "";
         }
-        char tmp[256];
-        snprintf(tmp, sizeof(tmp), "[%s] %s\n", role, content);
-        strncat(out, tmp, total - strlen(out));
+        size_t used    = strlen(out);
+        int    written = snprintf(out + used, total + 1 - used, "[%s] %s\n", role, content);
+        if (written < 0 || (size_t)written >= total + 1 - used) {
+            free(out);
+            return NULL;
+        }
     }
     return out;
 }
@@ -84,10 +106,14 @@ aegis_status_t aegis_model_complete(aegis_model_client_t* client, const aegis_mo
     if (!client || !req || !out) {
         return AEGIS_ERR_INVALID;
     }
+    *out = NULL;
     if (token && aegis_cancellation_token_is_cancelled(token)) {
         return AEGIS_ERR_CANCELLED;
     }
-    (void)build_prompt_from_messages;  // keep for future provider dispatch
+    if (client->backend.complete) {
+        return client->backend.complete(client->backend.user, req, token, out);
+    }
+    (void)build_prompt_from_messages;
 
     aegis_model_response_t* resp = NULL;
     aegis_status_t          st   = aegis_model_response_create(&resp);
@@ -101,7 +127,6 @@ aegis_status_t aegis_model_complete(aegis_model_client_t* client, const aegis_mo
         aegis_model_response_destroy(resp);
         return st;
     }
-    // Mock content: echo last user message
     const char* last_content = "";
     if (req->messages) {
         size_t n = aegis_message_list_count(req->messages);
@@ -114,8 +139,18 @@ aegis_status_t aegis_model_complete(aegis_model_client_t* client, const aegis_mo
         }
     }
     char buf[512];
-    snprintf(buf, sizeof(buf), "mock response to: %s", last_content);
-    aegis_message_set_content(msg, buf);
+    int  n = snprintf(buf, sizeof(buf), "mock response to: %s", last_content);
+    if (n < 0 || (size_t)n >= sizeof(buf)) {
+        aegis_message_destroy(msg);
+        aegis_model_response_destroy(resp);
+        return AEGIS_ERR_NOMEM;
+    }
+    st = aegis_message_set_content(msg, buf);
+    if (st != AEGIS_OK) {
+        aegis_message_destroy(msg);
+        aegis_model_response_destroy(resp);
+        return st;
+    }
     resp->message = msg;
     *out          = resp;
     return AEGIS_OK;
@@ -131,9 +166,10 @@ aegis_status_t aegis_model_stream(aegis_model_client_t* client, const aegis_mode
     if (token && aegis_cancellation_token_is_cancelled(token)) {
         return AEGIS_ERR_CANCELLED;
     }
+    if (client->backend.stream) {
+        return client->backend.stream(client->backend.user, req, token, cb, user);
+    }
 
-    // Mock streaming: send TEXT_DELTA in chunks, then END
-    // Find last user content
     const char* last = "";
     if (req->messages) {
         size_t n = aegis_message_list_count(req->messages);
@@ -146,8 +182,11 @@ aegis_status_t aegis_model_stream(aegis_model_client_t* client, const aegis_mode
         }
     }
     char full[512];
-    snprintf(full, sizeof(full), "mock stream for: %s", last);
-    size_t len   = strlen(full);
+    int  n = snprintf(full, sizeof(full), "mock stream for: %s", last);
+    if (n < 0 || (size_t)n >= sizeof(full)) {
+        return AEGIS_ERR_NOMEM;
+    }
+    size_t len   = (size_t)n;
     size_t chunk = 8;
     for (size_t off = 0; off < len; off += chunk) {
         if (token && aegis_cancellation_token_is_cancelled(token)) {

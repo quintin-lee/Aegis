@@ -8,6 +8,9 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <pthread.h>
+#include <ctype.h>
+#include <errno.h>
+#include <stdint.h>
 
 struct aegis_agent_loop {
     aegis_session_t*            session;
@@ -123,14 +126,253 @@ static aegis_status_t build_context_messages(aegis_agent_loop_t* l, aegis_messag
     return AEGIS_OK;
 }
 
+typedef struct stream_call_accum {
+    uint32_t index;
+    char*    call_id;
+    char*    name;
+    char*    arguments;
+    size_t   arguments_len;
+    size_t   arguments_cap;
+} stream_call_accum_t;
+
 typedef struct stream_accum {
-    char*               text;
-    size_t              len;
-    size_t              cap;
-    aegis_tool_call_t** calls;
-    size_t              call_count;
-    size_t              call_cap;
+    char*                text;
+    size_t               len;
+    size_t               cap;
+    stream_call_accum_t* calls;
+    size_t               call_count;
+    size_t               call_cap;
 } stream_accum_t;
+
+static void stream_accum_destroy(stream_accum_t* acc)
+{
+    if (!acc) {
+        return;
+    }
+    free(acc->text);
+    for (size_t i = 0; i < acc->call_count; ++i) {
+        free(acc->calls[i].call_id);
+        free(acc->calls[i].name);
+        free(acc->calls[i].arguments);
+    }
+    free(acc->calls);
+    memset(acc, 0, sizeof(*acc));
+}
+
+static stream_call_accum_t* stream_call_get(stream_accum_t* acc, uint32_t index)
+{
+    for (size_t i = 0; i < acc->call_count; ++i) {
+        if (acc->calls[i].index == index) {
+            return &acc->calls[i];
+        }
+    }
+    if (acc->call_count == acc->call_cap) {
+        size_t               cap = acc->call_cap ? acc->call_cap * 2 : 4;
+        stream_call_accum_t* p   = realloc(acc->calls, cap * sizeof(*p));
+        if (!p) {
+            return NULL;
+        }
+        acc->calls    = p;
+        acc->call_cap = cap;
+    }
+    stream_call_accum_t* c = &acc->calls[acc->call_count++];
+    memset(c, 0, sizeof(*c));
+    c->index = index;
+    return c;
+}
+
+static int replace_string(char** dst, const char* src)
+{
+    if (!src) {
+        return 1;
+    }
+    char* copy = strdup(src);
+    if (!copy) {
+        return 0;
+    }
+    free(*dst);
+    *dst = copy;
+    return 1;
+}
+
+static int append_call_args(stream_call_accum_t* c, const void* data, size_t len)
+{
+    if (!len) {
+        return 1;
+    }
+    if (len > SIZE_MAX - c->arguments_len - 1) {
+        return 0;
+    }
+    size_t need = c->arguments_len + len + 1;
+    if (need > c->arguments_cap) {
+        size_t cap = c->arguments_cap ? c->arguments_cap * 2 : 256;
+        while (cap < need) {
+            if (cap > SIZE_MAX / 2) {
+                return 0;
+            }
+            cap *= 2;
+        }
+        char* p = realloc(c->arguments, cap);
+        if (!p) {
+            return 0;
+        }
+        c->arguments     = p;
+        c->arguments_cap = cap;
+    }
+    memcpy(c->arguments + c->arguments_len, data, len);
+    c->arguments_len += len;
+    c->arguments[c->arguments_len] = '\0';
+    return 1;
+}
+
+static int json_skip_ws(const char** p, const char* end)
+{
+    while (*p < end && isspace((unsigned char)**p)) {
+        ++*p;
+    }
+    return *p < end;
+}
+
+static int json_parse_string(const char** p, const char* end, char** out)
+{
+    if (!json_skip_ws(p, end) || **p != '"') {
+        return 0;
+    }
+    ++*p;
+    size_t cap = 32, len = 0;
+    char*  s = malloc(cap);
+    if (!s) {
+        return 0;
+    }
+    while (*p < end && **p != '"') {
+        unsigned char ch = (unsigned char)*(*p)++;
+        if (ch == '\\') {
+            if (*p >= end) {
+                free(s);
+                return 0;
+            }
+            ch = (unsigned char)*(*p)++;
+            if (ch == 'n') {
+                ch = '\n';
+            } else if (ch == 'r') {
+                ch = '\r';
+            } else if (ch == 't') {
+                ch = '\t';
+            } else if (ch != '"' && ch != '\\' && ch != '/') {
+                free(s);
+                return 0;
+            }
+        }
+        if (len + 1 >= cap) {
+            cap *= 2;
+            char* n = realloc(s, cap);
+            if (!n) {
+                free(s);
+                return 0;
+            }
+            s = n;
+        }
+        s[len++] = (char)ch;
+    }
+    if (*p >= end || **p != '"') {
+        free(s);
+        return 0;
+    }
+    ++*p;
+    s[len] = '\0';
+    *out   = s;
+    return 1;
+}
+
+static int json_parse_args(const char* json, aegis_tool_args_t** out)
+{
+    if (!json || !out) {
+        return 0;
+    }
+    *out            = NULL;
+    const char* p   = json;
+    const char* end = json + strlen(json);
+    if (!json_skip_ws(&p, end) || *p++ != '{') {
+        return 0;
+    }
+    aegis_tool_args_t* args = NULL;
+    if (aegis_tool_args_create(&args) != AEGIS_OK) {
+        return 0;
+    }
+    while (1) {
+        if (!json_skip_ws(&p, end)) {
+            aegis_tool_args_destroy(args);
+            return 0;
+        }
+        if (*p == '}') {
+            ++p;
+            break;
+        }
+        char* key = NULL;
+        if (!json_parse_string(&p, end, &key) || !json_skip_ws(&p, end) || *p++ != ':' ||
+            !json_skip_ws(&p, end)) {
+            free(key);
+            aegis_tool_args_destroy(args);
+            return 0;
+        }
+        aegis_status_t st = AEGIS_ERR_INVALID;
+        if (*p == '"') {
+            char* value = NULL;
+            if (json_parse_string(&p, end, &value)) {
+                st = aegis_tool_args_add_string(args, key, value);
+            }
+            free(value);
+        } else if (*p == 't' && end - p >= 4 && strncmp(p, "true", 4) == 0) {
+            p += 4;
+            st = aegis_tool_args_add_bool(args, key, true);
+        } else if (*p == 'f' && end - p >= 5 && strncmp(p, "false", 5) == 0) {
+            p += 5;
+            st = aegis_tool_args_add_bool(args, key, false);
+        } else {
+            errno             = 0;
+            char*  number_end = NULL;
+            double number     = strtod(p, &number_end);
+            if (number_end == p || errno == ERANGE || number != number) {
+                st = AEGIS_ERR_INVALID;
+            } else {
+                bool is_float = false;
+                for (const char* q = p; q < number_end; ++q) {
+                    if (*q == '.' || *q == 'e' || *q == 'E') {
+                        is_float = true;
+                        break;
+                    }
+                }
+                if (is_float) {
+                    st = aegis_tool_args_add_float(args, key, number);
+                } else {
+                    st = aegis_tool_args_add_int(args, key, (int64_t)number);
+                }
+            }
+            p = number_end;
+        }
+        free(key);
+        if (st != AEGIS_OK || !json_skip_ws(&p, end)) {
+            aegis_tool_args_destroy(args);
+            return 0;
+        }
+        if (*p == ',') {
+            ++p;
+            continue;
+        }
+        if (*p == '}') {
+            ++p;
+            break;
+        }
+        aegis_tool_args_destroy(args);
+        return 0;
+    }
+    if (!json_skip_ws(&p, end) || p != end) {
+        aegis_tool_args_destroy(args);
+        return 0;
+    }
+    *out = args;
+    return 1;
+}
 
 static aegis_status_t stream_cb(const aegis_model_stream_event_t* ev, void* user)
 {
@@ -155,7 +397,24 @@ static aegis_status_t stream_cb(const aegis_model_stream_event_t* ev, void* user
         acc->len += ev->len;
         acc->text[acc->len] = '\0';
     }
-    // Tool call events are not yet produced by mock; placeholder
+    if (ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_START ||
+        ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_DELTA ||
+        ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_END) {
+        stream_call_accum_t* call = stream_call_get(acc, ev->index);
+        if (!call) {
+            return AEGIS_ERR_NOMEM;
+        }
+        if (ev->call_id && !replace_string(&call->call_id, ev->call_id)) {
+            return AEGIS_ERR_NOMEM;
+        }
+        if (ev->tool_name && !replace_string(&call->name, ev->tool_name)) {
+            return AEGIS_ERR_NOMEM;
+        }
+        if (ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_DELTA &&
+            !append_call_args(call, ev->data, ev->len)) {
+            return AEGIS_ERR_NOMEM;
+        }
+    }
     return AEGIS_OK;
 }
 
@@ -183,7 +442,7 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
 
     set_state(l, AEGIS_AGENT_LOOP_RUNNING);
 
-    while (1) {
+    for (unsigned turn = 0; turn < 16; ++turn) {
         if (l->token && aegis_cancellation_token_is_cancelled(l->token)) {
             set_state(l, AEGIS_AGENT_LOOP_CANCELLED);
             return AEGIS_ERR_CANCELLED;
@@ -199,7 +458,7 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
         }
 
         aegis_model_request_t req = {
-            .model       = "mock",
+            .model       = NULL,
             .messages    = ctx_msgs,
             .tools       = l->tools,
             .max_tokens  = 0,
@@ -211,7 +470,7 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
         st                 = aegis_model_stream(l->model, &req, l->token, stream_cb, &acc);
         aegis_message_list_destroy(ctx_msgs);
         if (st != AEGIS_OK) {
-            free(acc.text);
+            stream_accum_destroy(&acc);
             set_state(l, AEGIS_AGENT_LOOP_FAILED);
             return st;
         }
@@ -222,11 +481,23 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
         aegis_message_set_content(am, acc.text ? acc.text : "");
         // Attach any tool calls collected (none in mock)
         for (size_t i = 0; i < acc.call_count; i++) {
-            aegis_message_add_tool_call(am, acc.calls[i]);
-            aegis_tool_call_destroy(acc.calls[i]);
+            aegis_tool_call_t* call = NULL;
+            if (aegis_tool_call_create(&call) != AEGIS_OK ||
+                aegis_tool_call_set_id(call, acc.calls[i].call_id) != AEGIS_OK ||
+                aegis_tool_call_set_name(call, acc.calls[i].name) != AEGIS_OK ||
+                aegis_tool_call_set_arguments(
+                    call, acc.calls[i].arguments ? acc.calls[i].arguments : "{}") != AEGIS_OK ||
+                aegis_message_add_tool_call(am, call) != AEGIS_OK) {
+                aegis_tool_call_destroy(call);
+                aegis_message_destroy(am);
+                stream_accum_destroy(&acc);
+                set_state(l, AEGIS_AGENT_LOOP_FAILED);
+                return AEGIS_ERR_NOMEM;
+            }
+            aegis_tool_call_destroy(call);
         }
-        free(acc.calls);
         free(acc.text);
+        acc.text = NULL;
 
         size_t tc = aegis_message_tool_call_count(am);
         st        = aegis_session_append_message(l->session, am);
@@ -248,15 +519,53 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
             const aegis_tool_call_t* call = aegis_message_tool_call_at(am, i);
             const char*              name = aegis_tool_call_name(call);
             const char*              cid  = aegis_tool_call_id(call);
-            // For now, mock tool result
+            if (!l->tools || !name || !cid) {
+                aegis_message_destroy(am);
+                set_state(l, AEGIS_AGENT_LOOP_FAILED);
+                return AEGIS_ERR_TOOL;
+            }
+            aegis_tool_def_t def;
+            st = aegis_tool_registry_find(l->tools, name, &def);
+            if (st != AEGIS_OK) {
+                aegis_message_destroy(am);
+                set_state(l, AEGIS_AGENT_LOOP_FAILED);
+                return st;
+            }
+            aegis_tool_args_t* args     = NULL;
+            const char*        raw_args = aegis_tool_call_arguments(call);
+            if (!json_parse_args(raw_args ? raw_args : "{}", &args)) {
+                aegis_message_destroy(am);
+                set_state(l, AEGIS_AGENT_LOOP_FAILED);
+                return AEGIS_ERR_INVALID;
+            }
+            aegis_tool_result_t result = {0};
+            st = aegis_tool_execute(l->tools, name, args, l->token, &result);
+            aegis_tool_args_destroy(args);
             aegis_message_t* tr = NULL;
-            aegis_message_create(AEGIS_MESSAGE_TOOL, &tr);
-            aegis_message_set_tool_call_id(tr, cid);
-            char result[256];
-            snprintf(result, sizeof(result), "mock result for %s", name ? name : "unknown");
-            aegis_message_set_content(tr, result);
-            aegis_session_append_message(l->session, tr);
+            if (aegis_message_create(AEGIS_MESSAGE_TOOL, &tr) != AEGIS_OK ||
+                aegis_message_set_tool_call_id(tr, cid) != AEGIS_OK) {
+                aegis_message_destroy(tr);
+                aegis_tool_result_destroy(&result);
+                aegis_message_destroy(am);
+                set_state(l, AEGIS_AGENT_LOOP_FAILED);
+                return AEGIS_ERR_NOMEM;
+            }
+            if (st == AEGIS_OK && result.value.type == AEGIS_TOOL_VAL_STRING) {
+                aegis_message_set_content(tr,
+                                          result.value.as.str.ptr ? result.value.as.str.ptr : "");
+            } else {
+                char error[128];
+                snprintf(error, sizeof(error), "tool %s failed: %s", name, aegis_status_str(st));
+                aegis_message_set_content(tr, error);
+            }
+            aegis_tool_result_destroy(&result);
+            st = aegis_session_append_message(l->session, tr);
             aegis_message_destroy(tr);
+            if (st != AEGIS_OK) {
+                aegis_message_destroy(am);
+                set_state(l, AEGIS_AGENT_LOOP_FAILED);
+                return st;
+            }
             if (l->token && aegis_cancellation_token_is_cancelled(l->token)) {
                 aegis_message_destroy(am);
                 set_state(l, AEGIS_AGENT_LOOP_CANCELLED);
@@ -266,6 +575,8 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
         aegis_message_destroy(am);
         // loop continues for next model turn
     }
+    set_state(l, AEGIS_AGENT_LOOP_FAILED);
+    return AEGIS_ERR_TIMEOUT;
 }
 
 aegis_status_t aegis_agent_loop_run(aegis_agent_loop_t* l, const char* user_input)

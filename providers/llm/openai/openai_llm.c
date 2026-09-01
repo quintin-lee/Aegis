@@ -79,7 +79,7 @@ static char* pull_content(const char* json, size_t json_len)
         return NULL;
     }
     p = strchr(p, '[');
-    if (!p || p[1] != '[') {
+    if (!p) {
         return NULL;
     }
     p++; /* advance past '[' */
@@ -479,11 +479,12 @@ aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx,
         return AEGIS_ERR_NOMEM;
     }
 
-    /* ops are file-scope const, owned by registry, not freed by destroy */
-    static const aegis_llm_ops_t ops = {
+    /* ops are file-scope, owned by registry, not freed by destroy */
+    static aegis_llm_ops_t ops = {
         .complete = openai_llm_complete,
         .stream   = openai_llm_stream,
     };
+    ops.ctx = ctx;
 
     aegis_provider_def_t def = {
         .name         = "llm-openai",
@@ -494,7 +495,7 @@ aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx,
         .thread_model = AEGIS_PROVIDER_SINGLE_THREAD,
         .init         = openai_llm_init,
         .shutdown     = openai_llm_shutdown,
-        .user         = ctx,
+        .user         = &ops,
     };
 
     *out_ctx = ctx;

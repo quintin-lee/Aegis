@@ -19,6 +19,9 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
     aegis_coding_agent_config_t cfg = {0};
     cfg.project_root                = project_root ? project_root : ".";
     cfg.model                       = model ? model : "mock";
+    cfg.provider                    = getenv("AEGIS_PROVIDER");
+    cfg.api_key                     = getenv("OPENAI_API_KEY");
+    cfg.base_url                    = getenv("AEGIS_OPENAI_BASE_URL");
     aegis_coding_agent_t* agent     = NULL;
     aegis_status_t        st        = aegis_coding_agent_create(&cfg, &agent);
     if (st != AEGIS_OK) {
@@ -151,6 +154,9 @@ int cmd_print(const char* prompt, const char* project_root, const char* model)
     aegis_coding_agent_config_t cfg = {0};
     cfg.project_root                = project_root ? project_root : ".";
     cfg.model                       = model ? model : "mock";
+    cfg.provider                    = getenv("AEGIS_PROVIDER");
+    cfg.api_key                     = getenv("OPENAI_API_KEY");
+    cfg.base_url                    = getenv("AEGIS_OPENAI_BASE_URL");
     aegis_coding_agent_t* agent     = NULL;
     aegis_status_t        st        = aegis_coding_agent_create(&cfg, &agent);
     if (st != AEGIS_OK) {
