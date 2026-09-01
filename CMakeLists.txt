@@ -94,6 +94,10 @@ add_executable(aegis
 )
 target_link_libraries(aegis PRIVATE aegis_core)
 target_compile_definitions(aegis PRIVATE AEGIS_VERSION_STRING="${AEGIS_VERSION_STRING}")
+if(AEGIS_OPENAI_PROVIDER)
+    target_link_libraries(aegis PRIVATE aegis_llm_openai)
+    target_compile_definitions(aegis PRIVATE AEGIS_OPENAI_PROVIDER)
+endif()
 aegis_set_warnings(aegis)
 
 # ── Tests ────────────────────────────────────────────────────────────────
