@@ -181,10 +181,21 @@ static char* build_body(const openai_llm_ctx_t* ctx,
     float    temp       = req ? req->temperature : OPENAI_TEMPERATURE;
 
     /* Write prefix */
+    /* Use configured model or fall back to env var or default */
+    const char* model = ctx->model;
+    if (!model || model[0] == '\0') {
+        model = getenv("OPENAI_MODEL");
+    }
+    if (!model || model[0] == '\0') {
+        model = getenv("AEGIS_OPENAI_MODEL");
+    }
+    if (!model || model[0] == '\0') {
+        model = OPENAI_DEFAULT_MODEL;
+    }
     int n = snprintf(buf, est,
         "{\"model\":\"%s\","
          "\"messages\":[{\"role\":\"user\",\"content\":\"",
-        ctx->model);
+        model);
     if (n < 0 || (size_t)n >= est) {
         free(buf);
         return NULL;
