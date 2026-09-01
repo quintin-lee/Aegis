@@ -196,6 +196,14 @@ static aegis_status_t set_str(char** dst, const char* src)
     return AEGIS_OK;
 }
 
+aegis_status_t aegis_message_set_id(aegis_message_t* m, const char* id)
+{
+    if (!m || !id || !id[0]) {
+        return AEGIS_ERR_INVALID;
+    }
+    return set_str(&m->id, id);
+}
+
 aegis_status_t aegis_message_set_content(aegis_message_t* m, const char* txt)
 {
     if (!m) {

@@ -47,6 +47,7 @@ const aegis_tool_call_t* aegis_message_tool_call_at(const aegis_message_t* msg, 
 
 /* ── Message mutators ────────────────────────────────────────────────── */
 
+aegis_status_t aegis_message_set_id(aegis_message_t* msg, const char* id);
 aegis_status_t aegis_message_set_content(aegis_message_t* msg, const char* text);
 aegis_status_t aegis_message_set_reasoning(aegis_message_t* msg, const char* reasoning);
 aegis_status_t aegis_message_set_tool_call_id(aegis_message_t* msg, const char* tool_call_id);

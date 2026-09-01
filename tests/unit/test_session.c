@@ -1,8 +1,4 @@
 #define _POSIX_C_SOURCE 200809L
-/**
- * @file test_session.c
- * @brief Unit tests for Session (Phase3)
- */
 #include "aegis/session/session.h"
 #include "aegis/message/message.h"
 #include <assert.h>
@@ -39,8 +35,8 @@ static void test_create_append(void)
 
 static void test_save_load(void)
 {
-    char  tmpl[] = "/tmp/aegis_sess_XXXXXX";
-    char* tmp    = mkdtemp(tmpl);
+    char tmpl[] = "/tmp/aegis_sess_XXXXXX";
+    char* tmp = mkdtemp(tmpl);
     assert(tmp);
     char path[1024];
     snprintf(path, sizeof(path), "%s/sess.jsonl", tmp);
@@ -69,6 +65,48 @@ static void test_save_load(void)
     printf("save_load PASS\n");
 }
 
+static void test_tool_call_round_trip(void)
+{
+    char tmpl[] = "/tmp/aegis_tool_sess_XXXXXX";
+    char* tmp = mkdtemp(tmpl);
+    assert(tmp);
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/sess.jsonl", tmp);
+
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/tool", &s), "tool session");
+    aegis_message_t* assistant = NULL;
+    expect_ok(aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &assistant), "assistant");
+    aegis_tool_call_t* call = NULL;
+    expect_ok(aegis_tool_call_create(&call), "call");
+    expect_ok(aegis_tool_call_set_id(call, "call-42"), "call id");
+    expect_ok(aegis_tool_call_set_name(call, "read"), "call name");
+    expect_ok(aegis_tool_call_set_arguments(call, "{\"path\":\"README.md\",\"note\":\"a\\n\\\"quote\\\"\"}"), "call args");
+    expect_ok(aegis_tool_call_set_index(call, 3), "call index");
+    expect_ok(aegis_message_add_tool_call(assistant, call), "attach call");
+    expect_ok(aegis_session_append_message(s, assistant), "append assistant");
+    expect_ok(aegis_session_save(s, path), "save tool session");
+
+    aegis_session_t* loaded = NULL;
+    expect_ok(aegis_session_load(path, &loaded), "load tool session");
+    assert(aegis_session_message_count(loaded) == 1);
+    const aegis_message_t* restored = aegis_session_message_at(loaded, 0);
+    assert(aegis_message_tool_call_count(restored) == 1);
+    const aegis_tool_call_t* restored_call = aegis_message_tool_call_at(restored, 0);
+    assert(strcmp(aegis_tool_call_id(restored_call), "call-42") == 0);
+    assert(strcmp(aegis_tool_call_name(restored_call), "read") == 0);
+    assert(strcmp(aegis_tool_call_arguments(restored_call), "{\"path\":\"README.md\",\"note\":\"a\\n\\\"quote\\\"\"}") == 0);
+    assert(aegis_tool_call_index(restored_call) == 3);
+
+    aegis_tool_call_destroy(call);
+    aegis_message_destroy(assistant);
+    aegis_session_destroy(s);
+    aegis_session_destroy(loaded);
+    unlink(path);
+    rmdir(tmp);
+    printf("tool_call_round_trip PASS\n");
+}
+
 static void test_fork(void)
 {
     aegis_session_t* s = NULL;
@@ -82,7 +120,6 @@ static void test_fork(void)
     assert(aegis_session_message_count(forked) == 1);
     assert(strcmp(aegis_session_branch_id(s), aegis_session_branch_id(forked)) != 0);
     assert(strcmp(aegis_session_parent_id(forked), aegis_session_id(s)) == 0);
-    // append to fork should not affect original
     aegis_message_t* m2 = NULL;
     expect_ok(aegis_message_create(AEGIS_MESSAGE_USER, &m2), "m2");
     expect_ok(aegis_message_set_content(m2, "fork msg"), "c2");
@@ -100,6 +137,7 @@ int main(void)
 {
     test_create_append();
     test_save_load();
+    test_tool_call_round_trip();
     test_fork();
     printf("All session tests PASS\n");
     return 0;
