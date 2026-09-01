@@ -96,11 +96,11 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
 
     aegis_agent_loop_config_t lcfg;
     memset(&lcfg, 0, sizeof(lcfg));
-    lcfg.session = a->session;
-    lcfg.model = a->model;
-    lcfg.tools = a->tools;
+    lcfg.session       = a->session;
+    lcfg.model         = a->model;
+    lcfg.tools         = a->tools;
     lcfg.system_prompt = "You are a coding agent. Use tools to help the user.";
-    st = aegis_agent_loop_create(&lcfg, &a->loop);
+    st                 = aegis_agent_loop_create(&lcfg, &a->loop);
     if (st != AEGIS_OK) {
         if (a->owns_tools) {
             if (a->skills) {

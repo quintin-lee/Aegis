@@ -37,42 +37,39 @@ else()
     message(STATUS "clang-format not found; format targets unavailable")
 endif()
 
-# ── libaegis_common ──────────────────────────────────────────────────────
-add_library(aegis_common
-    src/common/error.c
-    src/common/result.c
-    src/common/allocator.c
-    src/common/queue.c
-    src/common/hashmap.c
-    src/common/buffer.c
-    src/common/string.c
-    src/common/thread.c
-    src/common/mutex.c
-    src/common/uuid.c
-    src/common/atomic.c
-    src/common/vector.c
-    src/common/list.c
-    src/common/time.c
-    src/common/cancellation/cancellation.c
-    src/status.c
-)
-target_include_directories(aegis_common
-    PUBLIC
-        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
-    PRIVATE
-        ${PROJECT_SOURCE_DIR}/src/internal
-        ${PROJECT_SOURCE_DIR}/providers
-        ${PROJECT_SOURCE_DIR}/strategies
-)
-target_link_libraries(aegis_common PRIVATE m pthread)
-aegis_set_warnings(aegis_common)
-
-# ── Fine-grained libraries ───────────────────────────────────────────────
+# ── Subdirectories ───────────────────────────────────────────────────────
+# Order matters: libraries are built bottom-up within each add_subdirectory,
+# but top-level only adds subdirs; cmake/AegisLibraries.cmake still defines
+# the INTERFACE umbrellas (aegis_workflow, aegis_core).
+add_subdirectory(src/common)
+add_subdirectory(src/runtime)
+add_subdirectory(src/event)
+add_subdirectory(src/provider)
+add_subdirectory(src/tool)
+add_subdirectory(src/message)
+add_subdirectory(src/model)
+add_subdirectory(src/session)
+add_subdirectory(src/context)
+add_subdirectory(src/task)
+add_subdirectory(src/scheduler)
+add_subdirectory(src/executor)
+add_subdirectory(src/planner)
+add_subdirectory(src/memory)
+add_subdirectory(src/checkpoint)
+add_subdirectory(src/security)
+add_subdirectory(src/observability)
+add_subdirectory(src/plugin)
+add_subdirectory(src/storage)
+add_subdirectory(src/critic)
+add_subdirectory(src/autonomous)
+add_subdirectory(src/agent)
+add_subdirectory(src/coding)
+add_subdirectory(src/skill)
+add_subdirectory(src/extension)
 include(cmake/AegisLibraries.cmake)
 
 # ── Executables ──────────────────────────────────────────────────────────
-add_executable(aegis_shell src/shell.c)
+add_executable(aegis_shell src/autonomous/src/shell.c)
 target_link_libraries(aegis_shell PRIVATE aegis_core)
 aegis_set_warnings(aegis_shell)
 
