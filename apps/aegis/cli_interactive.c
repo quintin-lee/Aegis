@@ -97,7 +97,15 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/compact") == 0) {
-            printf("compacting... (mock)\n");
+            aegis_session_t* sess = aegis_coding_agent_session(agent);
+            size_t before = aegis_session_message_count(sess);
+            st = aegis_session_compact(sess, 32);
+            if (st == AEGIS_OK) {
+                printf("compacted session: %zu -> %zu messages\n", before,
+                       aegis_session_message_count(sess));
+            } else {
+                printf("compact failed: %s\n", aegis_status_str(st));
+            }
             continue;
         }
         if (strcmp(line, "/json") == 0) {

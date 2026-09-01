@@ -35,6 +35,9 @@ size_t         aegis_session_message_count(const aegis_session_t* sess);
 const aegis_message_t*      aegis_session_message_at(const aegis_session_t* sess, size_t idx);
 const aegis_message_list_t* aegis_session_messages(const aegis_session_t* sess);
 
+/** Drop the oldest messages while retaining the most recent conversation. */
+aegis_status_t aegis_session_compact(aegis_session_t* sess, size_t keep_messages);
+
 /* ── Persistence (JSONL) ─────────────────────────────────────────────── */
 
 aegis_status_t aegis_session_save(const aegis_session_t* sess, const char* path);

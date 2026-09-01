@@ -125,6 +125,23 @@ const aegis_message_list_t* aegis_session_messages(const aegis_session_t* s)
     return s ? s->messages : NULL;
 }
 
+aegis_status_t aegis_session_compact(aegis_session_t* s, size_t keep_messages)
+{
+    if (!s || !s->messages) return AEGIS_ERR_INVALID;
+    size_t count = aegis_message_list_count(s->messages);
+    if (keep_messages >= count) return AEGIS_OK;
+    aegis_message_list_t* retained = NULL;
+    if (aegis_message_list_create(&retained) != AEGIS_OK) return AEGIS_ERR_NOMEM;
+    for (size_t i = count - keep_messages; i < count; ++i) {
+        aegis_status_t st = aegis_message_list_append(retained, aegis_message_list_at(s->messages, i));
+        if (st != AEGIS_OK) { aegis_message_list_destroy(retained); return st; }
+    }
+    aegis_message_list_destroy(s->messages);
+    s->messages = retained;
+    s->updated_at = now_ms();
+    return AEGIS_OK;
+}
+
 aegis_status_t aegis_session_fork(const aegis_session_t* src, aegis_session_t** out)
 {
     if (!src || !out) {
@@ -298,18 +315,6 @@ aegis_status_t aegis_session_load(const char* path, aegis_session_t** out)
                     aegis_tool_call_destroy(c); break;
                 }
             }
-        } else        if (strstr(line, "\"type\":\"tool_call\"")) {
-            char msg_id[64] = "", call_id[128] = "", name[256] = "", args[4096] = "";
-            const char* q = strstr(line, "\"msg_id\":\"");
-            if (q) { q += strlen("\"msg_id\":\""); size_t k=0; while (*q && *q!='"' && k+1<sizeof(msg_id)) msg_id[k++]=*q++; msg_id[k]=0; }
-            q = strstr(line, "\"call_id\":\"");
-            if (q) { q += strlen("\"call_id\":\""); size_t k=0; while (*q && *q!='"' && k+1<sizeof(call_id)) call_id[k++]=*q++; call_id[k]=0; }
-            q = strstr(line, "\"name\":\"");
-            if (q) { q += strlen("\"name\":\""); size_t k=0; while (*q && *q!='"' && k+1<sizeof(name)) name[k++]=*q++; name[k]=0; }
-            q = strstr(line, "\"args\":\"");
-            if (q) { q += strlen("\"args\":\""); size_t k=0; while (*q && *q!='"' && k+1<sizeof(args)) { if (*q=='\\' && q[1]) { ++q; args[k++]=*q++; } else args[k++]=*q++; } args[k]=0; }
-            int index=-1; q=strstr(line,"\"index\":"); if(q) index=atoi(q+8);
-            for(size_t i=0;i<aegis_session_message_count(s);++i){ aegis_message_t* m=(aegis_message_t*)aegis_session_message_at(s,i); if(m && strcmp(aegis_message_id(m),msg_id)==0){ aegis_tool_call_t* c=NULL; if(aegis_tool_call_create(&c)==AEGIS_OK && aegis_tool_call_set_id(c,call_id)==AEGIS_OK && aegis_tool_call_set_name(c,name)==AEGIS_OK && aegis_tool_call_set_arguments(c,args)==AEGIS_OK){ aegis_tool_call_set_index(c,index); aegis_message_add_tool_call(m,c); } aegis_tool_call_destroy(c); break; } }
         } else if (strstr(line, "\"type\":\"message\"")) {
             // parse role and content
             char        role_str[16] = "";

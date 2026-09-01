@@ -107,6 +107,26 @@ static void test_tool_call_round_trip(void)
     printf("tool_call_round_trip PASS\n");
 }
 
+static void test_compact(void)
+{
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/compact", &s), "compact session");
+    for (int i = 0; i < 3; ++i) {
+        aegis_message_t* m = NULL;
+        expect_ok(aegis_message_create(AEGIS_MESSAGE_USER, &m), "compact message");
+        char content[32]; snprintf(content, sizeof(content), "message-%d", i);
+        expect_ok(aegis_message_set_content(m, content), "compact content");
+        expect_ok(aegis_session_append_message(s, m), "compact append");
+        aegis_message_destroy(m);
+    }
+    expect_ok(aegis_session_compact(s, 2), "compact");
+    assert(aegis_session_message_count(s) == 2);
+    assert(strcmp(aegis_message_content(aegis_session_message_at(s, 0)), "message-1") == 0);
+    assert(strcmp(aegis_message_content(aegis_session_message_at(s, 1)), "message-2") == 0);
+    aegis_session_destroy(s);
+    printf("compact PASS\\n");
+}
+
 static void test_fork(void)
 {
     aegis_session_t* s = NULL;
@@ -138,6 +158,7 @@ int main(void)
     test_create_append();
     test_save_load();
     test_tool_call_round_trip();
+    test_compact();
     test_fork();
     printf("All session tests PASS\n");
     return 0;
