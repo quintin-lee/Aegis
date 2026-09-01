@@ -109,21 +109,28 @@ static aegis_status_t build_context_messages(aegis_agent_loop_t* l, aegis_messag
     if (!l || !out) {
         return AEGIS_ERR_INVALID;
     }
-    *out = NULL;
+    *out                       = NULL;
     aegis_message_list_t* list = NULL;
-    aegis_status_t st = aegis_message_list_create(&list);
+    aegis_status_t        st   = aegis_message_list_create(&list);
     if (st != AEGIS_OK) {
         return st;
     }
     if (l->system_prompt) {
         aegis_message_t* sys = NULL;
-        st = aegis_message_create(AEGIS_MESSAGE_SYSTEM, &sys);
-        if (st == AEGIS_OK) st = aegis_message_set_content(sys, l->system_prompt);
-        if (st == AEGIS_OK) st = aegis_message_list_append(list, sys);
+        st                   = aegis_message_create(AEGIS_MESSAGE_SYSTEM, &sys);
+        if (st == AEGIS_OK) {
+            st = aegis_message_set_content(sys, l->system_prompt);
+        }
+        if (st == AEGIS_OK) {
+            st = aegis_message_list_append(list, sys);
+        }
         aegis_message_destroy(sys);
-        if (st != AEGIS_OK) { aegis_message_list_destroy(list); return st; }
+        if (st != AEGIS_OK) {
+            aegis_message_list_destroy(list);
+            return st;
+        }
     }
-    size_t n = aegis_session_message_count(l->session);
+    size_t n     = aegis_session_message_count(l->session);
     size_t first = n > 128 ? n - 128 : 0;
     for (size_t i = first; i < n; ++i) {
         if (l->token && aegis_cancellation_token_is_cancelled(l->token)) {
@@ -131,9 +138,14 @@ static aegis_status_t build_context_messages(aegis_agent_loop_t* l, aegis_messag
             return AEGIS_ERR_CANCELLED;
         }
         const aegis_message_t* msg = aegis_session_message_at(l->session, i);
-        if (!msg) continue;
+        if (!msg) {
+            continue;
+        }
         st = aegis_message_list_append(list, msg);
-        if (st != AEGIS_OK) { aegis_message_list_destroy(list); return st; }
+        if (st != AEGIS_OK) {
+            aegis_message_list_destroy(list);
+            return st;
+        }
     }
     *out = list;
     return AEGIS_OK;

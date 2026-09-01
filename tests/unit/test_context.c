@@ -181,8 +181,7 @@ static void test_message_budget_truncation(void)
               "add system");
     expect_ok(aegis_context_builder_add_section(b, "recent", AEGIS_CONTEXT_HISTORY, 90, 5),
               "add recent");
-    expect_ok(aegis_context_builder_add_section(b, "old", AEGIS_CONTEXT_HISTORY, 10, 5),
-              "add old");
+    expect_ok(aegis_context_builder_add_section(b, "old", AEGIS_CONTEXT_HISTORY, 10, 5), "add old");
     aegis_context_builder_set_budget(b, 10);
 
     aegis_message_list_t* list = NULL;
