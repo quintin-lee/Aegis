@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_context.a CMakeFiles/aegis_context.dir/context.c.o
+/usr/bin/ranlib libaegis_context.a

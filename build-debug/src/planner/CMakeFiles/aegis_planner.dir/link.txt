@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_planner.a CMakeFiles/aegis_planner.dir/plan.c.o CMakeFiles/aegis_planner.dir/planner.c.o CMakeFiles/aegis_planner.dir/__/strategy/strategy_registry.c.o CMakeFiles/aegis_planner.dir/__/strategy/autonomous_strategy.c.o CMakeFiles/aegis_planner.dir/__/__/strategies/plan_execute/plan_execute.c.o
+/usr/bin/ranlib libaegis_planner.a

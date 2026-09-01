@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_skill.a CMakeFiles/aegis_skill.dir/skill.c.o CMakeFiles/aegis_skill.dir/registry.c.o CMakeFiles/aegis_skill.dir/loader.c.o
+/usr/bin/ranlib libaegis_skill.a

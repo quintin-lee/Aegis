@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_executor.a CMakeFiles/aegis_executor.dir/executor.c.o
+/usr/bin/ranlib libaegis_executor.a

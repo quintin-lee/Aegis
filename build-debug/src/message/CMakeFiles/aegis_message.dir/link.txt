@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_message.a CMakeFiles/aegis_message.dir/role.c.o CMakeFiles/aegis_message.dir/tool_call.c.o CMakeFiles/aegis_message.dir/tool_result.c.o CMakeFiles/aegis_message.dir/message.c.o
+/usr/bin/ranlib libaegis_message.a

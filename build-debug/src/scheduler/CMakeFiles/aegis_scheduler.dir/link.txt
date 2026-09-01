@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_scheduler.a CMakeFiles/aegis_scheduler.dir/scheduler.c.o
+/usr/bin/ranlib libaegis_scheduler.a

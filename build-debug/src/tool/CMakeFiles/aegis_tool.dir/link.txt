@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_tool.a CMakeFiles/aegis_tool.dir/tool.c.o CMakeFiles/aegis_tool.dir/tool_call.c.o CMakeFiles/aegis_tool.dir/tool_registry.c.o CMakeFiles/aegis_tool.dir/tool_schema.c.o
+/usr/bin/ranlib libaegis_tool.a

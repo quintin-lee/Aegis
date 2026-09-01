@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_memory.a CMakeFiles/aegis_memory.dir/memory.c.o CMakeFiles/aegis_memory.dir/memory_working.c.o CMakeFiles/aegis_memory.dir/memory_episodic.c.o CMakeFiles/aegis_memory.dir/memory_semantic.c.o CMakeFiles/aegis_memory.dir/memory_procedural.c.o
+/usr/bin/ranlib libaegis_memory.a

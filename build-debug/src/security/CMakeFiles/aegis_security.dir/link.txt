@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_security.a CMakeFiles/aegis_security.dir/security.c.o
+/usr/bin/ranlib libaegis_security.a

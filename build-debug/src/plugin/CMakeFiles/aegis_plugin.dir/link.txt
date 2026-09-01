@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_plugin.a CMakeFiles/aegis_plugin.dir/plugin.c.o
+/usr/bin/ranlib libaegis_plugin.a

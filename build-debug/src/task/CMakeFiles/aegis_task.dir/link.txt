@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_task.a CMakeFiles/aegis_task.dir/task.c.o CMakeFiles/aegis_task.dir/graph.c.o CMakeFiles/aegis_task.dir/dependency.c.o
+/usr/bin/ranlib libaegis_task.a

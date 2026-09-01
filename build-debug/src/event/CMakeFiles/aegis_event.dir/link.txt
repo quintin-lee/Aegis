@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_event.a CMakeFiles/aegis_event.dir/event.c.o CMakeFiles/aegis_event.dir/event_bus.c.o
+/usr/bin/ranlib libaegis_event.a

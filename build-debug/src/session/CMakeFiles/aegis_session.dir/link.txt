@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_session.a CMakeFiles/aegis_session.dir/session.c.o
+/usr/bin/ranlib libaegis_session.a

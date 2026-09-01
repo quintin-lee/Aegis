@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_runtime.a CMakeFiles/aegis_runtime.dir/runtime.c.o CMakeFiles/aegis_runtime.dir/config.c.o
+/usr/bin/ranlib libaegis_runtime.a

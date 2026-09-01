@@ -1,0 +1,2 @@
+/usr/bin/ar qc libaegis_storage.a CMakeFiles/aegis_storage.dir/storage.c.o CMakeFiles/aegis_storage.dir/storage_store.c.o
+/usr/bin/ranlib libaegis_storage.a

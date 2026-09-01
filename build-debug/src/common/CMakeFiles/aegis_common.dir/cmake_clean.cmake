@@ -1,0 +1,41 @@
+file(REMOVE_RECURSE
+  "CMakeFiles/aegis_common.dir/__/autonomous/src/status.c.o"
+  "CMakeFiles/aegis_common.dir/__/autonomous/src/status.c.o.d"
+  "CMakeFiles/aegis_common.dir/allocator.c.o"
+  "CMakeFiles/aegis_common.dir/allocator.c.o.d"
+  "CMakeFiles/aegis_common.dir/atomic.c.o"
+  "CMakeFiles/aegis_common.dir/atomic.c.o.d"
+  "CMakeFiles/aegis_common.dir/buffer.c.o"
+  "CMakeFiles/aegis_common.dir/buffer.c.o.d"
+  "CMakeFiles/aegis_common.dir/cancellation/cancellation.c.o"
+  "CMakeFiles/aegis_common.dir/cancellation/cancellation.c.o.d"
+  "CMakeFiles/aegis_common.dir/error.c.o"
+  "CMakeFiles/aegis_common.dir/error.c.o.d"
+  "CMakeFiles/aegis_common.dir/hashmap.c.o"
+  "CMakeFiles/aegis_common.dir/hashmap.c.o.d"
+  "CMakeFiles/aegis_common.dir/list.c.o"
+  "CMakeFiles/aegis_common.dir/list.c.o.d"
+  "CMakeFiles/aegis_common.dir/mutex.c.o"
+  "CMakeFiles/aegis_common.dir/mutex.c.o.d"
+  "CMakeFiles/aegis_common.dir/queue.c.o"
+  "CMakeFiles/aegis_common.dir/queue.c.o.d"
+  "CMakeFiles/aegis_common.dir/result.c.o"
+  "CMakeFiles/aegis_common.dir/result.c.o.d"
+  "CMakeFiles/aegis_common.dir/string.c.o"
+  "CMakeFiles/aegis_common.dir/string.c.o.d"
+  "CMakeFiles/aegis_common.dir/thread.c.o"
+  "CMakeFiles/aegis_common.dir/thread.c.o.d"
+  "CMakeFiles/aegis_common.dir/time.c.o"
+  "CMakeFiles/aegis_common.dir/time.c.o.d"
+  "CMakeFiles/aegis_common.dir/uuid.c.o"
+  "CMakeFiles/aegis_common.dir/uuid.c.o.d"
+  "CMakeFiles/aegis_common.dir/vector.c.o"
+  "CMakeFiles/aegis_common.dir/vector.c.o.d"
+  "libaegis_common.a"
+  "libaegis_common.pdb"
+)
+
+# Per-language clean rules from dependency scanning.
+foreach(lang C)
+  include(CMakeFiles/aegis_common.dir/cmake_clean_${lang}.cmake OPTIONAL)
+endforeach()
