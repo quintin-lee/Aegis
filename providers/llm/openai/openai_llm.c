@@ -369,7 +369,6 @@ static aegis_status_t openai_llm_complete(void* ctx_ptr,
     out->len  = strlen(content);
     return AEGIS_OK;
 }
-
 /* ── Factory ─────────────────────────────────────────────────────────────── */
 
 aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx,
