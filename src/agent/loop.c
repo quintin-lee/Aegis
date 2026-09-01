@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stddef.h>
 #include <pthread.h>
 
 struct aegis_agent_loop {
