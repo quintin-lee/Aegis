@@ -61,9 +61,8 @@ aegis_status_t aegis_llm_complete(const aegis_provider_registry_t* reg, const ch
 
 aegis_status_t aegis_llm_stream(const aegis_provider_registry_t* reg, const char* name,
                                 const aegis_llm_request_t*        req,
-                                const aegis_cancellation_token_t* token,
-                                aegis_llm_stream_fn               yield,
-                                void*                             yield_user)
+                                const aegis_cancellation_token_t* token, aegis_llm_stream_fn yield,
+                                void* yield_user)
 {
     if (!reg || !name || !req || !yield) {
         return AEGIS_ERR_INVALID;
@@ -104,7 +103,7 @@ aegis_status_t aegis_llm_stream(const aegis_provider_registry_t* reg, const char
         return AEGIS_ERR_PROVIDER;
     }
     aegis_llm_response_t resp;
-    aegis_status_t rc = ops->complete(ops->ctx, req, token, &resp);
+    aegis_status_t       rc = ops->complete(ops->ctx, req, token, &resp);
     if (rc != AEGIS_OK) {
         return rc;
     }

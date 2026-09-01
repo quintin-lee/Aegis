@@ -87,8 +87,7 @@ typedef aegis_status_t (*aegis_llm_complete_fn)(void* ctx, const aegis_llm_reque
  */
 typedef aegis_status_t (*aegis_llm_stream_callback_fn)(void* ctx, const aegis_llm_request_t* req,
                                                        const aegis_cancellation_token_t* token,
-                                                       aegis_llm_stream_fn               yield,
-                                                       void*                             yield_user);
+                                                       aegis_llm_stream_fn yield, void* yield_user);
 
 /**
  * @brief Operation set published by an LLM provider.
@@ -99,9 +98,9 @@ typedef aegis_status_t (*aegis_llm_stream_callback_fn)(void* ctx, const aegis_ll
  * AEGIS_ERR_PROVIDER from dispatch.
  */
 typedef struct aegis_llm_ops {
-    void*                          ctx;               /**< Provider instance state (borrowed). */
-    aegis_llm_complete_fn          complete;           /**< Required for dispatch.             */
-    aegis_llm_stream_callback_fn   stream;            /**< Optional streaming callback.        */
+    void*                        ctx;      /**< Provider instance state (borrowed). */
+    aegis_llm_complete_fn        complete; /**< Required for dispatch.             */
+    aegis_llm_stream_callback_fn stream;   /**< Optional streaming callback.        */
 } aegis_llm_ops_t;
 
 /**
@@ -137,9 +136,8 @@ aegis_status_t aegis_llm_complete(const aegis_provider_registry_t* reg, const ch
  */
 aegis_status_t aegis_llm_stream(const aegis_provider_registry_t* reg, const char* name,
                                 const aegis_llm_request_t*        req,
-                                const aegis_cancellation_token_t* token,
-                                aegis_llm_stream_fn               yield,
-                                void*                             yield_user);
+                                const aegis_cancellation_token_t* token, aegis_llm_stream_fn yield,
+                                void* yield_user);
 
 #ifdef __cplusplus
 }

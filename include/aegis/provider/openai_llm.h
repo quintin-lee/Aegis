@@ -33,8 +33,7 @@ typedef struct openai_llm_ctx openai_llm_ctx_t;
  * @param[out] out_def Receives a shallow copy of the provider def.
  * @return AEGIS_OK or AEGIS_ERR_NOMEM.
  */
-aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx,
-                                       const aegis_llm_ops_t** out_ops,
+aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx, const aegis_llm_ops_t** out_ops,
                                        aegis_provider_def_t* out_def);
 
 /**
@@ -53,9 +52,7 @@ void aegis_openai_llm_destroy(openai_llm_ctx_t* ctx, const aegis_llm_ops_t* ops)
  * @param base_url NUL-terminated base URL (borrowed). Default: https://api.openai.com/v1
  * @param model   NUL-terminated model id (borrowed). Default: gpt-4o-mini
  */
-void aegis_openai_llm_configure(openai_llm_ctx_t* ctx,
-                                const char* api_key,
-                                const char* base_url,
+void aegis_openai_llm_configure(openai_llm_ctx_t* ctx, const char* api_key, const char* base_url,
                                 const char* model);
 
 #ifdef __cplusplus

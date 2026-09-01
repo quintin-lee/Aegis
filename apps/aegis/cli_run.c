@@ -13,16 +13,15 @@ int cmd_run(int argc, char** argv)
 {
     cli_config_t cfg;
     cli_config_default(&cfg);
-    const char* explicit_goal   = NULL;
-    const char* config_path     = NULL;
-    const char* timeout_str     = NULL;
-    const char* iter_str        = NULL;
-    const char* provider_name   = NULL;
-    const char* model_name      = NULL;
-    const char* api_key         = NULL;
-    const char* base_url        = NULL;
+    const char* explicit_goal = NULL;
+    const char* config_path   = NULL;
+    const char* timeout_str   = NULL;
+    const char* iter_str      = NULL;
+    const char* provider_name = NULL;
+    const char* model_name    = NULL;
+    const char* api_key       = NULL;
+    const char* base_url      = NULL;
 #define UNUSED(x) (void)(x)
-
 
     // first pass: find --config
     for (int i = 0; i < argc; i++) {
@@ -103,8 +102,8 @@ int cmd_run(int argc, char** argv)
         snprintf(cfg.goal, sizeof(cfg.goal), "%s", explicit_goal);
     }
     if (iter_str) {
-        char* end = NULL;
-        unsigned long n = strtoul(iter_str, &end, 10);
+        char*         end = NULL;
+        unsigned long n   = strtoul(iter_str, &end, 10);
         if (end && *end == '\0' && n > 0 && n <= 10000) {
             cfg.max_iterations = (uint32_t)n;
         } else {
@@ -113,8 +112,8 @@ int cmd_run(int argc, char** argv)
         }
     }
     if (timeout_str) {
-        char* end = NULL;
-        unsigned long ms = strtoul(timeout_str, &end, 10);
+        char*         end = NULL;
+        unsigned long ms  = strtoul(timeout_str, &end, 10);
         if (end && *end == '\0' && ms <= 3600000) {
             cfg.timeout_ms = (uint64_t)ms;
         } else {
@@ -143,16 +142,16 @@ int cmd_run(int argc, char** argv)
     }
 
     // Create and register the selected LLM provider
-    const char* llm_name    = cfg.llm_provider;
-    void*       llm_ctx     = NULL;
+    const char*          llm_name = cfg.llm_provider;
+    void*                llm_ctx  = NULL;
     aegis_provider_def_t llm_def;
     memset(&llm_def, 0, sizeof(llm_def));
 
     if (strcmp(llm_name, "llm-openai") == 0) {
 #ifdef AEGIS_OPENAI_PROVIDER
-        openai_llm_ctx_t* octx = NULL;
-        const aegis_llm_ops_t* ops = NULL;
-        rc = aegis_openai_llm_create(&octx, &ops, &llm_def);
+        openai_llm_ctx_t*      octx = NULL;
+        const aegis_llm_ops_t* ops  = NULL;
+        rc                          = aegis_openai_llm_create(&octx, &ops, &llm_def);
         if (rc != AEGIS_OK) {
             fprintf(stderr, "error: openai llm create failed: %s\n", aegis_status_str(rc));
             aegis_provider_registry_destroy(reg);
@@ -162,15 +161,16 @@ int cmd_run(int argc, char** argv)
         aegis_openai_llm_configure(octx, api_key, base_url, model_name);
         llm_ctx = octx;
 #else
-        fprintf(stderr, "error: llm-openai provider not compiled in (rebuild with "
-                        "-DAEGIS_OPENAI_PROVIDER=ON)\n");
+        fprintf(stderr,
+                "error: llm-openai provider not compiled in (rebuild with "
+                "-DAEGIS_OPENAI_PROVIDER=ON)\n");
         aegis_provider_registry_destroy(reg);
         return 1;
 #endif
     } else if (strcmp(llm_name, "llm-mock") == 0 || llm_name[0] == '\0') {
-        llm_mock_ctx_t* mock_ctx = NULL;
-        const aegis_llm_ops_t* ops = NULL;
-        rc = aegis_llm_mock_create(&mock_ctx, &ops, &llm_def);
+        llm_mock_ctx_t*        mock_ctx = NULL;
+        const aegis_llm_ops_t* ops      = NULL;
+        rc                              = aegis_llm_mock_create(&mock_ctx, &ops, &llm_def);
         if (rc != AEGIS_OK) {
             fprintf(stderr, "error: llm mock create failed: %s\n", aegis_status_str(rc));
             aegis_provider_registry_destroy(reg);
@@ -281,8 +281,8 @@ int cmd_run(int argc, char** argv)
     UNUSED(model_name);
     UNUSED(api_key);
     UNUSED(base_url);
-     fprintf(stderr, "error: run failed: %s\n", aegis_status_str(rc));
-     return 1;
- }
+    fprintf(stderr, "error: run failed: %s\n", aegis_status_str(rc));
+    return 1;
+}
 
 /* ── status ────────────────────────────────────────────────────────────────── */
