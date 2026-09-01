@@ -127,6 +127,41 @@ static void test_compact(void)
     printf("compact PASS\\n");
 }
 
+static void test_compact_preserves_tool_group(void)
+{
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/compact-tools", &s), "tool compact session");
+    aegis_message_t* user = NULL;
+    expect_ok(aegis_message_create(AEGIS_MESSAGE_USER, &user), "user");
+    expect_ok(aegis_message_set_content(user, "request"), "user content");
+    expect_ok(aegis_session_append_message(s, user), "append user");
+    aegis_message_t* assistant = NULL;
+    expect_ok(aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &assistant), "assistant");
+    aegis_tool_call_t* call = NULL;
+    expect_ok(aegis_tool_call_create(&call), "compact call");
+    expect_ok(aegis_tool_call_set_id(call, "compact-call"), "compact call id");
+    expect_ok(aegis_tool_call_set_name(call, "read"), "compact call name");
+    expect_ok(aegis_tool_call_set_arguments(call, "{}"), "compact call args");
+    expect_ok(aegis_message_add_tool_call(assistant, call), "attach compact call");
+    expect_ok(aegis_session_append_message(s, assistant), "append assistant");
+    aegis_message_t* tool = NULL;
+    expect_ok(aegis_message_create(AEGIS_MESSAGE_TOOL, &tool), "tool");
+    expect_ok(aegis_message_set_tool_call_id(tool, "compact-call"), "tool id");
+    expect_ok(aegis_message_set_content(tool, "result"), "tool content");
+    expect_ok(aegis_session_append_message(s, tool), "append tool");
+    expect_ok(aegis_session_compact(s, 1), "compact tool group");
+    assert(aegis_session_message_count(s) == 2);
+    assert(aegis_message_role(aegis_session_message_at(s, 0)) == AEGIS_MESSAGE_ASSISTANT);
+    assert(aegis_message_tool_call_count(aegis_session_message_at(s, 0)) == 1);
+    assert(aegis_message_role(aegis_session_message_at(s, 1)) == AEGIS_MESSAGE_TOOL);
+    aegis_tool_call_destroy(call);
+    aegis_message_destroy(user);
+    aegis_message_destroy(assistant);
+    aegis_message_destroy(tool);
+    aegis_session_destroy(s);
+    printf("compact_tool_group PASS\\n");
+}
+
 static void test_fork(void)
 {
     aegis_session_t* s = NULL;
@@ -159,6 +194,7 @@ int main(void)
     test_save_load();
     test_tool_call_round_trip();
     test_compact();
+    test_compact_preserves_tool_group();
     test_fork();
     printf("All session tests PASS\n");
     return 0;

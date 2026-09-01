@@ -130,9 +130,23 @@ aegis_status_t aegis_session_compact(aegis_session_t* s, size_t keep_messages)
     if (!s || !s->messages) return AEGIS_ERR_INVALID;
     size_t count = aegis_message_list_count(s->messages);
     if (keep_messages >= count) return AEGIS_OK;
+    size_t start = count - keep_messages;
+    if (start < count && aegis_message_role(aegis_message_list_at(s->messages, start)) == AEGIS_MESSAGE_TOOL) {
+        const char* call_id = aegis_message_tool_call_id(aegis_message_list_at(s->messages, start));
+        while (start > 0) {
+            const aegis_message_t* prev = aegis_message_list_at(s->messages, start - 1);
+            bool owns_call = false;
+            for (size_t j = 0; j < aegis_message_tool_call_count(prev); ++j) {
+                const aegis_tool_call_t* c = aegis_message_tool_call_at(prev, j);
+                if (call_id && c && strcmp(call_id, aegis_tool_call_id(c)) == 0) { owns_call = true; break; }
+            }
+            if (owns_call) { --start; break; }
+            break;
+        }
+    }
     aegis_message_list_t* retained = NULL;
     if (aegis_message_list_create(&retained) != AEGIS_OK) return AEGIS_ERR_NOMEM;
-    for (size_t i = count - keep_messages; i < count; ++i) {
+    for (size_t i = start; i < count; ++i) {
         aegis_status_t st = aegis_message_list_append(retained, aegis_message_list_at(s->messages, i));
         if (st != AEGIS_OK) { aegis_message_list_destroy(retained); return st; }
     }
