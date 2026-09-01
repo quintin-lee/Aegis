@@ -162,6 +162,41 @@ static void test_compact_preserves_tool_group(void)
     printf("compact_tool_group PASS\\n");
 }
 
+static void test_compact_preserves_multiple_tool_results(void)
+{
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/compact-multi", &s), "multi compact session");
+    aegis_message_t* assistant = NULL;
+    expect_ok(aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &assistant), "multi assistant");
+    const char* ids[] = {"call-a", "call-b"};
+    for (size_t i = 0; i < 2; ++i) {
+        aegis_tool_call_t* c = NULL;
+        expect_ok(aegis_tool_call_create(&c), "multi call");
+        expect_ok(aegis_tool_call_set_id(c, ids[i]), "multi id");
+        expect_ok(aegis_tool_call_set_name(c, "read"), "multi name");
+        expect_ok(aegis_tool_call_set_arguments(c, "{}"), "multi args");
+        expect_ok(aegis_message_add_tool_call(assistant, c), "multi attach");
+        aegis_tool_call_destroy(c);
+    }
+    expect_ok(aegis_session_append_message(s, assistant), "multi append assistant");
+    for (size_t i = 0; i < 2; ++i) {
+        aegis_message_t* tool = NULL;
+        expect_ok(aegis_message_create(AEGIS_MESSAGE_TOOL, &tool), "multi tool");
+        expect_ok(aegis_message_set_tool_call_id(tool, ids[i]), "multi tool id");
+        expect_ok(aegis_message_set_content(tool, "result"), "multi result");
+        expect_ok(aegis_session_append_message(s, tool), "multi append tool");
+        aegis_message_destroy(tool);
+    }
+    expect_ok(aegis_session_compact(s, 1), "compact multiple results");
+    assert(aegis_session_message_count(s) == 3);
+    assert(aegis_message_tool_call_count(aegis_session_message_at(s, 0)) == 2);
+    assert(strcmp(aegis_message_tool_call_id(aegis_session_message_at(s, 1)), "call-a") == 0);
+    assert(strcmp(aegis_message_tool_call_id(aegis_session_message_at(s, 2)), "call-b") == 0);
+    aegis_message_destroy(assistant);
+    aegis_session_destroy(s);
+    printf("compact_multiple_tool_results PASS\\n");
+}
+
 static void test_fork(void)
 {
     aegis_session_t* s = NULL;
@@ -195,6 +230,7 @@ int main(void)
     test_tool_call_round_trip();
     test_compact();
     test_compact_preserves_tool_group();
+    test_compact_preserves_multiple_tool_results();
     test_fork();
     printf("All session tests PASS\n");
     return 0;
