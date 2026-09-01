@@ -33,3 +33,4 @@ coverage/
 # Valgrind
 *.log
 *.vglog
+.aegis/
