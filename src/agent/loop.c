@@ -292,7 +292,9 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
     *out            = NULL;
     const char* p   = json;
     const char* end = json + strlen(json);
-    while (p < end && isspace((unsigned char)*p)) ++p;
+    while (p < end && isspace((unsigned char)*p)) {
+        ++p;
+    }
     if (p >= end || *p++ != '{') {
         return 0;
     }
@@ -301,7 +303,9 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
         return 0;
     }
     while (1) {
-        while (p < end && isspace((unsigned char)*p)) ++p;
+        while (p < end && isspace((unsigned char)*p)) {
+            ++p;
+        }
         if (p >= end) {
             aegis_tool_args_destroy(args);
             return 0;
@@ -311,10 +315,22 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
             break;
         }
         char* key = NULL;
-        if (!json_parse_string(&p, end, &key)) { free(key); aegis_tool_args_destroy(args); return 0; }
-        while (p < end && isspace((unsigned char)*p)) ++p;
-        if (p >= end || *p++ != ':') { free(key); aegis_tool_args_destroy(args); return 0; }
-        while (p < end && isspace((unsigned char)*p)) ++p;
+        if (!json_parse_string(&p, end, &key)) {
+            free(key);
+            aegis_tool_args_destroy(args);
+            return 0;
+        }
+        while (p < end && isspace((unsigned char)*p)) {
+            ++p;
+        }
+        if (p >= end || *p++ != ':') {
+            free(key);
+            aegis_tool_args_destroy(args);
+            return 0;
+        }
+        while (p < end && isspace((unsigned char)*p)) {
+            ++p;
+        }
         if (p >= end) {
             free(key);
             aegis_tool_args_destroy(args);
@@ -356,7 +372,9 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
             p = number_end;
         }
         free(key);
-        while (p < end && isspace((unsigned char)*p)) ++p;
+        while (p < end && isspace((unsigned char)*p)) {
+            ++p;
+        }
         if (st != AEGIS_OK || p >= end) {
             aegis_tool_args_destroy(args);
             return 0;
@@ -372,7 +390,9 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
         aegis_tool_args_destroy(args);
         return 0;
     }
-    while (p < end && isspace((unsigned char)*p)) ++p;
+    while (p < end && isspace((unsigned char)*p)) {
+        ++p;
+    }
     if (p != end) {
         aegis_tool_args_destroy(args);
         return 0;

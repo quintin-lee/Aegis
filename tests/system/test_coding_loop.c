@@ -90,11 +90,11 @@ int main(void)
         .execute = read_probe,
     };
     assert(aegis_tool_registry_register(tools, &def) == AEGIS_OK);
-    int turn = 0;
+    int                   turn    = 0;
     aegis_model_backend_t backend = {
-        .user = &turn,
+        .user     = &turn,
         .complete = NULL,
-        .stream = model_backend_stream,
+        .stream   = model_backend_stream,
         .capabilities =
             AEGIS_MODEL_CAP_TEXT | AEGIS_MODEL_CAP_TOOL_CALLING | AEGIS_MODEL_CAP_STREAMING,
     };

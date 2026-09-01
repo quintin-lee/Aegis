@@ -33,7 +33,7 @@ void           aegis_coding_agent_destroy(aegis_coding_agent_t* agent);
 
 aegis_session_t* aegis_coding_agent_session(aegis_coding_agent_t* agent);
 aegis_status_t   aegis_coding_agent_replace_session(aegis_coding_agent_t* agent,
-                                                    aegis_session_t* session);
+                                                    aegis_session_t*      session);
 aegis_status_t   aegis_coding_agent_run(aegis_coding_agent_t* agent, const char* user_input);
 
 #ifdef __cplusplus

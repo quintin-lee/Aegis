@@ -177,20 +177,24 @@ aegis_session_t* aegis_coding_agent_session(aegis_coding_agent_t* a)
 
 aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* a, aegis_session_t* session)
 {
-    if (!a || !session) return AEGIS_ERR_INVALID;
-    aegis_agent_loop_t* replacement = NULL;
-    aegis_agent_loop_config_t cfg = {
-        .session = session,
-        .model = a->model,
-        .tools = a->tools,
+    if (!a || !session) {
+        return AEGIS_ERR_INVALID;
+    }
+    aegis_agent_loop_t*       replacement = NULL;
+    aegis_agent_loop_config_t cfg         = {
+        .session       = session,
+        .model         = a->model,
+        .tools         = a->tools,
         .system_prompt = "You are a coding agent. Use tools to help the user.",
     };
     aegis_status_t st = aegis_agent_loop_create(&cfg, &replacement);
-    if (st != AEGIS_OK) return st;
-    aegis_agent_loop_t* old_loop = a->loop;
-    aegis_session_t* old_session = a->session;
-    a->loop = replacement;
-    a->session = session;
+    if (st != AEGIS_OK) {
+        return st;
+    }
+    aegis_agent_loop_t* old_loop    = a->loop;
+    aegis_session_t*    old_session = a->session;
+    a->loop                         = replacement;
+    a->session                      = session;
     aegis_agent_loop_destroy(old_loop);
     aegis_session_destroy(old_session);
     return AEGIS_OK;
