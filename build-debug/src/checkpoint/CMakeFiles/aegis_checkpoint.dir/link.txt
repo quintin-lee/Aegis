@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaegis_checkpoint.a CMakeFiles/aegis_checkpoint.dir/checkpoint.c.o
-/usr/bin/ranlib libaegis_checkpoint.a

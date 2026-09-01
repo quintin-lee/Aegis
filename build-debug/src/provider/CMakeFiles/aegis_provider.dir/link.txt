@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaegis_provider.a CMakeFiles/aegis_provider.dir/provider.c.o CMakeFiles/aegis_provider.dir/provider_registry.c.o CMakeFiles/aegis_provider.dir/llm.c.o CMakeFiles/aegis_provider.dir/embedding.c.o CMakeFiles/aegis_provider.dir/__/__/providers/llm/mock/llm_mock.c.o CMakeFiles/aegis_provider.dir/__/__/providers/embedding/embedding_hash.c.o CMakeFiles/aegis_provider.dir/__/__/providers/storage/sqlite/storage_sqlite.c.o
-/usr/bin/ranlib libaegis_provider.a

@@ -182,7 +182,7 @@ static char* build_body(const openai_llm_ctx_t* ctx,
 
     /* Write prefix */
     /* Use configured model or fall back to env var or default */
-    const char* model = ctx->model;
+    const char* model = (ctx && ctx->model) ? ctx->model : NULL;
     if (!model || model[0] == '\0') {
         model = getenv("OPENAI_MODEL");
     }

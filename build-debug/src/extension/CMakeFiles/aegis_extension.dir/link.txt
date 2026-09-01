@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaegis_extension.a CMakeFiles/aegis_extension.dir/extension.c.o
-/usr/bin/ranlib libaegis_extension.a

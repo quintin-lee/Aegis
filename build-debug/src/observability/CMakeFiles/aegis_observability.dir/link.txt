@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaegis_observability.a CMakeFiles/aegis_observability.dir/log.c.o CMakeFiles/aegis_observability.dir/metrics.c.o CMakeFiles/aegis_observability.dir/trace.c.o
-/usr/bin/ranlib libaegis_observability.a

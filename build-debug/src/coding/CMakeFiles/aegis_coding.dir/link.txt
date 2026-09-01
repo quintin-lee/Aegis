@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaegis_coding.a CMakeFiles/aegis_coding.dir/mutations.c.o CMakeFiles/aegis_coding.dir/coding_tools.c.o CMakeFiles/aegis_coding.dir/coding_agent.c.o
-/usr/bin/ranlib libaegis_coding.a

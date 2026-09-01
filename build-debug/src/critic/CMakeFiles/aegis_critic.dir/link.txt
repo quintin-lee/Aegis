@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaegis_critic.a CMakeFiles/aegis_critic.dir/critic.c.o CMakeFiles/aegis_critic.dir/__/reflection/reflection.c.o CMakeFiles/aegis_critic.dir/__/replanner/replanner.c.o
-/usr/bin/ranlib libaegis_critic.a

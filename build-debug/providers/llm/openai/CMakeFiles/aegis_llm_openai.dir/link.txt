@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaegis_llm_openai.a CMakeFiles/aegis_llm_openai.dir/openai_llm.c.o
-/usr/bin/ranlib libaegis_llm_openai.a

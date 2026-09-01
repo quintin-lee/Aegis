@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaegis_agent.a CMakeFiles/aegis_agent.dir/agent.c.o CMakeFiles/aegis_agent.dir/goal.c.o CMakeFiles/aegis_agent.dir/loop.c.o CMakeFiles/aegis_agent.dir/state.c.o
-/usr/bin/ranlib libaegis_agent.a

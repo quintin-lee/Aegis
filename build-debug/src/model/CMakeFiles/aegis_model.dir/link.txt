@@ -1,2 +1,0 @@
-/usr/bin/ar qc libaegis_model.a CMakeFiles/aegis_model.dir/response.c.o CMakeFiles/aegis_model.dir/stream.c.o CMakeFiles/aegis_model.dir/model.c.o
-/usr/bin/ranlib libaegis_model.a
