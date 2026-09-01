@@ -292,7 +292,8 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
     *out            = NULL;
     const char* p   = json;
     const char* end = json + strlen(json);
-    if (!json_skip_ws(&p, end) || *p++ != '{') {
+    while (p < end && isspace((unsigned char)*p)) ++p;
+    if (p >= end || *p++ != '{') {
         return 0;
     }
     aegis_tool_args_t* args = NULL;
@@ -300,7 +301,8 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
         return 0;
     }
     while (1) {
-        if (!json_skip_ws(&p, end)) {
+        while (p < end && isspace((unsigned char)*p)) ++p;
+        if (p >= end) {
             aegis_tool_args_destroy(args);
             return 0;
         }
@@ -309,8 +311,11 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
             break;
         }
         char* key = NULL;
-        if (!json_parse_string(&p, end, &key) || !json_skip_ws(&p, end) || *p++ != ':' ||
-            !json_skip_ws(&p, end)) {
+        if (!json_parse_string(&p, end, &key)) { free(key); aegis_tool_args_destroy(args); return 0; }
+        while (p < end && isspace((unsigned char)*p)) ++p;
+        if (p >= end || *p++ != ':') { free(key); aegis_tool_args_destroy(args); return 0; }
+        while (p < end && isspace((unsigned char)*p)) ++p;
+        if (p >= end) {
             free(key);
             aegis_tool_args_destroy(args);
             return 0;
@@ -351,7 +356,8 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
             p = number_end;
         }
         free(key);
-        if (st != AEGIS_OK || !json_skip_ws(&p, end)) {
+        while (p < end && isspace((unsigned char)*p)) ++p;
+        if (st != AEGIS_OK || p >= end) {
             aegis_tool_args_destroy(args);
             return 0;
         }
@@ -366,7 +372,8 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
         aegis_tool_args_destroy(args);
         return 0;
     }
-    if (!json_skip_ws(&p, end) || p != end) {
+    while (p < end && isspace((unsigned char)*p)) ++p;
+    if (p != end) {
         aegis_tool_args_destroy(args);
         return 0;
     }
@@ -477,8 +484,17 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
 
         // Append assistant message
         aegis_message_t* am = NULL;
-        aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &am);
-        aegis_message_set_content(am, acc.text ? acc.text : "");
+        if (aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &am) != AEGIS_OK) {
+            stream_accum_destroy(&acc);
+            set_state(l, AEGIS_AGENT_LOOP_FAILED);
+            return AEGIS_ERR_NOMEM;
+        }
+        if (aegis_message_set_content(am, acc.text ? acc.text : "") != AEGIS_OK) {
+            aegis_message_destroy(am);
+            stream_accum_destroy(&acc);
+            set_state(l, AEGIS_AGENT_LOOP_FAILED);
+            return AEGIS_ERR_NOMEM;
+        }
         // Attach any tool calls collected (none in mock)
         for (size_t i = 0; i < acc.call_count; i++) {
             aegis_tool_call_t* call = NULL;

@@ -146,6 +146,34 @@ aegis_status_t aegis_tool_registry_find(aegis_tool_registry_t* reg, const char* 
     return st;
 }
 
+aegis_status_t aegis_tool_registry_visit(const aegis_tool_registry_t* reg,
+                                         aegis_tool_registry_visit_fn callback, void* user)
+{
+    if (!reg || !callback) {
+        return AEGIS_ERR_INVALID;
+    }
+    aegis_mutex_lock(((aegis_tool_registry_t*)(void*)reg)->lock);
+    size_t             n    = reg->owned_len;
+    aegis_tool_def_t** defs = malloc(n * sizeof(*defs));
+    if (n && !defs) {
+        aegis_mutex_unlock(((aegis_tool_registry_t*)(void*)reg)->lock);
+        return AEGIS_ERR_NOMEM;
+    }
+    if (n) {
+        memcpy(defs, reg->owned, n * sizeof(*defs));
+    }
+    aegis_mutex_unlock(((aegis_tool_registry_t*)(void*)reg)->lock);
+    aegis_status_t st = AEGIS_OK;
+    for (size_t i = 0; i < n; ++i) {
+        st = callback(defs[i], user);
+        if (st != AEGIS_OK) {
+            break;
+        }
+    }
+    free(defs);
+    return st;
+}
+
 size_t aegis_tool_registry_count(const aegis_tool_registry_t* reg)
 {
     if (!reg) {

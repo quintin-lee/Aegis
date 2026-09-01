@@ -43,6 +43,7 @@ aegis_status_t aegis_model_client_create_with_backend(const char*               
         return st;
     }
     c->backend = *backend;
+
     c->caps    = backend->capabilities;
     *out       = c;
     return AEGIS_OK;

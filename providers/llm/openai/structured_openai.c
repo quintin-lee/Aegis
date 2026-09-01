@@ -122,6 +122,50 @@ static int append_message(json_buf_t* b, const aegis_message_t* m)
     return append_raw(b, "}", 1);
 }
 
+typedef struct {
+    json_buf_t* buffer;
+    aegis_status_t status;
+} tool_json_context_t;
+
+static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
+{
+    tool_json_context_t* ctx = user;
+    if (!def || !ctx || ctx->status != AEGIS_OK) return AEGIS_ERR_INVALID;
+    json_buf_t* b = ctx->buffer;
+    if (!append_raw(b, "{\"type\":\"function\",\"function\":{\"name\":", 44) ||
+        !append_json_string(b, def->name) || append_raw(b, ",\"description\":", 18) == 0 ||
+        !append_json_string(b, def->description ? def->description : "") ||
+        !append_raw(b, ",\"parameters\":{\"type\":\"object\",\"properties\":{", 51)) {
+        ctx->status = AEGIS_ERR_NOMEM; return ctx->status;
+    }
+    for (size_t i = 0; i < def->schema.param_count; ++i) {
+        const aegis_tool_param_spec_t* p = &def->schema.params[i];
+        if (i && !append_raw(b, ",", 1)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
+        if (!append_json_string(b, p->name) || !append_raw(b, ":{\"type\":", 9)) {
+            ctx->status = AEGIS_ERR_NOMEM; return ctx->status;
+        }
+        const char* type = p->type == AEGIS_TOOL_VAL_BOOL ? "boolean" :
+                          p->type == AEGIS_TOOL_VAL_INT ? "integer" :
+                          p->type == AEGIS_TOOL_VAL_FLOAT ? "number" : "string";
+        if (!append_json_string(b, type)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
+        if (p->description && (!append_raw(b, ",\"description\":", 17) || !append_json_string(b, p->description))) {
+            ctx->status = AEGIS_ERR_NOMEM; return ctx->status;
+        }
+        if (!append_raw(b, "}", 1)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
+    }
+    if (!append_raw(b, "},\"required\":[", 15)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
+    bool first = true;
+    for (size_t i = 0; i < def->schema.param_count; ++i) {
+        const aegis_tool_param_spec_t* p = &def->schema.params[i];
+        if (!p->required) continue;
+        if (!first && !append_raw(b, ",", 1)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
+        first = false;
+        if (!append_json_string(b, p->name)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
+    }
+    if (!append_raw(b, "]}}}", 5)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
+    return ctx->status;
+}
+
 static char* build_body(const aegis_model_request_t* req)
 {
     json_buf_t b = {0};
@@ -134,8 +178,10 @@ static char* build_body(const aegis_model_request_t* req)
     }
     if (!append_raw(&b, "]", 1)) goto fail;
     if (req->tools && aegis_tool_registry_count(req->tools) > 0) {
-        /* Tool schema serialization is intentionally deferred until the registry
-         * exposes stable iteration; the generic request remains valid without it. */
+        if (!append_raw(&b, ",\"tools\":[", 10)) goto fail;
+        tool_json_context_t ctx = {.buffer = &b, .status = AEGIS_OK};
+        if (aegis_tool_registry_visit(req->tools, append_tool_json, &ctx) != AEGIS_OK || ctx.status != AEGIS_OK) goto fail;
+        if (!append_raw(&b, "]", 1)) goto fail;
     }
     if (req->stream && !append_raw(&b, ",\"stream\":true", 15)) goto fail;
     if (req->max_tokens) {

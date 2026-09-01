@@ -31,8 +31,14 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
     if (resume_path) {
         aegis_session_t* loaded = NULL;
         if (aegis_session_load(resume_path, &loaded) == AEGIS_OK) {
-            printf("resumed session %s with %zu messages\n", aegis_session_id(loaded),
-                   aegis_session_message_count(loaded));
+            st = aegis_coding_agent_replace_session(agent, loaded);
+            if (st == AEGIS_OK) {
+                printf("resumed session %s with %zu messages\n", aegis_session_id(loaded),
+                       aegis_session_message_count(loaded));
+                loaded = NULL;
+            } else {
+                fprintf(stderr, "failed to resume session: %s\n", aegis_status_str(st));
+            }
             aegis_session_destroy(loaded);
         }
     }

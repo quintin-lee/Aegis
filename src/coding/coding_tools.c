@@ -15,8 +15,25 @@
 #include <limits.h>
 #include <poll.h>
 #include <time.h>
+#include <signal.h>
 
 static aegis_mutation_queue_t* g_mq = NULL;
+
+static bool safe_relative_path(const char* path)
+{
+    if (!path || path[0] == '/' || path[0] == '\0') {
+        return false;
+    }
+    const char* p = path;
+    while (*p) {
+        if ((p == path || p[-1] == '/') && p[0] == '.' && p[1] == '.' &&
+            (p[2] == '\0' || p[2] == '/')) {
+            return false;
+        }
+        ++p;
+    }
+    return true;
+}
 
 // ── read ────────────────────────────────────────────────────────────────
 
@@ -33,8 +50,9 @@ static aegis_status_t tool_read_execute(void* user, const aegis_tool_args_t* arg
     }
     const char* path = v->as.str.ptr;
     // Basic path normalization check
-    if (strstr(path, "..")) {
-        // Allow but warn; real security gate will handle
+    if (!safe_relative_path(path)) {
+        aegis_tool_result_set_string(out, "error: path must stay inside the project");
+        return AEGIS_OK;
     }
     // offset/limit optional
     long offset = 0, limit = 0;
@@ -108,6 +126,10 @@ static aegis_status_t tool_write_execute(void* user, const aegis_tool_args_t* ar
         return aegis_tool_result_set_string(out, "error: missing path");
     }
     const char* path = v->as.str.ptr;
+    if (!safe_relative_path(path)) {
+        aegis_tool_result_set_string(out, "error: path must stay inside the project");
+        return AEGIS_OK;
+    }
     if (!aegis_tool_args_find(args, "content", &v) || !v || !v->as.str.ptr) {
         return aegis_tool_result_set_string(out, "error: missing content");
     }
@@ -117,7 +139,7 @@ static aegis_status_t tool_write_execute(void* user, const aegis_tool_args_t* ar
         aegis_mutation_queue_acquire(g_mq, path);
     }
 
-    // Ensure parent dir
+    // Ensure the immediate parent directory exists without invoking a shell.
     char dir[PATH_MAX];
     strncpy(dir, path, sizeof(dir) - 1);
     dir[sizeof(dir) - 1] = '\0';
@@ -125,9 +147,31 @@ static aegis_status_t tool_write_execute(void* user, const aegis_tool_args_t* ar
     if (slash) {
         *slash = '\0';
         if (dir[0]) {
-            char cmd[PATH_MAX + 16];
-            snprintf(cmd, sizeof(cmd), "mkdir -p \"%s\"", dir);
-            (void)system(cmd);  // best effort; real impl would use mkdir -p via mkdir()
+            char* cursor = dir;
+            if (*cursor == '/') {
+                ++cursor;
+            }
+            for (; *cursor; ++cursor) {
+                if (*cursor != '/') {
+                    continue;
+                }
+                *cursor = '\0';
+                if (mkdir(dir, 0755) != 0 && errno != EEXIST) {
+                    if (g_mq) {
+                        aegis_mutation_queue_release(g_mq, path);
+                    }
+                    aegis_tool_result_set_string(out, "error: cannot create parent directory");
+                    return AEGIS_OK;
+                }
+                *cursor = '/';
+            }
+            if (mkdir(dir, 0755) != 0 && errno != EEXIST) {
+                if (g_mq) {
+                    aegis_mutation_queue_release(g_mq, path);
+                }
+                aegis_tool_result_set_string(out, "error: cannot create parent directory");
+                return AEGIS_OK;
+            }
         }
     }
 
@@ -173,6 +217,10 @@ static aegis_status_t tool_edit_execute(void* user, const aegis_tool_args_t* arg
         return aegis_tool_result_set_string(out, "error: missing path");
     }
     const char* path = v->as.str.ptr;
+    if (!safe_relative_path(path)) {
+        aegis_tool_result_set_string(out, "error: path must stay inside the project");
+        return AEGIS_OK;
+    }
     if (!aegis_tool_args_find(args, "old_string", &v) || !v || !v->as.str.ptr) {
         return aegis_tool_result_set_string(out, "error: missing old_string");
     }
@@ -301,6 +349,7 @@ static aegis_status_t tool_bash_execute(void* user, const aegis_tool_args_t* arg
     }
     if (pid == 0) {
         // child
+        setpgid(0, 0);
         close(pipefd[0]);
         dup2(pipefd[1], STDOUT_FILENO);
         dup2(pipefd[1], STDERR_FILENO);
@@ -309,6 +358,7 @@ static aegis_status_t tool_bash_execute(void* user, const aegis_tool_args_t* arg
         _exit(127);
     }
     // parent
+    (void)setpgid(pid, pid);
     close(pipefd[1]);
     // Set non-blocking
     fcntl(pipefd[0], F_SETFL, O_NONBLOCK);
@@ -323,7 +373,7 @@ static aegis_status_t tool_bash_execute(void* user, const aegis_tool_args_t* arg
     bool          timed_out = false;
     while (1) {
         if (token && aegis_cancellation_token_is_cancelled(token)) {
-            kill(pid, SIGTERM);
+            kill(-pid, SIGTERM);
             timed_out = true;
             break;
         }
@@ -340,7 +390,7 @@ static aegis_status_t tool_bash_execute(void* user, const aegis_tool_args_t* arg
                     if (!nout) {
                         free(output);
                         close(pipefd[0]);
-                        kill(pid, SIGKILL);
+                        kill(-pid, SIGKILL);
                         waitpid(pid, NULL, 0);
                         return AEGIS_ERR_NOMEM;
                     }
@@ -358,7 +408,7 @@ static aegis_status_t tool_bash_execute(void* user, const aegis_tool_args_t* arg
         }
         elapsed += 100;
         if (elapsed >= timeout_ms) {
-            kill(pid, SIGTERM);
+            kill(-pid, SIGTERM);
             // give 500ms to exit gracefully
             for (int i = 0; i < 5; i++) {
                 struct timespec ts = {0, 100000000};
@@ -368,14 +418,13 @@ static aegis_status_t tool_bash_execute(void* user, const aegis_tool_args_t* arg
                 }
             }
             if (waitpid(pid, &status, WNOHANG) != pid) {
-                kill(pid, SIGKILL), waitpid(pid, &status, 0);
+                kill(-pid, SIGKILL), waitpid(pid, &status, 0);
             }
             timed_out = true;
             break;
         }
     }
-    close(pipefd[0]);
-    // Drain remaining
+    // Drain remaining before closing the read end.
     while (1) {
         ssize_t n = read(pipefd[0], buf, sizeof(buf) - 1);
         if (n <= 0) {
@@ -398,6 +447,7 @@ static aegis_status_t tool_bash_execute(void* user, const aegis_tool_args_t* arg
         total += n;
         output[total] = '\0';
     }
+    close(pipefd[0]);
     if (!output) {
         output = strdup("");
     }

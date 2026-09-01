@@ -306,6 +306,17 @@ aegis_status_t aegis_tool_registry_find(aegis_tool_registry_t* reg, const char* 
 /** Number of registered tools. NULL-safe (returns 0). */
 size_t aegis_tool_registry_count(const aegis_tool_registry_t* reg);
 
+/**
+ * @brief Visit registered tool definitions in stable registry order.
+ *
+ * The callback runs without the registry lock and must not retain the
+ * borrowed definition after returning. Returning a non-OK status stops
+ * iteration and propagates that status.
+ */
+typedef aegis_status_t (*aegis_tool_registry_visit_fn)(const aegis_tool_def_t* def, void* user);
+aegis_status_t aegis_tool_registry_visit(const aegis_tool_registry_t* reg,
+                                         aegis_tool_registry_visit_fn callback, void* user);
+
 /* ── Call runtime ─────────────────────────────────────────────────────── */
 
 /**
