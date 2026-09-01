@@ -22,7 +22,7 @@ typedef struct {
 
 static aegis_status_t fixture_read(void* user, const aegis_tool_args_t* args,
                                    const aegis_cancellation_token_t* token,
-                                   aegis_tool_result_t* out)
+                                   aegis_tool_result_t*              out)
 {
     (void)user;
     (void)token;
@@ -38,8 +38,8 @@ static void* server_thread(void* user)
     while (server->requests < 2) {
         int client = accept(server->fd, NULL, NULL);
         assert(client >= 0);
-        char request[16384] = {0};
-        size_t used = 0;
+        char   request[16384] = {0};
+        size_t used           = 0;
         while (used + 1 < sizeof(request) && !strstr(request, "\r\n\r\n")) {
             ssize_t n = recv(client, request + used, sizeof(request) - used - 1, 0);
             assert(n > 0);
@@ -48,14 +48,19 @@ static void* server_thread(void* user)
         }
         ++server->requests;
         const char* body = server->requests == 1
-            ? "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-1\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"path\\\":\\\"README.md\\\"}\"}}]}}]}\n\n"
-              "data: [DONE]\n\n"
-            : "data: {\"choices\":[{\"delta\":{\"content\":\"finished\"}}]}\n\n"
-              "data: [DONE]\n\n";
-        char header[256];
-        int header_len = snprintf(header, sizeof(header),
-                                  "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n",
-                                  strlen(body));
+                               ? "data: "
+                                 "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":"
+                                 "\"call-1\",\"function\":{\"name\":\"read\",\"arguments\":\"{"
+                                 "\\\"path\\\":\\\"README.md\\\"}\"}}]}}]}\n\n"
+                                 "data: [DONE]\n\n"
+                               : "data: {\"choices\":[{\"delta\":{\"content\":\"finished\"}}]}\n\n"
+                                 "data: [DONE]\n\n";
+        char        header[256];
+        int         header_len =
+            snprintf(header, sizeof(header),
+                     "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nContent-Length: "
+                     "%zu\r\nConnection: close\r\n\r\n",
+                     strlen(body));
         assert(send(client, header, (size_t)header_len, 0) == header_len);
         assert(send(client, body, strlen(body), 0) == (ssize_t)strlen(body));
         close(client);
@@ -78,19 +83,20 @@ static int make_server(void)
 
 int main(void)
 {
-    int server_fd = make_server();
+    int                server_fd = make_server();
     struct sockaddr_in address;
-    socklen_t address_len = sizeof(address);
+    socklen_t          address_len = sizeof(address);
     assert(getsockname(server_fd, (struct sockaddr*)&address, &address_len) == 0);
-    server_t server = {.fd = server_fd};
+    server_t  server = {.fd = server_fd};
     pthread_t thread;
     assert(pthread_create(&thread, NULL, server_thread, &server) == 0);
 
     char base_url[128];
     snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%u/v1", ntohs(address.sin_port));
-    aegis_openai_model_ctx_t* openai = NULL;
-    aegis_model_backend_t backend = {0};
-    assert(aegis_openai_model_create("test-key", base_url, "test-model", &openai, &backend) == AEGIS_OK);
+    aegis_openai_model_ctx_t* openai  = NULL;
+    aegis_model_backend_t     backend = {0};
+    assert(aegis_openai_model_create("test-key", base_url, "test-model", &openai, &backend) ==
+           AEGIS_OK);
 
     aegis_session_t* session = NULL;
     assert(aegis_session_create(".", &session) == AEGIS_OK);

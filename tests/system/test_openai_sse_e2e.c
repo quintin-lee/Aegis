@@ -43,12 +43,15 @@ static void* fixture_thread(void* user)
                              "data: "
                              "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-"
                              "1\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"path\\\":"
-                             "\\\"README.md\\\"}\"}}]}}]}\n\n"          "data: [DONE]\n\n"
-        : "{\"error\":{\"message\":\"bad request\"}}";
-    if (fixture->close_without_done) body = "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n";
+                             "\\\"README.md\\\"}\"}}]}}]}\n\n"
+                             "data: [DONE]\n\n"
+                           : "{\"error\":{\"message\":\"bad request\"}}";
+    if (fixture->close_without_done) {
+        body = "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n";
+    }
 
-    char        header[256];
-    int         header_len = snprintf(
+    char header[256];
+    int  header_len = snprintf(
         header, sizeof(header),
         "HTTP/1.1 %d %s\r\nContent-Type: %s\r\nContent-Length: %zu\r\nConnection: close\r\n\r\n",
         fixture->status_code, fixture->status_code == 200 ? "OK" : "Bad Request",
@@ -148,13 +151,15 @@ int main(void)
     close(fixture.server_fd);
 
     fixture_t incomplete_fixture = {.status_code = 200, .close_without_done = 1};
-    port = start_fixture(&incomplete_fixture);
+    port                         = start_fixture(&incomplete_fixture);
     assert(pthread_create(&thread, NULL, fixture_thread, &incomplete_fixture) == 0);
     snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
     aegis_openai_model_ctx_t* incomplete_context = NULL;
-    aegis_model_backend_t incomplete_backend = {0};
-    assert(aegis_openai_model_create("test-key", base_url, "test-model", &incomplete_context, &incomplete_backend) == AEGIS_OK);
-    assert(incomplete_backend.stream(incomplete_backend.user, &request, NULL, collect_event, &events) == AEGIS_ERR_PROVIDER);
+    aegis_model_backend_t     incomplete_backend = {0};
+    assert(aegis_openai_model_create("test-key", base_url, "test-model", &incomplete_context,
+                                     &incomplete_backend) == AEGIS_OK);
+    assert(incomplete_backend.stream(incomplete_backend.user, &request, NULL, collect_event,
+                                     &events) == AEGIS_ERR_PROVIDER);
     pthread_join(thread, NULL);
     close(incomplete_fixture.server_fd);
     aegis_openai_model_destroy(incomplete_context);
