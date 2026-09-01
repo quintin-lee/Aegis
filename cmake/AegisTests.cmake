@@ -84,8 +84,39 @@ if(AEGIS_BUILD_TESTS)
     add_executable(system_coding_loop tests/system/test_coding_loop.c)
     target_link_libraries(system_coding_loop PRIVATE aegis_core pthread)
     add_test(NAME system_coding_loop COMMAND system_coding_loop)
+    if(AEGIS_ENABLE_ASAN)
+        add_test(NAME asan_ctest_config
+                 COMMAND ${CMAKE_COMMAND}
+                         -DCTEST_FILE=${CMAKE_BINARY_DIR}/CTestTestfile.cmake
+                         -P ${PROJECT_SOURCE_DIR}/tests/cmake/test_asan_ctest_config.cmake)
+        set_tests_properties(asan_ctest_config PROPERTIES ENVIRONMENT "LD_PRELOAD=;ASAN_OPTIONS=verify_asan_link_order=0")
+        set_tests_properties(
+            unit_scheduler unit_error unit_allocator unit_queue unit_hashmap unit_buffer unit_string
+            unit_mutex unit_uuid unit_atomic unit_vector unit_list unit_runtime unit_runtime_concurrent
+            unit_agent unit_agent_concurrent unit_event_bus unit_task unit_task_graph unit_task_race_regression
+            unit_task_concurrent unit_scheduler_concurrent unit_executor unit_executor_concurrent unit_tool
+            unit_tool_executor unit_tool_concurrent unit_provider unit_context unit_message unit_session
+            unit_storage unit_memory unit_checkpoint unit_log unit_metrics unit_trace unit_plugin unit_security
+            unit_provider_llm unit_provider_storage unit_provider_embedding system_autonomous unit_autonomous_tool
+            system_recovery_e2e system_tool_e2e system_security_e2e system_cancellation_e2e system_failure_e2e
+            stress_agent_loop system_coding_loop
+            PROPERTIES ENVIRONMENT "LD_PRELOAD=;ASAN_OPTIONS=verify_asan_link_order=0")
+    endif()
+    if(AEGIS_OPENAI_PROVIDER)
+        add_executable(unit_structured_openai tests/unit/test_structured_openai.c)
+        target_include_directories(unit_structured_openai PRIVATE ${PROJECT_SOURCE_DIR}/providers/llm/openai)
+        target_link_libraries(unit_structured_openai PRIVATE aegis_llm_openai)
+        aegis_set_warnings(unit_structured_openai)
+        add_test(NAME unit_structured_openai COMMAND unit_structured_openai)
+        if(AEGIS_ENABLE_ASAN)
+            set_tests_properties(unit_structured_openai PROPERTIES ENVIRONMENT "LD_PRELOAD=;ASAN_OPTIONS=verify_asan_link_order=0")
+        endif()
+    endif()
     add_executable(integration_cli tests/integration/test_cli.c)
     add_test(NAME integration_cli COMMAND integration_cli)
+    if(AEGIS_ENABLE_ASAN)
+        set_tests_properties(integration_cli PROPERTIES ENVIRONMENT "LD_PRELOAD=;ASAN_OPTIONS=verify_asan_link_order=0")
+    endif()
 endif()
 
 # ── Mock plugin ─────────────────────────────────────────────────────────

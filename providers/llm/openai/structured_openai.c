@@ -1,5 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
 #include "structured_openai.h"
+#ifdef AEGIS_OPENAI_TEST_API
+#include "structured_openai_test.h"
+#endif
 #include "aegis/message/message.h"
 #include "aegis/message/role.h"
 #include "aegis/message/tool_call.h"
@@ -209,6 +212,7 @@ static const char* json_string_after(const char* json, const char* key)
 
 static size_t copy_json_string(const char* p, char* out, size_t cap)
 {
+    if (!p || !out || cap == 0) return 0;
     size_t n = 0;
     while (*p && *p != '"') {
         if (*p == '\\' && p[1]) {
@@ -223,6 +227,7 @@ static size_t copy_json_string(const char* p, char* out, size_t cap)
         }
         if (n + 1 >= cap) return 0;
     }
+    if (*p != '\"') return 0;
     out[n] = '\0';
     return n;
 }
@@ -367,16 +372,114 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
     return AEGIS_OK;
 }
 
+static int json_uint_after(const char* json, const char* key, uint32_t* out)
+{
+    const char* p = strstr(json, key);
+    if (!p) return 0;
+    p = strchr(p + strlen(key), ':');
+    if (!p) return 0;
+    ++p;
+    while (*p == ' ' || *p == '\t') ++p;
+    char* end = NULL;
+    unsigned long value = strtoul(p, &end, 10);
+    if (end == p || value > UINT32_MAX) return 0;
+    *out = (uint32_t)value;
+    return 1;
+}
+
+static aegis_status_t parse_complete_response(const char* json, size_t len,
+                                              aegis_model_response_t** out)
+{
+    if (!json || !out || len == 0 || len > OPENAI_MAX_RESPONSE) return AEGIS_ERR_INVALID;
+    *out = NULL;
+    aegis_model_response_t* response = NULL;
+    aegis_status_t status = aegis_model_response_create(&response);
+    if (status != AEGIS_OK) return status;
+    const char* content = json_string_after(json, "\"content\"");
+    if (!content) { aegis_model_response_destroy(response); return AEGIS_ERR_PROVIDER; }
+    char* decoded = malloc(len + 1);
+    if (!decoded) { aegis_model_response_destroy(response); return AEGIS_ERR_NOMEM; }
+    size_t content_len = copy_json_string(content, decoded, len + 1);
+    if (content_len == 0 && *content != '"') {
+        free(decoded); aegis_model_response_destroy(response); return AEGIS_ERR_PROVIDER;
+    }
+    aegis_message_t* message = NULL;
+    status = aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &message);
+    if (status == AEGIS_OK) status = aegis_message_set_content(message, decoded);
+    free(decoded);
+    if (status != AEGIS_OK) {
+        aegis_message_destroy(message); aegis_model_response_destroy(response); return status;
+    }
+    response->message = message;
+    (void)json_uint_after(json, "\"prompt_tokens\"", &response->usage.input_tokens);
+    (void)json_uint_after(json, "\"completion_tokens\"", &response->usage.output_tokens);
+    (void)json_uint_after(json, "\"total_tokens\"", &response->usage.total_tokens);
+    response->raw = malloc(len + 1);
+    if (!response->raw) { aegis_model_response_destroy(response); return AEGIS_ERR_NOMEM; }
+    memcpy(response->raw, json, len); response->raw[len] = '\0';
+    *out = response;
+    return AEGIS_OK;
+}
+
+#ifdef AEGIS_OPENAI_TEST_API
+aegis_status_t aegis_openai_parse_complete_response(const char* json, size_t len,
+                                                     aegis_model_response_t** out)
+{
+    return parse_complete_response(json, len, out);
+}
+#endif
+
+static size_t on_complete_write(void* ptr, size_t size, size_t nmemb, void* user)
+{
+    json_buf_t* buffer = user;
+    size_t total = size * nmemb;
+    return append_raw(buffer, ptr, total) ? total : 0;
+}
+
 static aegis_status_t structured_complete(void* user, const aegis_model_request_t* req,
                                           const aegis_cancellation_token_t* token,
                                           aegis_model_response_t** out)
 {
     if (!user || !req || !out) return AEGIS_ERR_INVALID;
+    aegis_openai_model_ctx_t* ctx = user;
     *out = NULL;
     if (token && aegis_cancellation_token_is_cancelled(token)) return AEGIS_ERR_CANCELLED;
-    /* The coding loop uses streaming. Keep the non-streaming operation
-     * explicit until a bounded JSON response decoder is added. */
-    return AEGIS_ERR_PROVIDER;
+    char* body = build_body(req);
+    if (!body) return AEGIS_ERR_NOMEM;
+    const char* key = ctx->api_key ? ctx->api_key : getenv("OPENAI_API_KEY");
+    if (!key || !*key) { free(body); return AEGIS_ERR_PERM; }
+    const char* base = ctx->base_url && *ctx->base_url ? ctx->base_url : OPENAI_DEFAULT_URL;
+    char url[2048];
+    int u = snprintf(url, sizeof(url), "%s/chat/completions", base);
+    if (u < 0 || (size_t)u >= sizeof(url)) { free(body); return AEGIS_ERR_INVALID; }
+    CURL* curl = curl_easy_init();
+    if (!curl) { free(body); return AEGIS_ERR_NOMEM; }
+    char auth[1024];
+    int a = snprintf(auth, sizeof(auth), "Authorization: Bearer %s", key);
+    if (a < 0 || (size_t)a >= sizeof(auth)) { curl_easy_cleanup(curl); free(body); return AEGIS_ERR_INVALID; }
+    struct curl_slist* headers = NULL;
+    headers = curl_slist_append(headers, "Content-Type: application/json");
+    headers = curl_slist_append(headers, auth);
+    json_buf_t response = {0};
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
+    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_complete_write);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 60000L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
+    curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
+    CURLcode cr = curl_easy_perform(curl);
+    long http = 0; curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http);
+    aegis_status_t status = AEGIS_ERR_PROVIDER;
+    if (cr == CURLE_OK && http >= 200 && http < 300 && response.data) {
+        status = parse_complete_response(response.data, response.len, out);
+    }
+    free(response.data); curl_slist_free_all(headers); curl_easy_cleanup(curl); free(body);
+    if (token && aegis_cancellation_token_is_cancelled(token)) return AEGIS_ERR_CANCELLED;
+    return status;
 }
 
 aegis_status_t aegis_openai_model_create(const char* api_key, const char* base_url,

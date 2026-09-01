@@ -1,0 +1,11 @@
+if(NOT DEFINED CTEST_FILE OR NOT EXISTS "${CTEST_FILE}")
+    message(FATAL_ERROR "CTEST_FILE must point to a generated CTestTestfile.cmake")
+endif()
+
+file(READ "${CTEST_FILE}" contents)
+if(NOT contents MATCHES "LD_PRELOAD=")
+    message(FATAL_ERROR "ASan CTest configuration must clear inherited LD_PRELOAD")
+endif()
+if(NOT contents MATCHES "ASAN_OPTIONS=verify_asan_link_order=0")
+    message(FATAL_ERROR "ASan CTest configuration must disable GCC ASan link-order verification")
+endif()

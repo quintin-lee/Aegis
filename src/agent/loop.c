@@ -512,8 +512,7 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
             }
             aegis_tool_call_destroy(call);
         }
-        free(acc.text);
-        acc.text = NULL;
+        stream_accum_destroy(&acc);
 
         size_t tc = aegis_message_tool_call_count(am);
         st        = aegis_session_append_message(l->session, am);
