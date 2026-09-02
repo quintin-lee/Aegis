@@ -55,6 +55,19 @@ const char* aegis_coding_agent_model_name(const aegis_coding_agent_t* agent);
  */
 aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* agent, const char* model);
 
+/**
+ * @brief Register (or clear) the agent-loop event observer.
+ *
+ * The callback receives streaming text deltas and tool start/end events
+ * as they happen; see aegis_agent_event_fn for the payload contract.
+ * Pass fn == NULL to disable event emission.
+ *
+ * @return AEGIS_OK, or AEGIS_ERR_INVALID when agent is NULL.
+ */
+aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* agent,
+                                                     aegis_agent_event_fn  fn,
+                                                     void*                 user);
+
 #ifdef __cplusplus
 }
 #endif

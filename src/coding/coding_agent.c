@@ -33,6 +33,8 @@ struct aegis_coding_agent {
     aegis_mutation_queue_t* mq;
     aegis_agent_loop_t*     loop;
     aegis_skill_registry_t* skills;
+    aegis_agent_event_fn    ev_fn;   /**< Borrowed observer; NULL disables. */
+    void*                   ev_user; /**< Borrowed, passed to ev_fn.        */
     bool                    owns_tools;
 };
 
@@ -159,6 +161,8 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     lcfg.model         = a->model;
     lcfg.tools         = a->tools;
     lcfg.system_prompt = CODING_AGENT_SYSTEM_PROMPT;
+    lcfg.on_event      = a->ev_fn;
+    lcfg.event_user    = a->ev_user;
     st                 = aegis_agent_loop_create(&lcfg, &a->loop);
     if (st != AEGIS_OK) {
         if (a->owns_tools) {
@@ -231,6 +235,8 @@ aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* a, aegis
         .model         = a->model,
         .tools         = a->tools,
         .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
+        .on_event      = a->ev_fn,
+        .event_user    = a->ev_user,
     };
     aegis_status_t st = aegis_agent_loop_create(&cfg, &replacement);
     if (st != AEGIS_OK) {
@@ -256,6 +262,18 @@ aegis_status_t aegis_coding_agent_run(aegis_coding_agent_t* a, const char* user_
 const char* aegis_coding_agent_model_name(const aegis_coding_agent_t* a)
 {
     return a ? a->model_name : NULL;
+}
+
+aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* a,
+                                                     aegis_agent_event_fn  fn,
+                                                     void*                 user)
+{
+    if (!a) {
+        return AEGIS_ERR_INVALID;
+    }
+    a->ev_fn   = fn;
+    a->ev_user = user;
+    return aegis_agent_loop_set_event_callback(a->loop, fn, user);
 }
 
 aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char* model)
@@ -285,6 +303,8 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char*
         .model         = new_client,
         .tools         = a->tools,
         .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
+        .on_event      = a->ev_fn,
+        .event_user    = a->ev_user,
     };
     st = aegis_agent_loop_create(&lcfg, &replacement);
     if (st != AEGIS_OK) {
