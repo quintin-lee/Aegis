@@ -48,6 +48,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_tool             tests/unit/test_tool.c)
     aegis_add_test(unit_tool_executor    tests/unit/test_tool_executor.c)
     aegis_add_test(unit_tool_concurrent  tests/unit/test_tool_concurrent.c)
+    aegis_add_test(unit_discovery_tools tests/unit/test_discovery_tools.c)
     aegis_add_test(unit_provider             tests/unit/test_provider.c)
     aegis_add_test(unit_context            tests/unit/test_context.c)
     aegis_add_test(unit_message            tests/unit/test_message.c)
@@ -96,7 +97,7 @@ if(AEGIS_BUILD_TESTS)
             unit_mutex unit_uuid unit_atomic unit_vector unit_list unit_runtime unit_runtime_concurrent
             unit_agent unit_agent_concurrent unit_event_bus unit_task unit_task_graph unit_task_race_regression
             unit_task_concurrent unit_scheduler_concurrent unit_executor unit_executor_concurrent unit_tool
-            unit_tool_executor unit_tool_concurrent unit_provider unit_context unit_message unit_session
+            unit_tool_executor unit_tool_concurrent unit_discovery_tools unit_provider unit_context unit_message unit_session
             unit_storage unit_memory unit_checkpoint unit_log unit_metrics unit_trace unit_plugin unit_security
             unit_provider_llm unit_provider_storage unit_provider_embedding system_autonomous unit_autonomous_tool
             system_recovery_e2e system_tool_e2e system_security_e2e system_cancellation_e2e system_failure_e2e

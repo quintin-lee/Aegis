@@ -2,6 +2,8 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/coding_tools.h"
 #include "aegis/coding/mutations.h"
+#include "path_safety.h"
+#include "aegis/coding/discovery_tools.h"
 #include "aegis/tool/tool.h"
 #include "aegis/common/cancellation/cancellation.h"
 #include <stdlib.h>
@@ -19,22 +21,6 @@
 
 static aegis_mutation_queue_t* g_mq = NULL;
 
-static bool safe_relative_path(const char* path)
-{
-    if (!path || path[0] == '/' || path[0] == '\0') {
-        return false;
-    }
-    const char* p = path;
-    while (*p) {
-        if ((p == path || p[-1] == '/') && p[0] == '.' && p[1] == '.' &&
-            (p[2] == '\0' || p[2] == '/')) {
-            return false;
-        }
-        ++p;
-    }
-    return true;
-}
-
 // ── read ────────────────────────────────────────────────────────────────
 
 static aegis_status_t tool_read_execute(void* user, const aegis_tool_args_t* args,
@@ -50,7 +36,7 @@ static aegis_status_t tool_read_execute(void* user, const aegis_tool_args_t* arg
     }
     const char* path = v->as.str.ptr;
     // Basic path normalization check
-    if (!safe_relative_path(path)) {
+    if (!aegis_safe_relative_path(path)) {
         aegis_tool_result_set_string(out, "error: path must stay inside the project");
         return AEGIS_OK;
     }
@@ -126,7 +112,7 @@ static aegis_status_t tool_write_execute(void* user, const aegis_tool_args_t* ar
         return aegis_tool_result_set_string(out, "error: missing path");
     }
     const char* path = v->as.str.ptr;
-    if (!safe_relative_path(path)) {
+    if (!aegis_safe_relative_path(path)) {
         aegis_tool_result_set_string(out, "error: path must stay inside the project");
         return AEGIS_OK;
     }
@@ -217,7 +203,7 @@ static aegis_status_t tool_edit_execute(void* user, const aegis_tool_args_t* arg
         return aegis_tool_result_set_string(out, "error: missing path");
     }
     const char* path = v->as.str.ptr;
-    if (!safe_relative_path(path)) {
+    if (!aegis_safe_relative_path(path)) {
         aegis_tool_result_set_string(out, "error: path must stay inside the project");
         return AEGIS_OK;
     }
@@ -566,5 +552,5 @@ aegis_status_t aegis_coding_tools_register_all(aegis_tool_registry_t*  reg,
     if (st != AEGIS_OK) {
         return st;
     }
-    return AEGIS_OK;
+    return aegis_coding_discovery_tools_register_all(reg);
 }
