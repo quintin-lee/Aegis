@@ -669,6 +669,8 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
                 l->on_event(&ev, l->event_user);
             }
             aegis_tool_result_destroy(&result);
+            st = aegis_session_append_message(l->session, tr);
+            aegis_message_destroy(tr);
             if (st != AEGIS_OK) {
                 aegis_message_destroy(am);
                 set_state(l, AEGIS_AGENT_LOOP_FAILED);
