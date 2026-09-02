@@ -212,6 +212,25 @@ static void test_interactive_commands(void)
     assert(run_cli_stdin("/resume /tmp/does_not_exist_xyz.jsonl\n/quit\n", out, sizeof(out), &ec) == 0);
     assert_contains(out, "resume failed", "resume missing");
 
+    /* 6. streaming on: tokens appear exactly once (streamed-first dedup) */
+    assert(run_cli_stdin("/stream on\nhello\n/quit\n", out, sizeof(out), &ec) == 0);
+    assert_contains(out, "stream on", "stream toggle echo");
+    assert_contains(out, "mock stream for:", "streamed tokens");
+    {
+        const char* first = strstr(out, "mock stream for:");
+        assert(first);
+        assert(strstr(first + 1, "mock stream for:") == NULL); /* no double print */
+    }
+
+    /* 7. streaming off: reply printed once via the final-message path */
+    assert(run_cli_stdin("/stream off\nhello\n/quit\n", out, sizeof(out), &ec) == 0);
+    assert_contains(out, "stream off", "stream off echo");
+    {
+        const char* first = strstr(out, "mock stream for:");
+        assert(first);
+        assert(strstr(first + 1, "mock stream for:") == NULL);
+    }
+
     assert(chdir(cwd) == 0);
     char rmcmd[PATH_MAX * 2 + 64];
     snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s", tmp);

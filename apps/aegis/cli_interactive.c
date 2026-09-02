@@ -8,6 +8,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 
 static void print_banner(const char* model)
 {
@@ -15,6 +16,76 @@ static void print_banner(const char* model)
     printf("project: %s\n", ".");
     printf("model: %s\n", model ? model : "mock");
     printf("type /help for commands\n\n");
+}
+
+/* ── Live streaming output ────────────────────────────────────────── */
+
+typedef struct cli_stream_ctx {
+    bool enabled;      /**< /stream on|off                              */
+    bool text_emitted; /**< streamed text already shown for this turn   */
+    bool line_open;    /**< current line has unterminated content       */
+} cli_stream_ctx_t;
+
+static void cli_stream_prelude(cli_stream_ctx_t* cx)
+{
+    if (cx->line_open) {
+        putchar('\n');
+        cx->line_open = false;
+    }
+}
+
+/* AEGIS_JSON=1 forces machine-readable output: no live streaming callback. */
+static bool json_mode_env(void)
+{
+    const char* env = getenv("AEGIS_JSON");
+    return env && strcmp(env, "1") == 0;
+}
+
+static void cli_event_cb(const aegis_agent_event_t* ev, void* user)
+{
+    cli_stream_ctx_t* cx = (cli_stream_ctx_t*)user;
+    if (!cx->enabled) {
+        return;
+    }
+    switch (ev->type) {
+    case AEGIS_AGENT_EVENT_TEXT_DELTA:
+        if (ev->data && ev->len) {
+            fwrite(ev->data, 1, ev->len, stdout);
+            cx->text_emitted = true;
+            cx->line_open    = true;
+            fflush(stdout);
+        }
+        break;
+    case AEGIS_AGENT_EVENT_TOOL_START:
+        cli_stream_prelude(cx);
+        printf("● %s", ev->tool_name ? ev->tool_name : "?");
+        cx->line_open = true;
+        fflush(stdout);
+        break;
+    case AEGIS_AGENT_EVENT_TOOL_END: {
+        if (ev->status == AEGIS_OK) {
+            char preview[64] = {0};
+            if (ev->data && ev->len) {
+                const char* s    = (const char*)ev->data;
+                size_t      take = ev->len < sizeof(preview) - 1 ? ev->len : sizeof(preview) - 1;
+                memcpy(preview, s, take);
+                for (size_t i = 0; i < take; i++) {
+                    if (preview[i] == '\n') {
+                        preview[i] = ' ';
+                    }
+                }
+            }
+            printf("  ✓ %s\n", preview[0] ? preview : "ok");
+        } else {
+            printf("  ✗ %s\n", aegis_status_str(ev->status));
+        }
+        cx->line_open = false;
+        fflush(stdout);
+        break;
+    }
+    default:
+        break;
+    }
 }
 
 int cmd_interactive(const char* project_root, const char* model, const char* resume_path)
@@ -46,12 +117,12 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         }
     }
     print_banner(aegis_coding_agent_model_name(agent));
-    char        line[4096];
-    int         json_mode = 0;
-    const char* env_json  = getenv("AEGIS_JSON");
-    if (env_json && strcmp(env_json, "1") == 0) {
-        json_mode = 1;
+    static cli_stream_ctx_t stream_ctx = {.enabled = true, .text_emitted = false, .line_open = false};
+    if (!json_mode_env()) {
+        aegis_coding_agent_set_event_callback(agent, cli_event_cb, &stream_ctx);
     }
+    char        line[4096];
+    int         json_mode = json_mode_env();
     while (1) {
         printf("> ");
         fflush(stdout);
@@ -66,7 +137,7 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/help") == 0 || strcmp(line, "/h") == 0) {
-            printf("/help /model /session /sessions /resume /fork /tree /compact /json /clear /quit\n");
+            printf("/help /model /session /sessions /resume /fork /tree /compact /json /stream /clear /quit\n");
             continue;
         }
         if (strcmp(line, "/model") == 0 || strncmp(line, "/model ", 7) == 0) {
@@ -185,19 +256,33 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             printf("json mode %s\n", json_mode ? "on" : "off");
             continue;
         }
+        if (strcmp(line, "/stream") == 0 || strncmp(line, "/stream ", 8) == 0) {
+            const char* arg = line[7] == ' ' ? line + 8 : NULL;
+            if (arg && strcmp(arg, "on") == 0) {
+                stream_ctx.enabled = true;
+            } else if (arg && strcmp(arg, "off") == 0) {
+                stream_ctx.enabled = false;
+            }
+            printf("stream %s\n", stream_ctx.enabled ? "on" : "off");
+            continue;
+        }
         if (json_mode) {
             printf("{\"type\":\"user\",\"content\":\"");
         } else {
             printf("assistant:\n");
         }
+        stream_ctx.text_emitted = false;
+        stream_ctx.line_open    = false;
         aegis_status_t st2 = aegis_coding_agent_run(agent, line);
+        cli_stream_prelude(&stream_ctx);
         if (st2 == AEGIS_OK) {
             aegis_session_t* sess = aegis_coding_agent_session(agent);
             size_t           n    = aegis_session_message_count(sess);
             if (n > 0) {
                 const aegis_message_t* last    = aegis_session_message_at(sess, n - 1);
                 const char*            content = aegis_message_content(last);
-                if (content) {
+                /* Streamed-first: skip reprint when tokens were already shown. */
+                if (content && (!stream_ctx.text_emitted || json_mode)) {
                     if (json_mode) {
                         for (const char* p = content; *p; p++) {
                             if (*p == '"') {
