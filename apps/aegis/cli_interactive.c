@@ -2,15 +2,18 @@
 #include "cli_helpers.h"
 #include "aegis/coding/coding_agent.h"
 #include "aegis/session/session.h"
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <time.h>
 
-static void print_banner(void)
+static void print_banner(const char* model)
 {
     printf("Aegis Coding Agent\n");
     printf("project: %s\n", ".");
-    printf("model: mock\n");
+    printf("model: %s\n", model ? model : "mock");
     printf("type /help for commands\n\n");
 }
 
@@ -42,7 +45,7 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             aegis_session_destroy(loaded);
         }
     }
-    print_banner();
+    print_banner(aegis_coding_agent_model_name(agent));
     char        line[4096];
     int         json_mode = 0;
     const char* env_json  = getenv("AEGIS_JSON");
@@ -63,7 +66,84 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/help") == 0 || strcmp(line, "/h") == 0) {
-            printf("/help /model /session /sessions /resume /fork /tree /compact /clear /quit\n");
+            printf("/help /model /session /sessions /resume /fork /tree /compact /json /clear /quit\n");
+            continue;
+        }
+        if (strcmp(line, "/model") == 0 || strncmp(line, "/model ", 7) == 0) {
+            const char* arg = line[6] == ' ' ? line + 7 : NULL;
+            if (!arg || arg[0] == '\0') {
+                printf("model: %s\n", aegis_coding_agent_model_name(agent));
+            } else {
+                aegis_status_t st3 = aegis_coding_agent_set_model(agent, arg);
+                if (st3 == AEGIS_OK) {
+                    printf("switched model to %s\n", aegis_coding_agent_model_name(agent));
+                } else {
+                    printf("error: %s\n", aegis_status_str(st3));
+                }
+            }
+            continue;
+        }
+        if (strcmp(line, "/session") == 0 || strcmp(line, "/tree") == 0) {
+            aegis_session_t* sess = aegis_coding_agent_session(agent);
+            printf("session %s branch %s parent %s messages %zu\n", aegis_session_id(sess),
+                   aegis_session_branch_id(sess),
+                   aegis_session_parent_id(sess) ? aegis_session_parent_id(sess) : "-",
+                   aegis_session_message_count(sess));
+            continue;
+        }
+        if (strcmp(line, "/sessions") == 0) {
+            DIR* d = opendir(".aegis");
+            if (!d) {
+                printf("(no saved sessions)\n");
+                continue;
+            }
+            struct dirent* ent;
+            bool           any = false;
+            while ((ent = readdir(d)) != NULL) {
+                const char* n = ent->d_name;
+                size_t      l = strlen(n);
+                if (strncmp(n, "session-", 8) != 0 || l < 8 + 4 || strcmp(n + l - 6, ".jsonl") != 0) {
+                    continue;
+                }
+                char        pbuf[1024];
+                snprintf(pbuf, sizeof(pbuf), ".aegis/%s", n);
+                struct stat st;
+                if (stat(pbuf, &st) != 0) {
+                    continue;
+                }
+                char tsbuf[32];
+                struct tm tm_v;
+                localtime_r(&st.st_mtime, &tm_v);
+                strftime(tsbuf, sizeof(tsbuf), "%Y-%m-%d %H:%M:%S", &tm_v);
+                printf("%s  %s\n", n, tsbuf);
+                any = true;
+            }
+            closedir(d);
+            if (!any) {
+                printf("(no saved sessions)\n");
+            }
+            continue;
+        }
+        if (strncmp(line, "/resume", 7) == 0 && (line[7] == '\0' || line[7] == ' ')) {
+            const char* arg = line[7] == ' ' ? line + 8 : NULL;
+            if (!arg || arg[0] == '\0') {
+                printf("usage: /resume <session-file>\n");
+                continue;
+            }
+            aegis_session_t* loaded = NULL;
+            aegis_status_t   st3    = aegis_session_load(arg, &loaded);
+            if (st3 != AEGIS_OK) {
+                printf("resume failed: %s\n", aegis_status_str(st3));
+                continue;
+            }
+            st3 = aegis_coding_agent_replace_session(agent, loaded);
+            if (st3 != AEGIS_OK) {
+                aegis_session_destroy(loaded);
+                printf("resume failed: %s\n", aegis_status_str(st3));
+                continue;
+            }
+            printf("resumed %s (%zu messages)\n", aegis_session_id(loaded),
+                   aegis_session_message_count(loaded));
             continue;
         }
         if (strcmp(line, "/quit") == 0 || strcmp(line, "/exit") == 0 || strcmp(line, "/q") == 0) {
@@ -86,14 +166,6 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             } else {
                 printf("fork failed\n");
             }
-            continue;
-        }
-        if (strcmp(line, "/tree") == 0) {
-            aegis_session_t* sess = aegis_coding_agent_session(agent);
-            printf("session %s branch %s parent %s messages %zu\n", aegis_session_id(sess),
-                   aegis_session_branch_id(sess),
-                   aegis_session_parent_id(sess) ? aegis_session_parent_id(sess) : "-",
-                   aegis_session_message_count(sess));
             continue;
         }
         if (strcmp(line, "/compact") == 0) {

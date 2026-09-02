@@ -14,6 +14,7 @@
  */
 #define _POSIX_C_SOURCE 200809L
 #include <assert.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -21,6 +22,8 @@
 #include <unistd.h>
 #include <limits.h>
 #include <sys/stat.h>
+
+static void assert_contains(const char* hay, const char* needle, const char* msg);
 
 static const char* find_cli_bin(void)
 {
@@ -118,6 +121,102 @@ static char* mktmpdir(char* tmpl_out, size_t n)
     }
     snprintf(tmpl_out, n, "%s", d);
     return tmpl_out;
+}
+
+/* Feed @p input to the CLI on stdin (interactive mode); capture stdout+stderr.
+ * Input must not contain single quotes. */
+static int run_cli_stdin(const char* input, char* out, size_t out_len, int* exit_code)
+{
+    const char* bin = find_cli_bin();
+    char        cmd[8192];
+    snprintf(cmd, sizeof(cmd), "printf '%s' | %s 2>&1", input, bin);
+    FILE* fp = popen(cmd, "r");
+    if (!fp) {
+        return -1;
+    }
+    size_t pos = 0;
+    if (out && out_len > 0) {
+        out[0] = '\0';
+        char tmp[1024];
+        while (fgets(tmp, sizeof(tmp), fp)) {
+            size_t tl = strlen(tmp);
+            if (pos + tl + 1 < out_len) {
+                memcpy(out + pos, tmp, tl);
+                pos += tl;
+                out[pos] = '\0';
+            }
+        }
+    }
+    int rc = pclose(fp);
+    if (exit_code) {
+        if (WIFEXITED(rc)) {
+            *exit_code = WEXITSTATUS(rc);
+        } else {
+            *exit_code = -1;
+        }
+    }
+    return 0;
+}
+
+static void test_interactive_commands(void)
+{
+    printf("[test] interactive_commands ...\n");
+    char tmp[PATH_MAX];
+    assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
+    char cwd[PATH_MAX];
+    assert(getcwd(cwd, sizeof(cwd)) != NULL);
+    assert(chdir(tmp) == 0);
+
+    char out[16384];
+    int  ec = -1;
+
+    /* 1. /model show + switch + show; session file written on exit */
+    assert(run_cli_stdin("/model\n/model gpt-x\n/model\n/quit\n", out, sizeof(out), &ec) == 0);
+    assert_contains(out, "model: mock", "banner/current model");
+    assert_contains(out, "switched model to gpt-x", "model switch");
+    assert(strstr(out, "model: gpt-x") != strstr(out, "switched"));
+
+    /* find the saved session file */
+    char         sess_path[PATH_MAX] = {0};
+    DIR*         d                   = opendir(".aegis");
+    assert(d);
+    struct dirent* ent;
+    while ((ent = readdir(d)) != NULL) {
+        size_t l = strlen(ent->d_name);
+        if (strncmp(ent->d_name, "session-", 8) == 0 && l > 6 &&
+            strcmp(ent->d_name + l - 6, ".jsonl") == 0) {
+            snprintf(sess_path, sizeof(sess_path), ".aegis/%s", ent->d_name);
+            break;
+        }
+    }
+    closedir(d);
+    assert(sess_path[0] != '\0');
+
+    /* 2. /resume + /session info */
+    char resume_cmd[PATH_MAX + 16];
+    snprintf(resume_cmd, sizeof(resume_cmd), "/resume %s\n/session\n/quit\n", sess_path);
+    assert(run_cli_stdin(resume_cmd, out, sizeof(out), &ec) == 0);
+    assert_contains(out, "resumed ", "resume ok");
+    assert_contains(out, "session ", "session info");
+
+    /* 3. /sessions listing */
+    assert(run_cli_stdin("/sessions\n/quit\n", out, sizeof(out), &ec) == 0);
+    assert_contains(out, ".jsonl", "sessions listing");
+
+    /* 4. /help lists /resume */
+    assert(run_cli_stdin("/help\n/quit\n", out, sizeof(out), &ec) == 0);
+    assert_contains(out, "/resume", "help lists resume");
+    assert_contains(out, "/model", "help lists model");
+
+    /* 5. /resume missing file keeps session intact */
+    assert(run_cli_stdin("/resume /tmp/does_not_exist_xyz.jsonl\n/quit\n", out, sizeof(out), &ec) == 0);
+    assert_contains(out, "resume failed", "resume missing");
+
+    assert(chdir(cwd) == 0);
+    char rmcmd[PATH_MAX * 2 + 64];
+    snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s", tmp);
+    (void)system(rmcmd);
+    printf("  PASS\n");
 }
 
 static void assert_contains(const char* hay, const char* needle, const char* msg)
@@ -295,6 +394,7 @@ int main(void)
     test_unknown_command();
     test_init_and_run();
     test_init_path();
+    test_interactive_commands();
     printf("ALL_CLI_TESTS PASSED\n");
     return 0;
 }
