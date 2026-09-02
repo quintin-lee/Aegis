@@ -100,7 +100,7 @@ if(AEGIS_BUILD_TESTS)
             unit_task_concurrent unit_scheduler_concurrent unit_executor unit_executor_concurrent unit_tool
             unit_tool_executor unit_tool_concurrent unit_discovery_tools unit_coding_agent unit_provider unit_context unit_message unit_session
             unit_storage unit_memory unit_checkpoint unit_log unit_metrics unit_trace unit_plugin unit_security
-            unit_provider_llm unit_provider_storage unit_provider_embedding system_autonomous unit_autonomous_tool
+            unit_provider_llm unit_provider_storage unit_provider_embedding unit_planner_llm system_autonomous unit_autonomous_tool
             system_recovery_e2e system_tool_e2e system_security_e2e system_cancellation_e2e system_failure_e2e
             stress_agent_loop system_coding_loop
             PROPERTIES ENVIRONMENT "LD_PRELOAD=;ASAN_OPTIONS=verify_asan_link_order=0")
