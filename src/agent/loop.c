@@ -19,6 +19,8 @@ struct aegis_agent_loop {
     char*                       system_prompt;
     aegis_cancellation_token_t* token;
     aegis_agent_loop_state_t    state;
+    aegis_agent_event_fn        on_event;
+    void*                       event_user;
     pthread_mutex_t             lock;
 };
 
@@ -39,10 +41,12 @@ aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
     if (!l) {
         return AEGIS_ERR_NOMEM;
     }
-    l->session = cfg->session;
-    l->model   = cfg->model;
-    l->tools   = cfg->tools;
-    l->token   = cfg->token;
+    l->session    = cfg->session;
+    l->model      = cfg->model;
+    l->tools      = cfg->tools;
+    l->token      = cfg->token;
+    l->on_event   = cfg->on_event;
+    l->event_user = cfg->event_user;
     l->state   = AEGIS_AGENT_LOOP_IDLE;
     if (cfg->system_prompt) {
         l->system_prompt = strdup(cfg->system_prompt);
@@ -82,6 +86,19 @@ aegis_status_t aegis_agent_loop_cancel(aegis_agent_loop_t* l)
         aegis_cancellation_token_request_cancel(l->token);
     }
     set_state(l, AEGIS_AGENT_LOOP_CANCELLING);
+    return AEGIS_OK;
+}
+
+aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* l, aegis_agent_event_fn fn,
+                                                   void* user)
+{
+    if (!l) {
+        return AEGIS_ERR_INVALID;
+    }
+    pthread_mutex_lock(&l->lock);
+    l->on_event   = fn;
+    l->event_user = user;
+    pthread_mutex_unlock(&l->lock);
     return AEGIS_OK;
 }
 aegis_status_t aegis_agent_loop_pause(aegis_agent_loop_t* l)
@@ -167,6 +184,7 @@ typedef struct stream_accum {
     stream_call_accum_t* calls;
     size_t               call_count;
     size_t               call_cap;
+    aegis_agent_loop_t*  loop; /**< Borrowed; set per run for event forwarding. */
 } stream_accum_t;
 
 static void stream_accum_destroy(stream_accum_t* acc)
@@ -448,6 +466,15 @@ static aegis_status_t stream_cb(const aegis_model_stream_event_t* ev, void* user
         memcpy(acc->text + acc->len, ev->data, ev->len);
         acc->len += ev->len;
         acc->text[acc->len] = '\0';
+        if (acc->loop && acc->loop->on_event) {
+            aegis_agent_event_t out_ev = {
+                .type = AEGIS_AGENT_EVENT_TEXT_DELTA,
+                .data = ev->data,
+                .len  = ev->len,
+            };
+            /* Observer runs without loop locks; it cannot affect control flow. */
+            acc->loop->on_event(&out_ev, acc->loop->event_user);
+        }
     }
     if (ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_START ||
         ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_DELTA ||
@@ -519,6 +546,7 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
         };
 
         stream_accum_t acc = {0};
+        acc.loop           = l;
         st                 = aegis_model_stream(l->model, &req, l->token, stream_cb, &acc);
         aegis_message_list_destroy(ctx_msgs);
         if (st != AEGIS_OK) {
@@ -598,6 +626,14 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
                 set_state(l, AEGIS_AGENT_LOOP_FAILED);
                 return AEGIS_ERR_INVALID;
             }
+            if (l->on_event) {
+                aegis_agent_event_t ev = {
+                    .type = AEGIS_AGENT_EVENT_TOOL_START,
+                    .tool_name = name,
+                    .call_id = cid,
+                };
+                l->on_event(&ev, l->event_user);
+            }
             aegis_tool_result_t result = {0};
             st = aegis_tool_execute(l->tools, name, args, l->token, &result);
             aegis_tool_args_destroy(args);
@@ -618,9 +654,21 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
                 snprintf(error, sizeof(error), "tool %s failed: %s", name, aegis_status_str(st));
                 aegis_message_set_content(tr, error);
             }
+            if (l->on_event) {
+                aegis_agent_event_t ev = {
+                    .type      = AEGIS_AGENT_EVENT_TOOL_END,
+                    .tool_name = name,
+                    .call_id   = cid,
+                    .status    = st,
+                };
+                if (st == AEGIS_OK && result.value.type == AEGIS_TOOL_VAL_STRING &&
+                    result.value.as.str.ptr) {
+                    ev.data = result.value.as.str.ptr;
+                    ev.len  = result.value.as.str.len;
+                }
+                l->on_event(&ev, l->event_user);
+            }
             aegis_tool_result_destroy(&result);
-            st = aegis_session_append_message(l->session, tr);
-            aegis_message_destroy(tr);
             if (st != AEGIS_OK) {
                 aegis_message_destroy(am);
                 set_state(l, AEGIS_AGENT_LOOP_FAILED);

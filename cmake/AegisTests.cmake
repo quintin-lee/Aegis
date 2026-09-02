@@ -36,6 +36,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_runtime        tests/unit/test_runtime.c)
     aegis_add_test(unit_runtime_concurrent tests/unit/test_runtime_concurrent.c)
     aegis_add_test(unit_agent        tests/unit/test_agent.c)
+    aegis_add_test(unit_agent_events tests/unit/test_agent_events.c)
     aegis_add_test(unit_agent_concurrent tests/unit/test_agent_concurrent.c)
     aegis_add_test(unit_event_bus        tests/unit/test_event_bus.c)
     aegis_add_test(unit_task             tests/unit/test_task.c)
@@ -96,7 +97,7 @@ if(AEGIS_BUILD_TESTS)
         set_tests_properties(
             unit_scheduler unit_error unit_allocator unit_queue unit_hashmap unit_buffer unit_string
             unit_mutex unit_uuid unit_atomic unit_vector unit_list unit_runtime unit_runtime_concurrent
-            unit_agent unit_agent_concurrent unit_event_bus unit_task unit_task_graph unit_task_race_regression
+            unit_agent unit_agent_events unit_agent_concurrent unit_event_bus unit_task unit_task_graph unit_task_race_regression
             unit_task_concurrent unit_scheduler_concurrent unit_executor unit_executor_concurrent unit_tool
             unit_tool_executor unit_tool_concurrent unit_discovery_tools unit_coding_agent unit_provider unit_context unit_message unit_session
             unit_storage unit_memory unit_checkpoint unit_log unit_metrics unit_trace unit_plugin unit_security
