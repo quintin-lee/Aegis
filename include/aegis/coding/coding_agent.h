@@ -36,6 +36,25 @@ aegis_status_t   aegis_coding_agent_replace_session(aegis_coding_agent_t* agent,
                                                     aegis_session_t*      session);
 aegis_status_t   aegis_coding_agent_run(aegis_coding_agent_t* agent, const char* user_input);
 
+/**
+ * @brief Current model name (owned by the agent; valid until set_model).
+ * @return Borrowed string, or NULL when agent is NULL.
+ */
+const char* aegis_coding_agent_model_name(const aegis_coding_agent_t* agent);
+
+/**
+ * @brief Switch the model used for subsequent turns.
+ *
+ * Rebuilds the model client from the agent's stored provider configuration
+ * (OpenAI backend when configured, mock otherwise) and swaps in a fresh
+ * agent loop. The session is untouched. On failure the previous model and
+ * loop remain fully functional.
+ *
+ * @param model New model name (non-NULL, non-empty).
+ * @return AEGIS_OK, AEGIS_ERR_INVALID, or the client/loop creation error.
+ */
+aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* agent, const char* model);
+
 #ifdef __cplusplus
 }
 #endif

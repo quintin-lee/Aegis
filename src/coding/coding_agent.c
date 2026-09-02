@@ -17,9 +17,15 @@
 #include <unistd.h>
 #include <stddef.h>
 
+#define CODING_AGENT_SYSTEM_PROMPT "You are a coding agent. Use tools to help the user."
+
 struct aegis_coding_agent {
     aegis_session_t*      session;
     aegis_model_client_t* model;
+    char*                 model_name;
+    char*                 provider;
+    char*                 api_key;
+    char*                 base_url;
 #ifdef AEGIS_OPENAI_PROVIDER
     aegis_openai_model_ctx_t* openai_model;
 #endif
@@ -29,6 +35,32 @@ struct aegis_coding_agent {
     aegis_skill_registry_t* skills;
     bool                    owns_tools;
 };
+
+static char* dup_or_null(const char* s)
+{
+    return s ? strdup(s) : NULL;
+}
+
+#ifdef AEGIS_OPENAI_PROVIDER
+static aegis_status_t build_openai_model(aegis_coding_agent_t*         a,
+                                         const char*                   model_name,
+                                         aegis_openai_model_ctx_t**    out_ctx,
+                                         aegis_model_client_t**        out_client)
+{
+    aegis_model_backend_t backend = {0};
+    aegis_status_t        st =
+        aegis_openai_model_create(a->api_key, a->base_url, model_name, out_ctx, &backend);
+    if (st != AEGIS_OK) {
+        return st;
+    }
+    st = aegis_model_client_create_with_backend(model_name, &backend, out_client);
+    if (st != AEGIS_OK) {
+        aegis_openai_model_destroy(*out_ctx);
+        *out_ctx = NULL;
+    }
+    return st;
+}
+#endif
 
 aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
                                          aegis_coding_agent_t**             out)
@@ -48,20 +80,29 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     }
 
     const char* model_name = cfg->model ? cfg->model : "mock";
+    // Keep provider configuration so set_model() can rebuild the backend later.
+    a->model_name = strdup(model_name);
+    a->provider   = dup_or_null(cfg->provider);
+    a->api_key    = dup_or_null(cfg->api_key);
+    a->base_url   = dup_or_null(cfg->base_url);
+    if (!a->model_name) {
+        aegis_session_destroy(a->session);
+        free(a);
+        return AEGIS_ERR_NOMEM;
+    }
 #ifdef AEGIS_OPENAI_PROVIDER
-    if (cfg->provider && strcmp(cfg->provider, "llm-openai") == 0) {
-        aegis_model_backend_t backend = {0};
-        st = aegis_openai_model_create(cfg->api_key, cfg->base_url, model_name, &a->openai_model,
-                                       &backend);
-        if (st == AEGIS_OK) {
-            st = aegis_model_client_create_with_backend(model_name, &backend, &a->model);
-        }
+    if (a->provider && strcmp(a->provider, "llm-openai") == 0) {
+        st = build_openai_model(a, model_name, &a->openai_model, &a->model);
     } else
 #endif
     {
         st = aegis_model_client_create(model_name, &a->model);
     }
     if (st != AEGIS_OK) {
+        free(a->model_name);
+        free(a->provider);
+        free(a->api_key);
+        free(a->base_url);
         aegis_session_destroy(a->session);
         free(a);
         return st;
@@ -117,7 +158,7 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     lcfg.session       = a->session;
     lcfg.model         = a->model;
     lcfg.tools         = a->tools;
-    lcfg.system_prompt = "You are a coding agent. Use tools to help the user.";
+    lcfg.system_prompt = CODING_AGENT_SYSTEM_PROMPT;
     st                 = aegis_agent_loop_create(&lcfg, &a->loop);
     if (st != AEGIS_OK) {
         if (a->owns_tools) {
@@ -167,6 +208,10 @@ void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
     if (a->session) {
         aegis_session_destroy(a->session);
     }
+    free(a->model_name);
+    free(a->provider);
+    free(a->api_key);
+    free(a->base_url);
     free(a);
 }
 
@@ -185,7 +230,7 @@ aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* a, aegis
         .session       = session,
         .model         = a->model,
         .tools         = a->tools,
-        .system_prompt = "You are a coding agent. Use tools to help the user.",
+        .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
     };
     aegis_status_t st = aegis_agent_loop_create(&cfg, &replacement);
     if (st != AEGIS_OK) {
@@ -206,4 +251,84 @@ aegis_status_t aegis_coding_agent_run(aegis_coding_agent_t* a, const char* user_
         return AEGIS_ERR_INVALID;
     }
     return aegis_agent_loop_run(a->loop, user_input);
+}
+
+const char* aegis_coding_agent_model_name(const aegis_coding_agent_t* a)
+{
+    return a ? a->model_name : NULL;
+}
+
+aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char* model)
+{
+    if (!a || !model || model[0] == '\0') {
+        return AEGIS_ERR_INVALID;
+    }
+#ifdef AEGIS_OPENAI_PROVIDER
+    aegis_openai_model_ctx_t* new_ctx    = NULL;
+    aegis_model_client_t*     new_client = NULL;
+    aegis_status_t            st;
+    if (a->provider && strcmp(a->provider, "llm-openai") == 0) {
+        st = build_openai_model(a, model, &new_ctx, &new_client);
+    } else
+#endif
+    {
+        st = aegis_model_client_create(model, &new_client);
+    }
+    if (st != AEGIS_OK) {
+        return st;
+    }
+
+    // Fresh loop bound to the new client; session/tools unchanged.
+    aegis_agent_loop_t*       replacement = NULL;
+    aegis_agent_loop_config_t lcfg        = {
+        .session       = a->session,
+        .model         = new_client,
+        .tools         = a->tools,
+        .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
+    };
+    st = aegis_agent_loop_create(&lcfg, &replacement);
+    if (st != AEGIS_OK) {
+        aegis_model_client_destroy(new_client);
+#ifdef AEGIS_OPENAI_PROVIDER
+        if (new_ctx) {
+            aegis_openai_model_destroy(new_ctx);
+        }
+#endif
+        return st;
+    }
+
+    // Atomic swap: new loop/client in, old ones destroyed.
+    aegis_agent_loop_t*   old_loop    = a->loop;
+    aegis_model_client_t* old_client  = a->model;
+    char*                 old_name    = a->model_name;
+#ifdef AEGIS_OPENAI_PROVIDER
+    aegis_openai_model_ctx_t* old_ctx  = a->openai_model;
+#endif
+    char*                 new_name    = strdup(model);
+    if (!new_name) {
+        // Out of memory: keep everything old, discard the replacement.
+        aegis_agent_loop_destroy(replacement);
+        aegis_model_client_destroy(new_client);
+#ifdef AEGIS_OPENAI_PROVIDER
+        if (new_ctx) {
+            aegis_openai_model_destroy(new_ctx);
+        }
+#endif
+        return AEGIS_ERR_NOMEM;
+    }
+    a->loop        = replacement;
+    a->model       = new_client;
+    a->model_name  = new_name;
+#ifdef AEGIS_OPENAI_PROVIDER
+    a->openai_model = new_ctx;
+#endif
+    aegis_agent_loop_destroy(old_loop);
+    aegis_model_client_destroy(old_client);
+#ifdef AEGIS_OPENAI_PROVIDER
+    if (old_ctx) {
+        aegis_openai_model_destroy(old_ctx);
+    }
+#endif
+    free(old_name);
+    return AEGIS_OK;
 }
