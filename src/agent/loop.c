@@ -483,10 +483,11 @@ static aegis_status_t stream_cb(const aegis_model_stream_event_t* ev, void* user
         if (!call) {
             return AEGIS_ERR_NOMEM;
         }
-        if (ev->call_id && !replace_string(&call->call_id, ev->call_id)) {
+        /* Empty strings mean "not provided in this chunk"; keep prior values. */
+        if (ev->call_id && *ev->call_id && !replace_string(&call->call_id, ev->call_id)) {
             return AEGIS_ERR_NOMEM;
         }
-        if (ev->tool_name && !replace_string(&call->name, ev->tool_name)) {
+        if (ev->tool_name && *ev->tool_name && !replace_string(&call->name, ev->tool_name)) {
             return AEGIS_ERR_NOMEM;
         }
         if (ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_DELTA &&

@@ -101,12 +101,12 @@ static int append_json_string(json_buf_t* b, const char* s)
 static int append_message(json_buf_t* b, const aegis_message_t* m)
 {
     const char* role = aegis_message_role_str(aegis_message_role(m));
-    if (!append_raw(b, "{\"role\":", 8) || !append_json_string(b, role)) return 0;
+    if (!append_raw(b, "{\"role\":", strlen("{\"role\":")) || !append_json_string(b, role)) return 0;
     const char* content = aegis_message_content(m);
     if (content) {
-        if (!append_raw(b, ",\"content\":", 11) || !append_json_string(b, content)) return 0;
+        if (!append_raw(b, ",\"content\":", strlen(",\"content\":")) || !append_json_string(b, content)) return 0;
     } else {
-        if (!append_raw(b, ",\"content\":null", 17)) return 0;
+        if (!append_raw(b, ",\"content\":null", strlen(",\"content\":null"))) return 0;
     }
     if (aegis_message_role(m) == AEGIS_MESSAGE_ASSISTANT && aegis_message_tool_call_count(m) > 0) {
         if (                !append_raw(b, ",\"tool_calls\":[", strlen(",\"tool_calls\":["))) return 0;
@@ -114,7 +114,7 @@ static int append_message(json_buf_t* b, const aegis_message_t* m)
         for (size_t i = 0; i < aegis_message_tool_call_count(m); ++i) {
             const aegis_tool_call_t* c = aegis_message_tool_call_at(m, i);
             if (i && !append_raw(b, ",", 1)) return 0;
-            if (!append_raw(b, "{\"id\":", 7) || !append_json_string(b, aegis_tool_call_id(c)) ||
+            if (!append_raw(b, "{\"id\":", strlen("{\"id\":")) || !append_json_string(b, aegis_tool_call_id(c)) ||
                 !append_raw(b, ",\"type\":\"function\",\"function\":{\"name\":", strlen(",\"type\":\"function\",\"function\":{\"name\":")) ||
                 !append_json_string(b, aegis_tool_call_name(c)) ||
                 !append_raw(b, ",\"arguments\":", strlen(",\"arguments\":")) ||
@@ -132,6 +132,7 @@ static int append_message(json_buf_t* b, const aegis_message_t* m)
 typedef struct {
     json_buf_t* buffer;
     aegis_status_t status;
+    bool first;
 } tool_json_context_t;
 
 static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
@@ -139,6 +140,8 @@ static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
     tool_json_context_t* ctx = user;
     if (!def || !ctx || ctx->status != AEGIS_OK) return AEGIS_ERR_INVALID;
     json_buf_t* b = ctx->buffer;
+    if (!ctx->first && !append_raw(b, ",", 1)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
+    ctx->first = false;
     if (!append_raw(b, "{\"type\":\"function\",\"function\":{\"name\":", strlen("{\"type\":\"function\",\"function\":{\"name\":")) ||
         !append_json_string(b, def->name) || append_raw(b, ",\"description\":", strlen(",\"description\":")) == 0 ||
         !append_json_string(b, def->description ? def->description : "") ||
@@ -169,14 +172,16 @@ static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
         first = false;
         if (!append_json_string(b, p->name)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
     }
-    if (!append_raw(b, "]}}}", 5)) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
+    if (!append_raw(b, "]}}}", strlen("]}}}"))) { ctx->status = AEGIS_ERR_NOMEM; return ctx->status; }
     return ctx->status;
 }
 
-static char* build_body(const aegis_model_request_t* req)
+static char* build_body(const aegis_model_request_t* req, const char* fallback_model)
 {
-    json_buf_t b = {0};
-    if (!append_raw(&b, "{\"model\":", 10) || !append_json_string(&b, req->model) ||
+    const char* model_name = req->model && *req->model ? req->model : fallback_model;
+    json_buf_t  b          = {0};
+    if (!append_raw(&b, "{\"model\":", strlen("{\"model\":")) ||
+        !append_json_string(&b, model_name) ||
         !append_raw(&b, ",\"messages\":[", strlen(",\"messages\":["))) goto fail;
     size_t n = req->messages ? aegis_message_list_count(req->messages) : 0;
     for (size_t i = 0; i < n; ++i) {
@@ -186,7 +191,7 @@ static char* build_body(const aegis_model_request_t* req)
     if (!append_raw(&b, "]", 1)) goto fail;
     if (req->tools && aegis_tool_registry_count(req->tools) > 0) {
         if (!append_raw(&b, ",\"tools\":[", strlen(",\"tools\":["))) goto fail;
-        tool_json_context_t ctx = {.buffer = &b, .status = AEGIS_OK};
+        tool_json_context_t ctx = {.buffer = &b, .status = AEGIS_OK, .first = true};
         if (aegis_tool_registry_visit(req->tools, append_tool_json, &ctx) != AEGIS_OK || ctx.status != AEGIS_OK) goto fail;
         if (!append_raw(&b, "]", 1)) goto fail;
     }
@@ -300,13 +305,15 @@ static int emit_record(sse_state_t* s, const char* record, size_t len)
             char* arg = malloc(len + 1);
             if (!arg) { free(json); return 0; }
             size_t arg_len = copy_json_string(arguments, arg, len + 1);
+            /* Only carry name/id when present in THIS chunk; NULL lets the
+             * accumulator keep values from the START chunk. */
             aegis_model_stream_event_t delta = {.type = AEGIS_MODEL_STREAM_TOOL_CALL_DELTA,
                                                  .data = arg, .len = arg_len, .index = tool_index,
-                                                 .tool_name = name, .call_id = id};
+                                                 .tool_name = tool_name ? name : NULL,
+                                                 .call_id = call_id ? id : NULL};
             aegis_status_t rc = s->callback(&delta, s->callback_user);
             free(arg);
             if (rc != AEGIS_OK) { free(json); return 0; }
-            (void)id;
         }
     }
     free(json);
@@ -353,15 +360,14 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
     aegis_openai_model_ctx_t* ctx = user;
     if (!ctx || !req || !callback) return AEGIS_ERR_INVALID;
     if (token && aegis_cancellation_token_is_cancelled(token)) return AEGIS_ERR_CANCELLED;
-    char* body = build_body(req);
+    char* body = build_body(req, ctx->model);
     if (!body) return AEGIS_ERR_NOMEM;
     const char* key = ctx->api_key ? ctx->api_key : getenv("OPENAI_API_KEY");
     if (!key || !*key) { free(body); return AEGIS_ERR_PERM; }
     const char* base = ctx->base_url && *ctx->base_url ? ctx->base_url : OPENAI_DEFAULT_URL;
     const char* model = req->model && *req->model ? req->model : ctx->model;
     (void)model;
-    char url[2048];
-    int u = snprintf(url, sizeof(url), "%s/chat/completions", base);
+    char url[2048];    int u = snprintf(url, sizeof(url), "%s/chat/completions", base);
     if (u < 0 || (size_t)u >= sizeof(url)) { free(body); return AEGIS_ERR_INVALID; }
     CURL* curl = curl_easy_init();
     if (!curl) { free(body); return AEGIS_ERR_NOMEM; }
@@ -468,7 +474,7 @@ static aegis_status_t structured_complete(void* user, const aegis_model_request_
     aegis_openai_model_ctx_t* ctx = user;
     *out = NULL;
     if (token && aegis_cancellation_token_is_cancelled(token)) return AEGIS_ERR_CANCELLED;
-    char* body = build_body(req);
+    char* body = build_body(req, ctx->model);
     if (!body) return AEGIS_ERR_NOMEM;
     const char* key = ctx->api_key ? ctx->api_key : getenv("OPENAI_API_KEY");
     if (!key || !*key) { free(body); return AEGIS_ERR_PERM; }

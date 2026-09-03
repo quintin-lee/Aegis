@@ -19,6 +19,9 @@ typedef struct {
     int close_without_done;
     int saw_auth;
     int saw_stream;
+    int multi_chunk_tool;   /* stream a tool call split across chunks */
+    const char* req_model;  /* captured "model" from request body */
+    char* req_model_copy;
 } fixture_t;
 
 static void* fixture_thread(void* user)
@@ -34,18 +37,50 @@ static void* fixture_thread(void* user)
         used += (size_t)received;
         request[used] = '\0';
     }
-    fixture->saw_auth   = strstr(request, "Authorization: Bearer test-key") != NULL;
+    fixture->saw_auth = strstr(request, "Authorization: Bearer test-key") != NULL;
     fixture->saw_stream = strstr(request, "stream") != NULL;
+    /* Capture the model name from the body (after the header blank line). */
+    const char* body_start = strstr(request, "\r\n\r\n");
+    if (body_start) {
+        body_start += 4;
+        const char* model_key = strstr(body_start, "\"model\":");
+        if (model_key) {
+            model_key += strlen("\"model\":");
+            while (*model_key == ' ') ++model_key;
+            if (*model_key == '"') {
+                ++model_key;
+                char model_buf[64] = {0};
+                size_t mi = 0;
+                while (*model_key && *model_key != '"' && mi + 1 < sizeof(model_buf)) {
+                    model_buf[mi++] = *model_key++;
+                }
+                free(fixture->req_model_copy);
+                fixture->req_model_copy = strdup(model_buf);
+                fixture->req_model = fixture->req_model_copy;
+            }
+        }
+    }
 
-    const char* body = fixture->status_code == 200
-                           ? "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n"
-                             "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n"
-                             "data: "
-                             "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-"
-                             "1\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"path\\\":"
-                             "\\\"README.md\\\"}\"}}]}}]}\n\n"
-                             "data: [DONE]\n\n"
-                           : "{\"error\":{\"message\":\"bad request\"}}";
+    const char* body;
+    if (fixture->status_code != 200) {
+        body = "{\"error\":{\"message\":\"bad request\"}}";
+    } else if (fixture->multi_chunk_tool) {
+        /* Tool call split across chunks: first chunk carries id+name with empty
+         * arguments, second carries only arguments (no id/name keys). */
+        body = "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-mc\","
+               "\"function\":{\"name\":\"read\",\"arguments\":\"\"}}]}}]}\n\n"
+               "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,"
+               "\"function\":{\"arguments\":\"{\\\"path\\\": \\\"f.c\\\"}\"}}]}}]}\n\n"
+               "data: [DONE]\n\n";
+    } else {
+        body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n"
+               "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n"
+               "data: "
+               "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-"
+               "1\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"path\\\":"
+               "\\\"README.md\\\"}\"}}]}}]}\n\n"
+               "data: [DONE]\n\n";
+    }
     if (fixture->close_without_done) {
         body = "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n";
     }
@@ -138,7 +173,8 @@ int main(void)
     assert(aegis_message_create(AEGIS_MESSAGE_USER, &user) == AEGIS_OK);
     assert(aegis_message_set_content(user, "inspect") == AEGIS_OK);
     assert(aegis_message_list_append(messages, user) == AEGIS_OK);
-    aegis_model_request_t request = {.model = "test-model", .messages = messages, .stream = true};
+    /* req->model left NULL: provider must fall back to the ctx model name. */
+    aegis_model_request_t request = {.model = NULL, .messages = messages, .stream = true};
     events_t              events  = {0};
     assert(backend.stream(backend.user, &request, NULL, collect_event, &events) == AEGIS_OK);
     assert(strcmp(events.text, "Hello") == 0);
@@ -147,8 +183,31 @@ int main(void)
     assert(strcmp(events.id, "call-1") == 0);
     assert(strcmp(events.args, "{\"path\":\"README.md\"}") == 0);
     assert(fixture.saw_auth && fixture.saw_stream);
+    assert(fixture.req_model != NULL && strcmp(fixture.req_model, "test-model") == 0);
     pthread_join(thread, NULL);
     close(fixture.server_fd);
+    aegis_openai_model_destroy(context);
+    free(fixture.req_model_copy);
+
+    /* Multi-chunk tool call: args-only delta must not clobber id/name. */
+    fixture_t mc_fixture = {.status_code = 200, .multi_chunk_tool = 1};
+    port      = start_fixture(&mc_fixture);
+    assert(pthread_create(&thread, NULL, fixture_thread, &mc_fixture) == 0);
+    snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
+    aegis_openai_model_ctx_t* mc_context = NULL;
+    aegis_model_backend_t     mc_backend = {0};
+    assert(aegis_openai_model_create("test-key", base_url, "test-model", &mc_context,
+                                     &mc_backend) == AEGIS_OK);
+    events_t mc_events = {0};
+    assert(mc_backend.stream(mc_backend.user, &request, NULL, collect_event, &mc_events) == AEGIS_OK);
+    assert(mc_events.starts == 1 && mc_events.deltas >= 1 && mc_events.ends == 1);
+    assert(strcmp(mc_events.name, "read") == 0);
+    assert(strcmp(mc_events.id, "call-mc") == 0);
+    assert(strcmp(mc_events.args, "{\"path\": \"f.c\"}") == 0);
+    pthread_join(thread, NULL);
+    close(mc_fixture.server_fd);
+    aegis_openai_model_destroy(mc_context);
+    free(mc_fixture.req_model_copy);
 
     fixture_t incomplete_fixture = {.status_code = 200, .close_without_done = 1};
     port                         = start_fixture(&incomplete_fixture);
@@ -163,6 +222,7 @@ int main(void)
     pthread_join(thread, NULL);
     close(incomplete_fixture.server_fd);
     aegis_openai_model_destroy(incomplete_context);
+    free(incomplete_fixture.req_model_copy);
 
     fixture_t error_fixture = {.status_code = 400};
     port                    = start_fixture(&error_fixture);
@@ -177,10 +237,10 @@ int main(void)
     pthread_join(thread, NULL);
     close(error_fixture.server_fd);
     aegis_openai_model_destroy(error_context);
+    free(error_fixture.req_model_copy);
 
     aegis_message_destroy(user);
     aegis_message_list_destroy(messages);
-    aegis_openai_model_destroy(context);
     puts("openai_sse_e2e: PASS");
     return 0;
 }
