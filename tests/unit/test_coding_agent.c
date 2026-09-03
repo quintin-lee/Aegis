@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/coding_agent.h"
 #include "aegis/session/session.h"
+#include "aegis/tool/tool.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -98,6 +99,18 @@ int main(void)
     expect_ok(aegis_coding_agent_set_model(agent3, "gpt-x"), "switch with gate");
     expect_ok(aegis_coding_agent_run(agent3, "denied run 2"), "run after rebuild");
     expect_ok(aegis_coding_agent_set_tool_approval(agent3, NULL, NULL), "clear approval");
+    /* Tools accessor: exposes the registry for inspection (e.g. /tools). */
+    aegis_tool_registry_t* tools1 = NULL;
+    expect_ok(aegis_coding_agent_tools(agent3, &tools1), "tools accessor");
+    assert(tools1 != NULL);
+    assert(aegis_tool_registry_count(tools1) >= 4);
+    aegis_tool_def_t found;
+    expect_ok(aegis_tool_registry_find(tools1, "read", &found), "find read");
+    assert(strcmp(found.name, "read") == 0);
+    assert(found.description != NULL);
+    assert(aegis_coding_agent_tools(NULL, &tools1) == AEGIS_ERR_INVALID);
+    assert(aegis_coding_agent_tools(agent3, NULL) == AEGIS_ERR_INVALID);
+
     aegis_coding_agent_destroy(agent3);
     printf("ALL_CODING_AGENT_TESTS PASSED\n");
     return 0;

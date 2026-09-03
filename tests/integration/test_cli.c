@@ -456,10 +456,20 @@ static void test_interactive_commands(void)
     assert(run_cli_stdin("/sessions\n/quit\n", out, sizeof(out), &ec) == 0);
     assert_contains(out, ".jsonl", "sessions listing");
 
-    /* 4. /help lists /resume */
+    /* 4. /help lists /resume and /tools */
     assert(run_cli_stdin("/help\n/quit\n", out, sizeof(out), &ec) == 0);
     assert_contains(out, "/resume", "help lists resume");
     assert_contains(out, "/model", "help lists model");
+    assert_contains(out, "/tools", "help lists tools");
+
+    /* 4b. /tools lists every registered coding tool with a description */
+    assert(run_cli_stdin("/tools\n/quit\n", out, sizeof(out), &ec) == 0);
+    assert_contains(out, "registered tools (7):", "tools header");
+    assert_contains(out, "read —", "read tool");
+    assert_contains(out, "write —", "write tool");
+    assert_contains(out, "edit —", "edit tool");
+    assert_contains(out, "bash —", "bash tool");
+    assert_contains(out, "path: string", "read param spec");
 
     /* 5. /resume missing file keeps session intact */
     assert(run_cli_stdin("/resume /tmp/does_not_exist_xyz.jsonl\n/quit\n", out, sizeof(out), &ec) == 0);

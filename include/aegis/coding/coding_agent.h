@@ -43,6 +43,16 @@ aegis_status_t   aegis_coding_agent_run(aegis_coding_agent_t* agent, const char*
 const char* aegis_coding_agent_model_name(const aegis_coding_agent_t* agent);
 
 /**
+ * @brief Borrowed pointer to the agent's tool registry (for inspection).
+ *
+ * The agent retains ownership; the pointer is invalidated by destroy().
+ * Registry operations (find/visit/count) are thread-safe per the tool ABI.
+ * @param[out] out Receives the registry pointer; never NULL on AEGIS_OK.
+ */
+aegis_status_t aegis_coding_agent_tools(const aegis_coding_agent_t* agent,
+                                        aegis_tool_registry_t**     out);
+
+/**
  * @brief Switch the model used for subsequent turns.
  *
  * Rebuilds the model client from the agent's stored provider configuration

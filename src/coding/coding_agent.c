@@ -272,6 +272,15 @@ const char* aegis_coding_agent_model_name(const aegis_coding_agent_t* a)
     return a ? a->model_name : NULL;
 }
 
+aegis_status_t aegis_coding_agent_tools(const aegis_coding_agent_t* a, aegis_tool_registry_t** out)
+{
+    if (!a || !out) {
+        return AEGIS_ERR_INVALID;
+    }
+    *out = a->tools;
+    return (*out) ? AEGIS_OK : AEGIS_ERR_INVALID;
+}
+
 aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* a,
                                                      aegis_agent_event_fn  fn,
                                                      void*                 user)

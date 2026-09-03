@@ -47,6 +47,34 @@ static bool json_mode_env(void)
     return env && strcmp(env, "1") == 0;
 }
 
+/* /tools visitor: print "name — description" plus the parameter list. */
+static const char* cli_val_type_str(aegis_tool_value_type_t t)
+{
+    switch (t) {
+    case AEGIS_TOOL_VAL_STRING: return "string";
+    case AEGIS_TOOL_VAL_INT: return "int";
+    case AEGIS_TOOL_VAL_FLOAT: return "float";
+    case AEGIS_TOOL_VAL_BOOL: return "bool";
+    default: return "bytes";
+    }
+}
+
+static aegis_status_t cli_print_tool_def(const aegis_tool_def_t* def, void* user)
+{
+    (void)user;
+    printf("  %s — %s\n", def->name, def->description ? def->description : "(no description)");
+    for (size_t i = 0; def->schema.params && i < def->schema.param_count; i++) {
+        const aegis_tool_param_spec_t* p = &def->schema.params[i];
+        if (p->description) {
+            printf("    %s%s: %s (%s)\n", p->name, p->required ? "" : "?", cli_val_type_str(p->type),
+                   p->description);
+        } else {
+            printf("    %s%s: %s\n", p->name, p->required ? "" : "?", cli_val_type_str(p->type));
+        }
+    }
+    return AEGIS_OK;
+}
+
 /* Approval gate: interactive y/n/a unless disabled or tool allow-listed. */
 static aegis_tool_approval_t cli_approval_cb(const char* tool_name, const char* args_json,
                                              void* user)
@@ -228,7 +256,23 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/help") == 0 || strcmp(line, "/h") == 0) {
-            printf("/help /model /session /sessions /resume /fork /tree /compact /json /stream /approvals /clear /quit\n");
+            printf("/help /model /tools /session /sessions /resume /fork /tree /compact /json /stream /approvals /clear /quit\n");
+            continue;
+        }
+        if (strcmp(line, "/tools") == 0) {
+            aegis_tool_registry_t* tools = NULL;
+            aegis_status_t        stt   = aegis_coding_agent_tools(agent, &tools);
+            if (stt != AEGIS_OK) {
+                printf("error: %s\n", aegis_status_str(stt));
+                continue;
+            }
+            size_t count = aegis_tool_registry_count(tools);
+            if (count == 0) {
+                printf("no tools registered\n");
+                continue;
+            }
+            printf("registered tools (%zu):\n", count);
+            aegis_tool_registry_visit(tools, cli_print_tool_def, NULL);
             continue;
         }
         if (strcmp(line, "/model") == 0 || strncmp(line, "/model ", 7) == 0) {
