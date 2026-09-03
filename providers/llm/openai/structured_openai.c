@@ -268,6 +268,21 @@ static int emit_record(sse_state_t* s, const char* record, size_t len)
     char* json = malloc(len + 1);
     if (!json) return 0;
     memcpy(json, record, len); json[len] = '\0';
+    /* Reasoning first: check the long key before the short one so a record
+     * carrying "reasoning_content" never double-matches "reasoning". If the
+     * long key exists but its value is not a string, the short-key lookup
+     * lands on the same position and fails identically (returns NULL). */
+    const char* rcontent = json_string_after(json, "\"reasoning_content\"");
+    if (!rcontent) rcontent = json_string_after(json, "\"reasoning\"");
+    if (rcontent) {
+        char* decoded = malloc(len + 1);
+        if (!decoded) { free(json); return 0; }
+        size_t n = copy_json_string(rcontent, decoded, len + 1);
+        aegis_model_stream_event_t ev = {.type = AEGIS_MODEL_STREAM_REASONING_DELTA, .data = decoded, .len = n};
+        aegis_status_t rc = s->callback(&ev, s->callback_user);
+        free(decoded);
+        if (rc != AEGIS_OK) { free(json); return 0; }
+    }
     const char* content = json_string_after(json, "\"content\"");
     if (content) {
         char* decoded = malloc(len + 1);

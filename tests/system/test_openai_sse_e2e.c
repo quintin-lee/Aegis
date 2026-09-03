@@ -20,6 +20,7 @@ typedef struct {
     int saw_auth;
     int saw_stream;
     int multi_chunk_tool;   /* stream a tool call split across chunks */
+    int reasoning_field;    /* 0=none, 1=reasoning_content, 2=reasoning */
     const char* req_model;  /* captured "model" from request body */
     char* req_model_copy;
 } fixture_t;
@@ -72,6 +73,15 @@ static void* fixture_thread(void* user)
                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,"
                "\"function\":{\"arguments\":\"{\\\"path\\\": \\\"f.c\\\"}\"}}]}}]}\n\n"
                "data: [DONE]\n\n";
+    } else if (fixture->reasoning_field == 1) {
+        body = "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"thin\"}}]}\n\n"
+               "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"king\"}}]}\n\n"
+               "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
+               "data: [DONE]\n\n";
+    } else if (fixture->reasoning_field == 2) {
+        body = "data: {\"choices\":[{\"delta\":{\"reasoning\":\"why\"}}]}\n\n"
+               "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
+               "data: [DONE]\n\n";
     } else {
         body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n"
                "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n"
@@ -113,6 +123,9 @@ typedef struct {
     char   name[32];
     char   id[32];
     char   args[128];
+    char   reasoning[128];
+    size_t reasoning_len;
+    int    reasoning_deltas;
 } events_t;
 
 static aegis_status_t collect_event(const aegis_model_stream_event_t* event, void* user)
@@ -123,6 +136,12 @@ static aegis_status_t collect_event(const aegis_model_stream_event_t* event, voi
         memcpy(events->text + events->text_len, event->data, event->len);
         events->text_len += event->len;
         events->text[events->text_len] = '\0';
+    } else if (event->type == AEGIS_MODEL_STREAM_REASONING_DELTA) {
+        ++events->reasoning_deltas;
+        assert(events->reasoning_len + event->len < sizeof(events->reasoning));
+        memcpy(events->reasoning + events->reasoning_len, event->data, event->len);
+        events->reasoning_len += event->len;
+        events->reasoning[events->reasoning_len] = '\0';
     } else if (event->type == AEGIS_MODEL_STREAM_TOOL_CALL_START) {
         ++events->starts;
         snprintf(events->name, sizeof(events->name), "%s", event->tool_name);
@@ -208,6 +227,44 @@ int main(void)
     close(mc_fixture.server_fd);
     aegis_openai_model_destroy(mc_context);
     free(mc_fixture.req_model_copy);
+
+    /* Reasoning via "reasoning_content" (DeepSeek-style) split across chunks. */
+    fixture_t rc_fixture = {.status_code = 200, .reasoning_field = 1};
+    port      = start_fixture(&rc_fixture);
+    assert(pthread_create(&thread, NULL, fixture_thread, &rc_fixture) == 0);
+    snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
+    aegis_openai_model_ctx_t* rc_context = NULL;
+    aegis_model_backend_t     rc_backend = {0};
+    assert(aegis_openai_model_create("test-key", base_url, "test-model", &rc_context,
+                                     &rc_backend) == AEGIS_OK);
+    events_t rc_events = {0};
+    assert(rc_backend.stream(rc_backend.user, &request, NULL, collect_event, &rc_events) == AEGIS_OK);
+    assert(rc_events.reasoning_deltas == 2);
+    assert(strcmp(rc_events.reasoning, "thinking") == 0);
+    assert(strcmp(rc_events.text, "Hi") == 0);
+    pthread_join(thread, NULL);
+    close(rc_fixture.server_fd);
+    aegis_openai_model_destroy(rc_context);
+    free(rc_fixture.req_model_copy);
+
+    /* Reasoning via "reasoning" (OpenRouter-style), single chunk. */
+    fixture_t r_fixture = {.status_code = 200, .reasoning_field = 2};
+    port      = start_fixture(&r_fixture);
+    assert(pthread_create(&thread, NULL, fixture_thread, &r_fixture) == 0);
+    snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
+    aegis_openai_model_ctx_t* r_context = NULL;
+    aegis_model_backend_t     r_backend = {0};
+    assert(aegis_openai_model_create("test-key", base_url, "test-model", &r_context,
+                                     &r_backend) == AEGIS_OK);
+    events_t r_events = {0};
+    assert(r_backend.stream(r_backend.user, &request, NULL, collect_event, &r_events) == AEGIS_OK);
+    assert(r_events.reasoning_deltas == 1);
+    assert(strcmp(r_events.reasoning, "why") == 0);
+    assert(strcmp(r_events.text, "Hi") == 0);
+    pthread_join(thread, NULL);
+    close(r_fixture.server_fd);
+    aegis_openai_model_destroy(r_context);
+    free(r_fixture.req_model_copy);
 
     fixture_t incomplete_fixture = {.status_code = 200, .close_without_done = 1};
     port                         = start_fixture(&incomplete_fixture);
