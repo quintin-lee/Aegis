@@ -21,9 +21,10 @@ static void print_banner(const char* model)
 /* ── Live streaming output ────────────────────────────────────────── */
 
 typedef struct cli_stream_ctx {
-    bool enabled;      /**< /stream on|off                              */
-    bool text_emitted; /**< streamed text already shown for this turn   */
-    bool line_open;    /**< current line has unterminated content       */
+    bool enabled;        /**< /stream on|off                              */
+    bool text_emitted;   /**< streamed text already shown for this turn   */
+    bool line_open;      /**< current line has unterminated content       */
+    bool reasoning_open; /**< dim-italic reasoning block is being printed */
 } cli_stream_ctx_t;
 
 static void cli_stream_prelude(cli_stream_ctx_t* cx)
@@ -48,7 +49,23 @@ static void cli_event_cb(const aegis_agent_event_t* ev, void* user)
         return;
     }
     switch (ev->type) {
+    case AEGIS_AGENT_EVENT_REASONING_DELTA:
+        if (ev->data && ev->len) {
+            cli_stream_prelude(cx);
+            if (!cx->reasoning_open) {
+                fputs("\033[2m\033[3m", stdout);
+                cx->reasoning_open = true;
+            }
+            fwrite(ev->data, 1, ev->len, stdout);
+            fflush(stdout);
+        }
+        break;
     case AEGIS_AGENT_EVENT_TEXT_DELTA:
+        if (cx->reasoning_open) {
+            fputs("\033[0m\n", stdout);
+            cx->reasoning_open = false;
+            cx->line_open      = false;
+        }
         if (ev->data && ev->len) {
             fwrite(ev->data, 1, ev->len, stdout);
             cx->text_emitted = true;
@@ -57,6 +74,11 @@ static void cli_event_cb(const aegis_agent_event_t* ev, void* user)
         }
         break;
     case AEGIS_AGENT_EVENT_TOOL_START:
+        if (cx->reasoning_open) {
+            fputs("\033[0m\n", stdout);
+            cx->reasoning_open = false;
+            cx->line_open      = false;
+        }
         cli_stream_prelude(cx);
         printf("● %s", ev->tool_name ? ev->tool_name : "?");
         cx->line_open = true;

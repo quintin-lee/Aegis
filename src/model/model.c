@@ -189,6 +189,23 @@ aegis_status_t aegis_model_stream(aegis_model_client_t* client, const aegis_mode
     }
     size_t len   = (size_t)n;
     size_t chunk = 8;
+    /* Reasoning chunks before the answer, mirroring reasoning-model flow. */
+    static const char* rparts[] = {"thinking ", "about it..."};
+    for (size_t i = 0; i < sizeof(rparts) / sizeof(rparts[0]); i++) {
+        if (token && aegis_cancellation_token_is_cancelled(token)) {
+            return AEGIS_ERR_CANCELLED;
+        }
+        aegis_model_stream_event_t ev = {
+            .type = AEGIS_MODEL_STREAM_REASONING_DELTA,
+            .data = rparts[i],
+            .len  = strlen(rparts[i]),
+            .index = 0,
+        };
+        aegis_status_t st = cb(&ev, user);
+        if (st != AEGIS_OK) {
+            return st;
+        }
+    }
     for (size_t off = 0; off < len; off += chunk) {
         if (token && aegis_cancellation_token_is_cancelled(token)) {
             return AEGIS_ERR_CANCELLED;

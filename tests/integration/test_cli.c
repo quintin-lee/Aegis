@@ -216,6 +216,9 @@ static void test_interactive_commands(void)
     assert(run_cli_stdin("/stream on\nhello\n/quit\n", out, sizeof(out), &ec) == 0);
     assert_contains(out, "stream on", "stream toggle echo");
     assert_contains(out, "mock stream for:", "streamed tokens");
+    /* Reasoning streams before the answer, styled dim, and reset before text. */
+    assert_contains(out, "\033[2m\033[3m", "reasoning dim-italic start");
+    assert(strstr(out, "thinking about it...") != NULL);
     {
         const char* first = strstr(out, "mock stream for:");
         assert(first);
