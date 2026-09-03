@@ -48,6 +48,19 @@ typedef struct aegis_agent_event {
  *  borrowed event data past the call. */
 typedef void (*aegis_agent_event_fn)(const aegis_agent_event_t* ev, void* user);
 
+typedef enum aegis_tool_approval {
+    AEGIS_TOOL_APPROVAL_ALLOW = 0,
+    AEGIS_TOOL_APPROVAL_DENY  = 1,
+} aegis_tool_approval_t;
+
+/** Approval gate (control-flow callback, unlike the observer): invoked
+ *  synchronously before each tool execution; the verdict decides whether
+ *  the tool runs. DENY feeds "user denied tool <name>" back as the tool
+ *  result so the turn continues. Invoked without loop locks held. */
+typedef aegis_tool_approval_t (*aegis_tool_approval_fn)(const char* tool_name,
+                                                        const char* arguments_json,
+                                                        void*       user);
+
 typedef struct aegis_agent_loop_config {
     aegis_session_t*            session;        // borrowed
     aegis_model_client_t*       model;          // borrowed
@@ -56,6 +69,8 @@ typedef struct aegis_agent_loop_config {
     aegis_cancellation_token_t* token;          // borrowed
     aegis_agent_event_fn        on_event;       // optional observer, may be NULL
     void*                       event_user;     // borrowed, passed to on_event
+    aegis_tool_approval_fn      tool_approval;  // optional gate, NULL = allow all
+    void*                       approval_user;  // borrowed, passed to tool_approval
 } aegis_agent_loop_config_t;
 
 aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
@@ -78,6 +93,14 @@ aegis_status_t aegis_agent_loop_resume(aegis_agent_loop_t* loop);
  */
 aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* loop,
                                                    aegis_agent_event_fn fn, void* user);
+
+/**
+ * @brief Rebind the tool approval gate at runtime.
+ * @param fn New gate (NULL restores implicit allow-all).
+ * @return AEGIS_OK, or AEGIS_ERR_INVALID when loop is NULL.
+ */
+aegis_status_t aegis_agent_loop_set_tool_approval(aegis_agent_loop_t*    loop,
+                                                  aegis_tool_approval_fn fn, void* user);
 
 #ifdef __cplusplus
 }

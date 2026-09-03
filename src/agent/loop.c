@@ -21,6 +21,8 @@ struct aegis_agent_loop {
     aegis_agent_loop_state_t    state;
     aegis_agent_event_fn        on_event;
     void*                       event_user;
+    aegis_tool_approval_fn      tool_approval;
+    void*                       approval_user;
     pthread_mutex_t             lock;
 };
 
@@ -45,8 +47,10 @@ aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
     l->model      = cfg->model;
     l->tools      = cfg->tools;
     l->token      = cfg->token;
-    l->on_event   = cfg->on_event;
-    l->event_user = cfg->event_user;
+    l->on_event       = cfg->on_event;
+    l->event_user     = cfg->event_user;
+    l->tool_approval  = cfg->tool_approval;
+    l->approval_user  = cfg->approval_user;
     l->state   = AEGIS_AGENT_LOOP_IDLE;
     if (cfg->system_prompt) {
         l->system_prompt = strdup(cfg->system_prompt);
@@ -98,6 +102,19 @@ aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* l, aegis_
     pthread_mutex_lock(&l->lock);
     l->on_event   = fn;
     l->event_user = user;
+    pthread_mutex_unlock(&l->lock);
+    return AEGIS_OK;
+}
+
+aegis_status_t aegis_agent_loop_set_tool_approval(aegis_agent_loop_t*    l,
+                                                  aegis_tool_approval_fn fn, void* user)
+{
+    if (!l) {
+        return AEGIS_ERR_INVALID;
+    }
+    pthread_mutex_lock(&l->lock);
+    l->tool_approval = fn;
+    l->approval_user = user;
     pthread_mutex_unlock(&l->lock);
     return AEGIS_OK;
 }
@@ -668,7 +685,17 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
                 l->on_event(&ev, l->event_user);
             }
             aegis_tool_result_t result = {0};
-            st = aegis_tool_execute(l->tools, name, args, l->token, &result);
+            aegis_tool_approval_t verdict = AEGIS_TOOL_APPROVAL_ALLOW;
+            if (l->tool_approval) {
+                verdict = l->tool_approval(name, raw_args ? raw_args : "{}", l->approval_user);
+            }
+            if (verdict == AEGIS_TOOL_APPROVAL_DENY) {
+                char denial[128];
+                snprintf(denial, sizeof(denial), "user denied tool %s", name);
+                st = aegis_tool_result_set_string(&result, denial);
+            } else {
+                st = aegis_tool_execute(l->tools, name, args, l->token, &result);
+            }
             aegis_tool_args_destroy(args);
             aegis_message_t* tr = NULL;
             if (aegis_message_create(AEGIS_MESSAGE_TOOL, &tr) != AEGIS_OK ||

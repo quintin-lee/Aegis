@@ -54,16 +54,35 @@ static void ev_cb(const aegis_agent_event_t* ev, void* user)
 
 /* ── Fixtures (mirrors tests/system/test_coding_loop.c) ───────────────── */
 
+static int read_calls = 0;
+
 static aegis_status_t read_probe(void* user, const aegis_tool_args_t* args,
                                  const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
 {
     (void)user;
+    ++read_calls;
     (void)token;
     const aegis_tool_value_t* value = NULL;
     assert(aegis_tool_args_find(args, "path", &value));
     assert(value->type == AEGIS_TOOL_VAL_STRING);
     assert(strcmp(value->as.str.ptr, "README.md") == 0);
     return aegis_tool_result_set_string(out, "fixture contents");
+}
+
+static aegis_tool_approval_t approve_all(const char* n, const char* a, void* u)
+{
+    (void)n;
+    (void)a;
+    (void)u;
+    return AEGIS_TOOL_APPROVAL_ALLOW;
+}
+
+static aegis_tool_approval_t deny_all(const char* n, const char* a, void* u)
+{
+    (void)n;
+    (void)a;
+    (void)u;
+    return AEGIS_TOOL_APPROVAL_DENY;
 }
 
 static aegis_status_t model_backend_stream(void* user, const aegis_model_request_t* request,
@@ -175,6 +194,41 @@ int main(void)
 
     /* Invalid args */
     assert(aegis_agent_loop_set_event_callback(NULL, ev_cb, &log) == AEGIS_ERR_INVALID);
+
+    /* ── Tool approval hook ───────────────────────────────────────────── */
+    /* Deny-all: probe must NOT run; denial text goes back as tool result. */
+    read_calls = 0;
+    turn = 0;
+    assert(aegis_agent_loop_set_tool_approval(loop, deny_all, NULL) == AEGIS_OK);
+    assert(aegis_agent_loop_run_turn(loop, "read README.md again") == AEGIS_OK);
+    assert(read_calls == 0);
+    size_t nm = aegis_session_message_count(session);
+    const aegis_message_t* tr_msg = NULL;
+    for (size_t i = nm; i > 0; i--) {
+        const aegis_message_t* m = aegis_session_message_at(session, i - 1);
+        if (aegis_message_role(m) == AEGIS_MESSAGE_TOOL) {
+            tr_msg = m;
+            break;
+        }
+    }
+    assert(tr_msg != NULL);
+    assert(strstr(aegis_message_content(tr_msg), "user denied tool read") != NULL);
+
+    /* Allow-all: executes normally. */
+    read_calls = 0;
+    turn = 0;
+    assert(aegis_agent_loop_set_tool_approval(loop, approve_all, NULL) == AEGIS_OK);
+    assert(aegis_agent_loop_run_turn(loop, "read README.md once more") == AEGIS_OK);
+    assert(read_calls == 1);
+
+    /* Unset the gate: back to implicit allow. */
+    read_calls = 0;
+    turn = 0;
+    assert(aegis_agent_loop_set_tool_approval(loop, NULL, NULL) == AEGIS_OK);
+    assert(aegis_agent_loop_run_turn(loop, "read README.md yet again") == AEGIS_OK);
+    assert(read_calls == 1);
+
+    assert(aegis_agent_loop_set_tool_approval(NULL, approve_all, NULL) == AEGIS_ERR_INVALID);
 
     aegis_agent_loop_destroy(loop);
     aegis_model_client_destroy(model);
