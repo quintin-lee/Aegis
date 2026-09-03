@@ -27,6 +27,9 @@ typedef struct cli_stream_ctx {
     bool        reasoning_open; /**< dim-italic reasoning block is being printed */
     bool        tool_running;   /**< TOOL_START seen, awaiting TOOL_END          */
     struct timespec tool_start; /**< wall clock at TOOL_START                    */
+    bool        approvals;      /**< /approvals on|off                           */
+    char        allowed_tools[16][64]; /**< always-allow list (session-lifetime) */
+    size_t      allowed_count;
 } cli_stream_ctx_t;
 
 static void cli_stream_prelude(cli_stream_ctx_t* cx)
@@ -42,6 +45,46 @@ static bool json_mode_env(void)
 {
     const char* env = getenv("AEGIS_JSON");
     return env && strcmp(env, "1") == 0;
+}
+
+/* Approval gate: interactive y/n/a unless disabled or tool allow-listed. */
+static aegis_tool_approval_t cli_approval_cb(const char* tool_name, const char* args_json,
+                                             void* user)
+{
+    cli_stream_ctx_t* cx = (cli_stream_ctx_t*)user;
+    if (!cx || !cx->approvals || !tool_name) {
+        return AEGIS_TOOL_APPROVAL_ALLOW;
+    }
+    for (size_t i = 0; i < cx->allowed_count; i++) {
+        if (strcmp(cx->allowed_tools[i], tool_name) == 0) {
+            return AEGIS_TOOL_APPROVAL_ALLOW;
+        }
+    }
+    cli_stream_prelude(cx);
+    if (cx->reasoning_open) {
+        fputs("\033[0m\n", stdout);
+        cx->reasoning_open = false;
+        cx->line_open      = false;
+    }
+    printf("approve %s %s? [y/n/a] ", tool_name, args_json ? args_json : "");
+    fflush(stdout);
+    char answer[16] = {0};
+    if (!fgets(answer, sizeof(answer), stdin)) {
+        cx->line_open = false;
+        return AEGIS_TOOL_APPROVAL_DENY; /* EOF => deny */
+    }
+    cx->line_open = false;
+    if (answer[0] == 'a') {
+        if (cx->allowed_count < 16) {
+            snprintf(cx->allowed_tools[cx->allowed_count++],
+                     sizeof(cx->allowed_tools[0]), "%s", tool_name);
+        }
+        return AEGIS_TOOL_APPROVAL_ALLOW; /* list full degrades to y */
+    }
+    if (answer[0] == 'y') {
+        return AEGIS_TOOL_APPROVAL_ALLOW;
+    }
+    return AEGIS_TOOL_APPROVAL_DENY;
 }
 
 static void cli_event_cb(const aegis_agent_event_t* ev, void* user)
@@ -160,7 +203,12 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         }
     }
     print_banner(aegis_coding_agent_model_name(agent));
-    static cli_stream_ctx_t stream_ctx = {.enabled = true, .text_emitted = false, .line_open = false};
+    static cli_stream_ctx_t stream_ctx = {.enabled        = true,
+                                          .text_emitted   = false,
+                                          .line_open      = false,
+                                          .approvals      = false,
+                                          .allowed_count  = 0};
+    aegis_coding_agent_set_tool_approval(agent, cli_approval_cb, &stream_ctx);
     if (!json_mode_env()) {
         aegis_coding_agent_set_event_callback(agent, cli_event_cb, &stream_ctx);
     }
@@ -180,7 +228,7 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/help") == 0 || strcmp(line, "/h") == 0) {
-            printf("/help /model /session /sessions /resume /fork /tree /compact /json /stream /clear /quit\n");
+            printf("/help /model /session /sessions /resume /fork /tree /compact /json /stream /approvals /clear /quit\n");
             continue;
         }
         if (strcmp(line, "/model") == 0 || strncmp(line, "/model ", 7) == 0) {
@@ -297,6 +345,23 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         if (strcmp(line, "/json") == 0) {
             json_mode = !json_mode;
             printf("json mode %s\n", json_mode ? "on" : "off");
+            continue;
+        }
+        if (strcmp(line, "/approvals") == 0 || strncmp(line, "/approvals ", 11) == 0) {
+            const char* arg = line[10] == ' ' ? line + 11 : "";
+            if (strcmp(arg, "on") == 0 || strcmp(arg, "off") == 0) {
+                stream_ctx.approvals = (arg[0] == 'o' && arg[1] == 'n');
+                printf("approvals %s\n", stream_ctx.approvals ? "on" : "off");
+            } else if (*arg == '\0') {
+                printf("approvals %s, always-allowed:",
+                       stream_ctx.approvals ? "on" : "off");
+                for (size_t i = 0; i < stream_ctx.allowed_count; i++) {
+                    printf(" %s", stream_ctx.allowed_tools[i]);
+                }
+                printf("\n");
+            } else {
+                printf("usage: /approvals [on|off]\n");
+            }
             continue;
         }
         if (strcmp(line, "/stream") == 0 || strncmp(line, "/stream ", 8) == 0) {

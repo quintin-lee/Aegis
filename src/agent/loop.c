@@ -706,7 +706,11 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
                 set_state(l, AEGIS_AGENT_LOOP_FAILED);
                 return AEGIS_ERR_NOMEM;
             }
-            if (st == AEGIS_OK && result.value.type == AEGIS_TOOL_VAL_STRING) {
+            if (verdict == AEGIS_TOOL_APPROVAL_DENY) {
+                /* Denial is a normal tool outcome (not an error status). */
+                aegis_message_set_content(tr,
+                                          result.value.as.str.ptr ? result.value.as.str.ptr : "");
+            } else if (st == AEGIS_OK && result.value.type == AEGIS_TOOL_VAL_STRING) {
                 aegis_message_set_content(tr,
                                           result.value.as.str.ptr ? result.value.as.str.ptr : "");
             } else {
@@ -719,7 +723,7 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
                     .type      = AEGIS_AGENT_EVENT_TOOL_END,
                     .tool_name = name,
                     .call_id   = cid,
-                    .status    = st,
+                    .status    = (verdict == AEGIS_TOOL_APPROVAL_DENY) ? AEGIS_ERR_PERM : st,
                 };
                 if (st == AEGIS_OK && result.value.type == AEGIS_TOOL_VAL_STRING &&
                     result.value.as.str.ptr) {

@@ -170,6 +170,8 @@ static int run_cli_stdin(const char* input, char* out, size_t out_len, int* exit
 typedef struct {
     int server_fd;
     int port;
+    int tool_pattern; /**< 1: tool call on connections 0,2; content on 1,3 */
+    int count;        /**< connections served (tool_pattern mode)        */
 } sse_fixture_t;
 
 static void* sse_fixture_thread(void* user)
@@ -178,7 +180,8 @@ static void* sse_fixture_thread(void* user)
     /* The agent loop opens one connection per turn; serve them in sequence.
      * poll with a timeout so a CLI that dies before connecting cannot hang
      * this thread forever. */
-    for (int turn = 0; turn < 2; turn++) {
+    int turns = fx->tool_pattern ? 4 : 2;
+    for (int turn = 0; turn < turns; turn++) {
         struct pollfd pfd = {.fd = fx->server_fd, .events = POLLIN};
         if (poll(&pfd, 1, 15000) <= 0) {
             return NULL;
@@ -210,9 +213,18 @@ static void* sse_fixture_thread(void* user)
             }
         }
         /* Turn 1 (no tool role): stream a tool call. Turn 2 (tool role seen):
-         * stream reasoning then the final answer. */
+         * stream reasoning then the final answer. In tool_pattern mode, serve
+         * tool calls on connections 0 and 2 regardless of role (a prior tool
+         * result stays in context after the first round). */
         const char* body;
-        if (strstr(request, "\"role\":\"tool\"")) {
+        int serve_tool;
+        if (fx->tool_pattern) {
+            serve_tool = (fx->count % 2 == 0);
+            fx->count++;
+        } else {
+            serve_tool = !strstr(request, "\"role\":\"tool\"");
+        }
+        if (!serve_tool) {
             body = "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"thinking\"}}]}\n\n"
                    "data: {\"choices\":[{\"delta\":{\"content\":\"read done\"}}]}\n\n"
                    "data: [DONE]\n\n";
@@ -321,6 +333,81 @@ static void test_openai_provider_streaming(void)
     snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s", tmp);
     (void)system(rmcmd);
     printf("  openai_provider_streaming PASS\n");
+#endif
+}
+
+static void test_openai_provider_approvals(void)
+{
+    printf("[test] openai_provider_approvals ...\n");
+#ifndef AEGIS_OPENAI_PROVIDER
+    printf("  skipped (no OpenAI provider)\n");
+    return;
+#else
+    const char* bin = find_cli_bin();
+    char tmp[PATH_MAX];
+    assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
+    char cwd[PATH_MAX];
+    assert(getcwd(cwd, sizeof(cwd)) != NULL);
+    assert(chdir(tmp) == 0);
+    FILE* f = fopen("a.txt", "w");
+    assert(f);
+    fputs("fixture-file-body", f);
+    fclose(f);
+
+    sse_fixture_t fx = {.server_fd = -1, .port = 0, .tool_pattern = 1, .count = 0};
+    int           port = start_sse_fixture(&fx);
+    pthread_t     thread;
+    assert(pthread_create(&thread, NULL, sse_fixture_thread, &fx) == 0);
+
+    char in_file[PATH_MAX + 16];
+    snprintf(in_file, sizeof(in_file), "%s/input.txt", tmp);
+    f = fopen(in_file, "w");
+    assert(f);
+    /* Turn 1: deny the read call with n. Turn 2: allow with a (registers
+     * "read"); turn 3 would prompt again but quits instead. */
+    fputs("/approvals on\nhello\nn\nhello\na\n/quit\n", f);
+    fclose(f);
+    char env_cmd[8192];
+    snprintf(env_cmd, sizeof(env_cmd),
+             "AEGIS_PROVIDER=llm-openai OPENAI_API_KEY=test-key "
+             "AEGIS_OPENAI_BASE_URL=http://127.0.0.1:%d/v1 sh -c "
+             "'%s < %s' 2>&1",
+             port, bin, in_file);
+    FILE* fp = popen(env_cmd, "r");
+    assert(fp);
+    char out[16384] = {0};
+    size_t pos = 0;
+    char linebuf[1024];
+    while (fgets(linebuf, sizeof(linebuf), fp)) {
+        size_t tl = strlen(linebuf);
+        if (pos + tl + 1 < sizeof(out)) {
+            memcpy(out + pos, linebuf, tl);
+            pos += tl;
+            out[pos] = '\0';
+        }
+    }
+    pclose(fp);
+    pthread_join(thread, NULL);
+    close(fx.server_fd);
+
+    assert_contains(out, "approvals on", "switch echo");
+    assert_contains(out, "approve read", "approval prompt shown");
+    assert_contains(out, "✗ permission_denied", "denial shown on tool event");
+    {
+        /* Exactly two prompts: first turn denied via n, second turn answered
+         * with a, after which "read" is allow-listed and would not prompt. */
+        const char* p1 = strstr(out, "approve read");
+        assert(p1);
+        const char* p2 = strstr(p1 + 1, "approve read");
+        assert(p2);
+        assert(strstr(p2 + 1, "approve read") == NULL);
+    }
+
+    assert(chdir(cwd) == 0);
+    char rmcmd[PATH_MAX * 2 + 64];
+    snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s", tmp);
+    (void)system(rmcmd);
+    printf("  openai_provider_approvals PASS\n");
 #endif
 }
 
@@ -579,6 +666,7 @@ static void test_init_path(void)
 int main(void)
 {
     test_openai_provider_streaming();
+    test_openai_provider_approvals();
     test_help_version();
     test_unknown_command();
     test_init_and_run();
