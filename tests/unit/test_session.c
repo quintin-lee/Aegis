@@ -65,6 +65,51 @@ static void test_save_load(void)
     printf("save_load PASS\n");
 }
 
+static void test_reasoning_round_trip(void)
+{
+    char  tmpl[] = "/tmp/aegis_reason_sess_XXXXXX";
+    char* tmp    = mkdtemp(tmpl);
+    assert(tmp);
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/sess.jsonl", tmp);
+
+    /* With reasoning: must round-trip intact. */
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/proj3", &s), "create r");
+    aegis_message_t* m = NULL;
+    expect_ok(aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &m), "m");
+    expect_ok(aegis_message_set_content(m, "answer"), "c");
+    expect_ok(aegis_message_set_reasoning(m, "deep \"thoughts\"\nline2"), "r");
+    expect_ok(aegis_session_append_message(s, m), "append r");
+    aegis_message_destroy(m);
+    expect_ok(aegis_session_save(s, path), "save r");
+    aegis_session_t* loaded = NULL;
+    expect_ok(aegis_session_load(path, &loaded), "load r");
+    assert(aegis_session_message_count(loaded) == 1);
+    const aegis_message_t* rm = aegis_session_message_at(loaded, 0);
+    assert(rm && aegis_message_reasoning(rm) != NULL);
+    assert(strcmp(aegis_message_reasoning(rm), "deep \"thoughts\"\nline2") == 0);
+    aegis_session_destroy(s);
+    aegis_session_destroy(loaded);
+    unlink(path);
+
+    /* Without reasoning: must load with NULL reasoning (backward compat). */
+    expect_ok(aegis_session_create("/tmp/proj3", &s), "create n");
+    expect_ok(aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &m), "m n");
+    expect_ok(aegis_message_set_content(m, "plain"), "c n");
+    expect_ok(aegis_session_append_message(s, m), "append n");
+    aegis_message_destroy(m);
+    expect_ok(aegis_session_save(s, path), "save n");
+    expect_ok(aegis_session_load(path, &loaded), "load n");
+    const aegis_message_t* nm = aegis_session_message_at(loaded, 0);
+    assert(nm && aegis_message_reasoning(nm) == NULL);
+    aegis_session_destroy(s);
+    aegis_session_destroy(loaded);
+    unlink(path);
+    rmdir(tmp);
+    printf("reasoning_round_trip PASS\n");
+}
+
 static void test_tool_call_round_trip(void)
 {
     char  tmpl[] = "/tmp/aegis_tool_sess_XXXXXX";
@@ -231,6 +276,7 @@ int main(void)
 {
     test_create_append();
     test_save_load();
+    test_reasoning_round_trip();
     test_tool_call_round_trip();
     test_compact();
     test_compact_preserves_tool_group();

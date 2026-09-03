@@ -258,6 +258,11 @@ aegis_status_t aegis_session_save(const aegis_session_t* s, const char* path)
         const char*            id      = aegis_message_id(m) ? aegis_message_id(m) : "";
         fprintf(f, "{\"type\":\"message\",\"id\":\"%s\",\"role\":\"%s\",\"content\":\"", id, role);
         json_escape(f, content);
+        const char* reasoning = aegis_message_reasoning(m);
+        if (reasoning) {
+            fputs(",\"reasoning\":\"", f);
+            json_escape(f, reasoning);
+        }
         fputs("\"}\n", f);
         // tool calls if any
         size_t tc = aegis_message_tool_call_count(m);
@@ -440,6 +445,26 @@ aegis_status_t aegis_session_load(const char* path, aegis_session_t** out)
                     content[k++] = *cp++;
                 }
             }
+            /* Optional reasoning (absent in sessions saved before it existed). */
+            char        reasoning_buf[8192] = "";
+            int         has_reasoning       = 0;
+            const char* rp2                 = strstr(line, "\"reasoning\":\"");
+            if (rp2) {
+                has_reasoning = 1;
+                rp2 += strlen("\"reasoning\":\"");
+                size_t k = 0;
+                while (*rp2 && *rp2 != '"' && k < sizeof(reasoning_buf) - 1) {
+                    if (*rp2 == '\\' && *(rp2 + 1) == 'n') {
+                        reasoning_buf[k++] = '\n';
+                        rp2 += 2;
+                        continue;
+                    }
+                    if (*rp2 == '\\' && *(rp2 + 1)) {
+                        rp2++;
+                    }
+                    reasoning_buf[k++] = *rp2++;
+                }
+            }
             aegis_message_role_t role = AEGIS_MESSAGE_USER;
             if (strcmp(role_str, "system") == 0) {
                 role = AEGIS_MESSAGE_SYSTEM;
@@ -467,6 +492,9 @@ aegis_status_t aegis_session_load(const char* path, aegis_session_t** out)
                     aegis_message_set_id(m, message_id);
                 }
                 aegis_message_set_content(m, content);
+                if (has_reasoning) {
+                    aegis_message_set_reasoning(m, reasoning_buf);
+                }
                 aegis_session_append_message(s, m);
                 aegis_message_destroy(m);
             }
