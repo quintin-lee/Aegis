@@ -35,6 +35,8 @@ struct aegis_coding_agent {
     aegis_skill_registry_t* skills;
     aegis_agent_event_fn    ev_fn;   /**< Borrowed observer; NULL disables. */
     void*                   ev_user; /**< Borrowed, passed to ev_fn.        */
+    aegis_tool_approval_fn  ap_fn;   /**< Borrowed gate; NULL = allow all.  */
+    void*                   ap_user; /**< Borrowed, passed to ap_fn.        */
     bool                    owns_tools;
 };
 
@@ -163,6 +165,10 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     lcfg.system_prompt = CODING_AGENT_SYSTEM_PROMPT;
     lcfg.on_event      = a->ev_fn;
     lcfg.event_user    = a->ev_user;
+    lcfg.tool_approval = a->ap_fn;
+    lcfg.approval_user = a->ap_user;
+    lcfg.tool_approval = a->ap_fn;
+    lcfg.approval_user = a->ap_user;
     st                 = aegis_agent_loop_create(&lcfg, &a->loop);
     if (st != AEGIS_OK) {
         if (a->owns_tools) {
@@ -237,6 +243,8 @@ aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* a, aegis
         .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
         .on_event      = a->ev_fn,
         .event_user    = a->ev_user,
+        .tool_approval = a->ap_fn,
+        .approval_user = a->ap_user,
     };
     aegis_status_t st = aegis_agent_loop_create(&cfg, &replacement);
     if (st != AEGIS_OK) {
@@ -276,6 +284,18 @@ aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* a,
     return aegis_agent_loop_set_event_callback(a->loop, fn, user);
 }
 
+aegis_status_t aegis_coding_agent_set_tool_approval(aegis_coding_agent_t*  a,
+                                                    aegis_tool_approval_fn fn,
+                                                    void*                  user)
+{
+    if (!a) {
+        return AEGIS_ERR_INVALID;
+    }
+    a->ap_fn   = fn;
+    a->ap_user = user;
+    return aegis_agent_loop_set_tool_approval(a->loop, fn, user);
+}
+
 aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char* model)
 {
     if (!a || !model || model[0] == '\0') {
@@ -305,6 +325,8 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char*
         .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
         .on_event      = a->ev_fn,
         .event_user    = a->ev_user,
+        .tool_approval = a->ap_fn,
+        .approval_user = a->ap_user,
     };
     st = aegis_agent_loop_create(&lcfg, &replacement);
     if (st != AEGIS_OK) {

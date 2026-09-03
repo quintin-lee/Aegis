@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/coding_agent.h"
+#include "aegis/session/session.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -10,6 +11,14 @@ static void expect_ok(aegis_status_t rc, const char* msg)
         fprintf(stderr, "FAIL %s: %d\n", msg, (int)rc);
         assert(0);
     }
+}
+
+static aegis_tool_approval_t deny_all_fwd(const char* n, const char* a, void* u)
+{
+    (void)n;
+    (void)a;
+    (void)u;
+    return AEGIS_TOOL_APPROVAL_DENY;
 }
 
 /* Event observer: count events and remember whether text was streamed. */
@@ -78,6 +87,18 @@ int main(void)
     assert(log.count == after);
 
     aegis_coding_agent_destroy(agent2);
+
+    /* Approval gate pass-through: the gate receives verdicts through rebuilds. */
+    aegis_coding_agent_t* agent3 = NULL;
+    expect_ok(aegis_coding_agent_create(&cfg, &agent3), "create3");
+    assert(aegis_coding_agent_set_tool_approval(NULL, deny_all_fwd, NULL) == AEGIS_ERR_INVALID);
+    expect_ok(aegis_coding_agent_set_tool_approval(agent3, deny_all_fwd, NULL), "set approval");
+    expect_ok(aegis_coding_agent_run(agent3, "denied run"), "run under deny gate");
+    /* Switching model rebuilds the loop; the gate must survive. */
+    expect_ok(aegis_coding_agent_set_model(agent3, "gpt-x"), "switch with gate");
+    expect_ok(aegis_coding_agent_run(agent3, "denied run 2"), "run after rebuild");
+    expect_ok(aegis_coding_agent_set_tool_approval(agent3, NULL, NULL), "clear approval");
+    aegis_coding_agent_destroy(agent3);
     printf("ALL_CODING_AGENT_TESTS PASSED\n");
     return 0;
 }

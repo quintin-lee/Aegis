@@ -68,6 +68,15 @@ aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* agent
                                                      aegis_agent_event_fn  fn,
                                                      void*                 user);
 
+/**
+ * @brief Install or clear the tool approval gate (forwarded to the loop).
+ * @param fn Gate callback; NULL restores implicit allow-all.
+ * @return AEGIS_OK, or AEGIS_ERR_INVALID when agent is NULL.
+ */
+aegis_status_t aegis_coding_agent_set_tool_approval(aegis_coding_agent_t*  agent,
+                                                    aegis_tool_approval_fn fn,
+                                                    void*                  user);
+
 #ifdef __cplusplus
 }
 #endif
