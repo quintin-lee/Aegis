@@ -32,6 +32,7 @@ typedef enum aegis_agent_event_type {
     AEGIS_AGENT_EVENT_TOOL_END   = 2, /**< tool_name/call_id set; status = tool
                                            outcome; data/len = borrowed result
                                            string when status == AEGIS_OK      */
+    AEGIS_AGENT_EVENT_REASONING_DELTA = 3, /**< data/len: borrowed reasoning fragment */
 } aegis_agent_event_type_t;
 
 typedef struct aegis_agent_event {

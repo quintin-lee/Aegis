@@ -40,6 +40,9 @@ static void ev_cb(const aegis_agent_event_t* ev, void* user)
     case AEGIS_AGENT_EVENT_TEXT_DELTA:
         ev_push(log, ev->type, NULL, AEGIS_OK, (const char*)ev->data);
         break;
+    case AEGIS_AGENT_EVENT_REASONING_DELTA:
+        ev_push(log, ev->type, NULL, AEGIS_OK, (const char*)ev->data);
+        break;
     case AEGIS_AGENT_EVENT_TOOL_START:
     case AEGIS_AGENT_EVENT_TOOL_END:
         ev_push(log, ev->type, ev->tool_name, ev->status, NULL);
@@ -90,6 +93,11 @@ static aegis_status_t model_backend_stream(void* user, const aegis_model_request
         assert(callback(&delta, callback_user) == AEGIS_OK);
         assert(callback(&end, callback_user) == AEGIS_OK);
     } else {
+        const char*                r     = "thinking hard";
+        aegis_model_stream_event_t rev   = {
+            .type = AEGIS_MODEL_STREAM_REASONING_DELTA, .data = r, .len = strlen(r),
+        };
+        assert(callback(&rev, callback_user) == AEGIS_OK);
         const char*                text  = "done";
         aegis_model_stream_event_t event = {
             .type = AEGIS_MODEL_STREAM_TEXT_DELTA, .data = text, .len = strlen(text),
@@ -140,15 +148,23 @@ int main(void)
 
     assert(aegis_agent_loop_run_turn(loop, "read README.md") == AEGIS_OK);
 
-    /* Event sequence: TOOL_START(read) -> TOOL_END(read, ok) -> TEXT_DELTA("done") */
-    assert(log.n == 3);
+    /* Event sequence: TOOL_START(read) -> TOOL_END(read, ok) -> REASONING_DELTA -> TEXT_DELTA */
+    assert(log.n == 4);
     assert(log.items[0].type == AEGIS_AGENT_EVENT_TOOL_START);
     assert(strcmp(log.items[0].tool_name, "read") == 0);
     assert(log.items[1].type == AEGIS_AGENT_EVENT_TOOL_END);
     assert(strcmp(log.items[1].tool_name, "read") == 0);
     assert(log.items[1].status == AEGIS_OK);
-    assert(log.items[2].type == AEGIS_AGENT_EVENT_TEXT_DELTA);
-    assert(strcmp(log.items[2].text, "done") == 0);
+    assert(log.items[2].type == AEGIS_AGENT_EVENT_REASONING_DELTA);
+    assert(strcmp(log.items[2].text, "thinking hard") == 0);
+    assert(log.items[3].type == AEGIS_AGENT_EVENT_TEXT_DELTA);
+    assert(strcmp(log.items[3].text, "done") == 0);
+
+    /* Reasoning attached to the final assistant message in the session. */
+    const aegis_message_t* last_msg =
+        aegis_session_message_at(session, aegis_session_message_count(session) - 1);
+    assert(aegis_message_reasoning(last_msg) != NULL);
+    assert(strcmp(aegis_message_reasoning(last_msg), "thinking hard") == 0);
 
     /* Runtime rebinding to NULL: no further events recorded */
     log.n = 0;

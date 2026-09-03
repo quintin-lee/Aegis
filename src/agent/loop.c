@@ -181,6 +181,9 @@ typedef struct stream_accum {
     char*                text;
     size_t               len;
     size_t               cap;
+    char*                reasoning;
+    size_t               rlen;
+    size_t               rcap;
     stream_call_accum_t* calls;
     size_t               call_count;
     size_t               call_cap;
@@ -193,6 +196,7 @@ static void stream_accum_destroy(stream_accum_t* acc)
         return;
     }
     free(acc->text);
+    free(acc->reasoning);
     for (size_t i = 0; i < acc->call_count; ++i) {
         free(acc->calls[i].call_id);
         free(acc->calls[i].name);
@@ -444,28 +448,50 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
     return 1;
 }
 
+static int accum_append(char** buf, size_t* len, size_t* cap, const char* data, size_t n)
+{
+    if (*len + n + 1 > *cap) {
+        size_t ncap = *cap ? *cap * 2 : 256;
+        while (ncap < *len + n + 1) {
+            ncap *= 2;
+        }
+        char* nb = (char*)realloc(*buf, ncap);
+        if (!nb) {
+            return 0;
+        }
+        *buf = nb;
+        *cap = ncap;
+    }
+    memcpy(*buf + *len, data, n);
+    *len += n;
+    (*buf)[*len] = '\0';
+    return 1;
+}
+
 static aegis_status_t stream_cb(const aegis_model_stream_event_t* ev, void* user)
 {
     stream_accum_t* acc = (stream_accum_t*)user;
     if (!ev || !acc) {
         return AEGIS_ERR_INVALID;
     }
-    if (ev->type == AEGIS_MODEL_STREAM_TEXT_DELTA && ev->data && ev->len) {
-        if (acc->len + ev->len + 1 > acc->cap) {
-            size_t ncap = acc->cap ? acc->cap * 2 : 256;
-            while (ncap < acc->len + ev->len + 1) {
-                ncap *= 2;
-            }
-            char* n = (char*)realloc(acc->text, ncap);
-            if (!n) {
-                return AEGIS_ERR_NOMEM;
-            }
-            acc->text = n;
-            acc->cap  = ncap;
+    if (ev->type == AEGIS_MODEL_STREAM_REASONING_DELTA && ev->data && ev->len) {
+        if (!accum_append(&acc->reasoning, &acc->rlen, &acc->rcap, ev->data, ev->len)) {
+            return AEGIS_ERR_NOMEM;
         }
-        memcpy(acc->text + acc->len, ev->data, ev->len);
-        acc->len += ev->len;
-        acc->text[acc->len] = '\0';
+        if (acc->loop && acc->loop->on_event) {
+            aegis_agent_event_t out_ev = {
+                .type = AEGIS_AGENT_EVENT_REASONING_DELTA,
+                .data = ev->data,
+                .len  = ev->len,
+            };
+            /* Observer runs without loop locks; it cannot affect control flow. */
+            acc->loop->on_event(&out_ev, acc->loop->event_user);
+        }
+    }
+    if (ev->type == AEGIS_MODEL_STREAM_TEXT_DELTA && ev->data && ev->len) {
+        if (!accum_append(&acc->text, &acc->len, &acc->cap, ev->data, ev->len)) {
+            return AEGIS_ERR_NOMEM;
+        }
         if (acc->loop && acc->loop->on_event) {
             aegis_agent_event_t out_ev = {
                 .type = AEGIS_AGENT_EVENT_TEXT_DELTA,
@@ -564,6 +590,12 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
             return AEGIS_ERR_NOMEM;
         }
         if (aegis_message_set_content(am, acc.text ? acc.text : "") != AEGIS_OK) {
+            aegis_message_destroy(am);
+            stream_accum_destroy(&acc);
+            set_state(l, AEGIS_AGENT_LOOP_FAILED);
+            return AEGIS_ERR_NOMEM;
+        }
+        if (acc.reasoning && aegis_message_set_reasoning(am, acc.reasoning) != AEGIS_OK) {
             aegis_message_destroy(am);
             stream_accum_destroy(&acc);
             set_state(l, AEGIS_AGENT_LOOP_FAILED);
