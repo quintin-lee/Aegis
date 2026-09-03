@@ -13,6 +13,11 @@
  * No Core Runtime duplication — the CLI itself delegates to Core.
  */
 #define _POSIX_C_SOURCE 200809L
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <poll.h>
+#include <pthread.h>
+#include <sys/socket.h>
 #include <assert.h>
 #include <dirent.h>
 #include <stdio.h>
@@ -22,6 +27,8 @@
 #include <unistd.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <stdint.h>
 
 static void assert_contains(const char* hay, const char* needle, const char* msg);
 
@@ -156,6 +163,165 @@ static int run_cli_stdin(const char* input, char* out, size_t out_len, int* exit
         }
     }
     return 0;
+}
+
+/* ── SSE fixture server for OpenAI-provider CLI tests ─────────────────── */
+
+typedef struct {
+    int server_fd;
+    int port;
+} sse_fixture_t;
+
+static void* sse_fixture_thread(void* user)
+{
+    sse_fixture_t* fx = user;
+    /* The agent loop opens one connection per turn; serve them in sequence.
+     * poll with a timeout so a CLI that dies before connecting cannot hang
+     * this thread forever. */
+    for (int turn = 0; turn < 2; turn++) {
+        struct pollfd pfd = {.fd = fx->server_fd, .events = POLLIN};
+        if (poll(&pfd, 1, 15000) <= 0) {
+            return NULL;
+        }
+        int client = accept(fx->server_fd, NULL, NULL);
+        if (client < 0) return NULL;
+        char   request[32768] = {0};
+        size_t used = 0;
+        while (used + 1 < sizeof(request) && !strstr(request, "\r\n\r\n")) {
+            ssize_t received = recv(client, request + used, sizeof(request) - used - 1, 0);
+            if (received <= 0) break;
+            used += (size_t)received;
+            request[used] = '\0';
+        }
+        /* Drain the JSON body per Content-Length so the client can send it fully. */
+        const char* cl = strstr(request, "content-length:");
+        if (cl) {
+            size_t need = (size_t)strtoul(cl + strlen("content-length:"), NULL, 10);
+            const char* body_start = strstr(request, "\r\n\r\n");
+            if (body_start) {
+                size_t have = used - (size_t)(body_start + 4 - request);
+                while (have < need && used + 1 < sizeof(request)) {
+                    ssize_t received = recv(client, request + used, sizeof(request) - used - 1, 0);
+                    if (received <= 0) break;
+                    used += (size_t)received;
+                    request[used] = '\0';
+                    have += (size_t)received;
+                }
+            }
+        }
+        /* Turn 1 (no tool role): stream a tool call. Turn 2 (tool role seen):
+         * stream reasoning then the final answer. */
+        const char* body;
+        if (strstr(request, "\"role\":\"tool\"")) {
+            body = "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"thinking\"}}]}\n\n"
+                   "data: {\"choices\":[{\"delta\":{\"content\":\"read done\"}}]}\n\n"
+                   "data: [DONE]\n\n";
+        } else {
+            body = "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-it\","
+                   "\"function\":{\"name\":\"read\",\"arguments\":\"\"}}]}}]}\n\n"
+                   "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,"
+                   "\"function\":{\"arguments\":\"{\\\"path\\\": \\\"a.txt\\\"}\"}}]}}]}\n\n"
+                   "data: [DONE]\n\n";
+        }
+        char header[256];
+        int  header_len = snprintf(header, sizeof(header),
+                                   "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+                                   "Content-Length: %zu\r\nConnection: close\r\n\r\n",
+                                   strlen(body));
+        (void)!send(client, header, (size_t)header_len, 0);
+        (void)!send(client, body, strlen(body), 0);
+        close(client);
+    }
+    return NULL;
+}
+
+static int start_sse_fixture(sse_fixture_t* fx)
+{
+    fx->server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    assert(fx->server_fd >= 0);
+    int reuse = 1;
+    assert(setsockopt(fx->server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) == 0);
+    struct sockaddr_in addr = {
+        .sin_family = AF_INET, .sin_addr.s_addr = htonl(INADDR_LOOPBACK), .sin_port = 0};
+    assert(bind(fx->server_fd, (struct sockaddr*)&addr, sizeof(addr)) == 0);
+    assert(listen(fx->server_fd, 1) == 0);
+    socklen_t len = sizeof(addr);
+    assert(getsockname(fx->server_fd, (struct sockaddr*)&addr, &len) == 0);
+    fx->port = ntohs(addr.sin_port);
+    return fx->port;
+}
+
+static void test_openai_provider_streaming(void)
+{
+    printf("[test] openai_provider_streaming ...\n");
+#ifndef AEGIS_OPENAI_PROVIDER
+    printf("  skipped (no OpenAI provider)\n");
+    return;
+#else
+    /* Resolve the CLI binary BEFORE chdir: find_cli_bin() resolves relative
+     * candidates against the current directory, and the temp dir has none. */
+    const char* bin = find_cli_bin();
+    char tmp[PATH_MAX];
+    assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
+    char cwd[PATH_MAX];
+    assert(getcwd(cwd, sizeof(cwd)) != NULL);
+    assert(chdir(tmp) == 0);
+    /* Give the read tool a real target. */
+    FILE* f = fopen("a.txt", "w");
+    assert(f);
+    fputs("fixture-file-body", f);
+    fclose(f);
+
+    sse_fixture_t fx;
+    int           port = start_sse_fixture(&fx);
+    pthread_t     thread;
+    assert(pthread_create(&thread, NULL, sse_fixture_thread, &fx) == 0);
+
+    char        env_cmd[8192];
+    char in_file[PATH_MAX + 16];
+    snprintf(in_file, sizeof(in_file), "%s/input.txt", tmp);
+    f = fopen(in_file, "w");
+    assert(f);
+    fputs("hello\n/quit\n", f);
+    fclose(f);
+    snprintf(env_cmd, sizeof(env_cmd),
+             "AEGIS_PROVIDER=llm-openai OPENAI_API_KEY=test-key "
+             "AEGIS_OPENAI_BASE_URL=http://127.0.0.1:%d/v1 sh -c "
+             "'%s < %s' 2>&1",
+             port, bin, in_file);
+    FILE* fp = popen(env_cmd, "r");
+    assert(fp);
+    char   out[16384] = {0};
+    size_t pos        = 0;
+    char   linebuf[1024];
+    while (fgets(linebuf, sizeof(linebuf), fp)) {
+        size_t tl = strlen(linebuf);
+        if (pos + tl + 1 < sizeof(out)) {
+            memcpy(out + pos, linebuf, tl);
+            pos += tl;
+            out[pos] = '\0';
+        }
+    }
+    pclose(fp);
+    pthread_join(thread, NULL);
+    close(fx.server_fd);
+
+    assert_contains(out, "● read", "tool start marker");
+    assert_contains(out, "✓", "tool end marker");
+    assert_contains(out, "ms)", "tool timing suffix");
+    assert_contains(out, "\033[2m\033[3mthinking", "provider reasoning styled");
+    assert_contains(out, "read done", "final text streamed");
+    {
+        const char* first = strstr(out, "read done");
+        assert(strstr(first + 1, "read done") == NULL); /* no double print */
+    }
+
+    assert(chdir(cwd) == 0);
+    char rmcmd[PATH_MAX * 2 + 64];
+    snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s", tmp);
+    (void)system(rmcmd);
+    printf("  openai_provider_streaming PASS\n");
+#endif
 }
 
 static void test_interactive_commands(void)
@@ -412,6 +578,7 @@ static void test_init_path(void)
 
 int main(void)
 {
+    test_openai_provider_streaming();
     test_help_version();
     test_unknown_command();
     test_init_and_run();

@@ -21,10 +21,12 @@ static void print_banner(const char* model)
 /* ── Live streaming output ────────────────────────────────────────── */
 
 typedef struct cli_stream_ctx {
-    bool enabled;        /**< /stream on|off                              */
-    bool text_emitted;   /**< streamed text already shown for this turn   */
-    bool line_open;      /**< current line has unterminated content       */
-    bool reasoning_open; /**< dim-italic reasoning block is being printed */
+    bool        enabled;        /**< /stream on|off                              */
+    bool        text_emitted;   /**< streamed text already shown for this turn   */
+    bool        line_open;      /**< current line has unterminated content       */
+    bool        reasoning_open; /**< dim-italic reasoning block is being printed */
+    bool        tool_running;   /**< TOOL_START seen, awaiting TOOL_END          */
+    struct timespec tool_start; /**< wall clock at TOOL_START                    */
 } cli_stream_ctx_t;
 
 static void cli_stream_prelude(cli_stream_ctx_t* cx)
@@ -81,10 +83,29 @@ static void cli_event_cb(const aegis_agent_event_t* ev, void* user)
         }
         cli_stream_prelude(cx);
         printf("● %s", ev->tool_name ? ev->tool_name : "?");
-        cx->line_open = true;
+        cx->line_open    = true;
+        cx->tool_running = true;
+        clock_gettime(CLOCK_MONOTONIC, &cx->tool_start);
         fflush(stdout);
         break;
     case AEGIS_AGENT_EVENT_TOOL_END: {
+        /* Elapsed wall time since TOOL_START; <1s as ms, otherwise s. */
+        char timing[24] = "";
+        if (cx->tool_running) {
+            struct timespec now;
+            clock_gettime(CLOCK_MONOTONIC, &now);
+            long long ms = (now.tv_sec - cx->tool_start.tv_sec) * 1000LL +
+                           (now.tv_nsec - cx->tool_start.tv_nsec) / 1000000LL;
+            if (ms < 0) {
+                ms = 0;
+            }
+            if (ms < 1000) {
+                snprintf(timing, sizeof(timing), " (%lldms)", ms);
+            } else {
+                snprintf(timing, sizeof(timing), " (%.1fs)", (double)ms / 1000.0);
+            }
+            cx->tool_running = false;
+        }
         if (ev->status == AEGIS_OK) {
             char preview[64] = {0};
             if (ev->data && ev->len) {
@@ -97,9 +118,9 @@ static void cli_event_cb(const aegis_agent_event_t* ev, void* user)
                     }
                 }
             }
-            printf("  ✓ %s\n", preview[0] ? preview : "ok");
+            printf("  ✓ %s%s\n", preview[0] ? preview : "ok", timing);
         } else {
-            printf("  ✗ %s\n", aegis_status_str(ev->status));
+            printf("  ✗ %s%s\n", aegis_status_str(ev->status), timing);
         }
         cx->line_open = false;
         fflush(stdout);
