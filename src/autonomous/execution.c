@@ -4,6 +4,24 @@
 #include "aegis/security/security.h"
 #include <string.h>
 
+static aegis_status_t autonomous_default_work(aegis_task_t* task,
+                                               const aegis_cancellation_token_t* token,
+                                               void* user)
+{
+    (void)user;
+    if (!task) {
+        return AEGIS_ERR_INVALID;
+    }
+    if (token && aegis_cancellation_token_is_cancelled(token)) {
+        return AEGIS_ERR_CANCELLED;
+    }
+    const char* description = aegis_task_description(task);
+    if (!description) {
+        description = "";
+    }
+    return aegis_task_set_output(task, description, strlen(description));
+}
+
 aegis_status_t autonomous_execute(aegis_autonomous_agent_t*   agent,
                                   aegis_autonomous_runtime_t* runtime)
 {
@@ -97,8 +115,11 @@ aegis_status_t autonomous_execute(aegis_autonomous_agent_t*   agent,
                 return rc;
             }
         } else {
-            aegis_scheduler_notify_complete(agent->scheduler, task);
-            return AEGIS_ERR_NOT_FOUND;
+            rc = aegis_executor_submit(agent->executor, task, autonomous_default_work, NULL);
+            if (rc != AEGIS_OK) {
+                aegis_scheduler_notify_complete(agent->scheduler, task);
+                return rc;
+            }
         }
 
         aegis_exec_result_t eres;

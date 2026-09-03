@@ -39,6 +39,31 @@ static void teardown_registry(aegis_provider_registry_t* reg, llm_mock_ctx_t* ct
     aegis_provider_registry_destroy(reg);
 }
 
+static void test_computational_plan_is_executable(void)
+{
+    printf("[test] computational_plan_is_executable ...\n");
+    const char* resp = "STEP|-1|computational||compute|perform computation\n";
+    const char* seq[1] = {resp};
+    aegis_provider_registry_t* reg = NULL;
+    llm_mock_ctx_t* ctx = NULL;
+    const aegis_llm_ops_t* ops = NULL;
+    aegis_provider_def_t def;
+    setup_registry(&reg, &ctx, &ops, &def, seq, 1);
+    aegis_autonomous_agent_config_t cfg = {
+        .provider_registry = reg,
+        .llm_provider_name = def.name,
+        .max_iterations = 1,
+    };
+    aegis_autonomous_agent_t* aa = NULL;
+    expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create computational agent");
+    aegis_autonomous_result_t result = {0};
+    aegis_status_t rc = aegis_autonomous_agent_run(aa, "compute", &result);
+    assert(rc != AEGIS_ERR_NOT_FOUND);
+    assert(result.tasks_executed == 1);
+    aegis_autonomous_agent_destroy(aa);
+    teardown_registry(reg, ctx, ops, def.name);
+}
+
 static void test_happy_path(void)
 {
     printf("[test] happy_path ...\n");
@@ -65,11 +90,8 @@ static void test_happy_path(void)
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create aa");
     aegis_autonomous_result_t res = {0};
     aegis_status_t            rc  = aegis_autonomous_agent_run(aa, "happy goal", &res);
-    /* Without default_work, computational steps fail */
-    assert(rc != AEGIS_OK);
-#ifndef NDEBUG
-    /* tasks_executed depends on task type */
-#endif
+    assert(rc == AEGIS_OK);
+    assert(res.tasks_executed == 3);
     printf("  tasks_executed=%u iterations=%u PASS\n", res.tasks_executed, res.iterations);
     aegis_autonomous_agent_destroy(aa);
     teardown_registry(reg, ctx, ops, def.name);
@@ -293,6 +315,7 @@ static void test_boundaries(void)
 
 int main(void)
 {
+    test_computational_plan_is_executable();
     test_happy_path();
     test_retry_then_replan();
     test_timeout();
