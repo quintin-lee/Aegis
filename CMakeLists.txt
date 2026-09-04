@@ -92,7 +92,7 @@ add_executable(aegis
     apps/aegis/cli_inspect.c
     apps/aegis/cli_interactive.c
 )
-target_link_libraries(aegis PRIVATE aegis_core)
+target_link_libraries(aegis PRIVATE aegis_core pthread)
 target_compile_definitions(aegis PRIVATE AEGIS_VERSION_STRING="${AEGIS_VERSION_STRING}")
 if(AEGIS_OPENAI_PROVIDER)
     target_link_libraries(aegis PRIVATE aegis_llm_openai)

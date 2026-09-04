@@ -171,6 +171,7 @@ typedef struct {
     int server_fd;
     int port;
     int tool_pattern; /**< 1: tool call on connections 0,2; content on 1,3 */
+    int slow;         /**< 1: pause between chunks so the CLI can cancel  */
     int count;        /**< connections served (tool_pattern mode)        */
 } sse_fixture_t;
 
@@ -241,7 +242,17 @@ static void* sse_fixture_thread(void* user)
                                    "Content-Length: %zu\r\nConnection: close\r\n\r\n",
                                    strlen(body));
         (void)!send(client, header, (size_t)header_len, 0);
-        (void)!send(client, body, strlen(body), 0);
+        if (fx->slow) {
+            /* First 12 bytes immediately, then stall 3s so the CLI's empty
+             * line lands mid-transfer; the CLI aborts and never reads the
+             * rest (which is why plain send is fine here). */
+            (void)!send(client, body, 12, 0);
+            struct timespec stall = {.tv_sec = 3, .tv_nsec = 0};
+            nanosleep(&stall, NULL);
+            (void)!send(client, body + 12, strlen(body) - 12, 0);
+        } else {
+            (void)!send(client, body, strlen(body), 0);
+        }
         close(client);
     }
     return NULL;
@@ -408,6 +419,76 @@ static void test_openai_provider_approvals(void)
     snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s", tmp);
     (void)system(rmcmd);
     printf("  openai_provider_approvals PASS\n");
+#endif
+}
+
+static void test_openai_provider_interrupt(void)
+{
+    printf("[test] openai_provider_interrupt ...\n");
+#ifndef AEGIS_OPENAI_PROVIDER
+    printf("  skipped (no OpenAI provider)\n");
+    return;
+#else
+    const char* bin = find_cli_bin();
+    char tmp[PATH_MAX];
+    assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
+    char cwd[PATH_MAX];
+    assert(getcwd(cwd, sizeof(cwd)) != NULL);
+    assert(chdir(tmp) == 0);
+
+    sse_fixture_t fx = {.server_fd = -1, .port = 0, .tool_pattern = 0, .slow = 1, .count = 0};
+    int           port = start_sse_fixture(&fx);
+    pthread_t     thread;
+    assert(pthread_create(&thread, NULL, sse_fixture_thread, &fx) == 0);
+
+    char in_file[PATH_MAX + 16];
+    snprintf(in_file, sizeof(in_file), "%s/input.txt", tmp);
+    FILE* f = fopen(in_file, "w");
+    assert(f);
+    /* Line 1 starts a slow turn. Line 2 is the interrupt (empty line while
+     * the turn runs). Line 3 is the next turn, which must complete. */
+    fputs("hello\n\nhello2\n/quit\n", f);
+    fclose(f);
+
+    /* a.txt for the tool call the second turn's stream issues */
+    f = fopen("a.txt", "w");
+    assert(f);
+    fputs("fixture-file-body", f);
+    fclose(f);
+    char env_cmd[8192];
+    snprintf(env_cmd, sizeof(env_cmd),
+             "AEGIS_PROVIDER=llm-openai OPENAI_API_KEY=test-key "
+             "AEGIS_OPENAI_BASE_URL=http://127.0.0.1:%d/v1 sh -c "
+             "'%s < %s' 2>&1",
+             port, bin, in_file);
+    FILE*  fp = popen(env_cmd, "r");
+    assert(fp);
+    char   out[16384] = {0};
+    size_t pos        = 0;
+    char   linebuf[1024];
+    while (fgets(linebuf, sizeof(linebuf), fp)) {
+        size_t tl = strlen(linebuf);
+        if (pos + tl + 1 < sizeof(out)) {
+            memcpy(out + pos, linebuf, tl);
+            pos += tl;
+            out[pos] = '\0';
+        }
+    }
+    pclose(fp);
+    pthread_join(thread, NULL);
+    close(fx.server_fd);
+
+    assert_contains(out, "⏹ interrupted", "interrupt marker");
+    /* The fixture's second connection streams reasoning + "read done" after
+     * issuing a tool call (non-slow branch), so the queued "hello2" turn
+     * runs the read tool and completes. */
+    assert_contains(out, "read done", "queued line ran after interrupt");
+
+    assert(chdir(cwd) == 0);
+    char rmcmd[PATH_MAX * 2 + 64];
+    snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s", tmp);
+    (void)system(rmcmd);
+    printf("  openai_provider_interrupt PASS\n");
 #endif
 }
 
@@ -677,6 +758,7 @@ int main(void)
 {
     test_openai_provider_streaming();
     test_openai_provider_approvals();
+    test_openai_provider_interrupt();
     test_help_version();
     test_unknown_command();
     test_init_and_run();

@@ -3,6 +3,7 @@
 #include "aegis/coding/coding_agent.h"
 #include "aegis/session/session.h"
 #include <dirent.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +46,209 @@ static bool json_mode_env(void)
 {
     const char* env = getenv("AEGIS_JSON");
     return env && strcmp(env, "1") == 0;
+}
+
+/* ── stdin reader thread + line queue ────────────────────────────────────
+ * A background thread reads stdin into a FIFO so lines typed during a
+ * running turn are not lost: an empty line interrupts the turn, a
+ * non-empty line queues as the next input. */
+typedef struct line_cell {
+    char*             text;  /**< Heap copy; NULL = EOF sentinel. */
+    struct line_cell* next;
+} line_cell_t;
+
+typedef struct line_queue {
+    line_cell_t*    head;
+    line_cell_t*    tail;
+    bool            closed;
+    pthread_mutex_t mu;
+    pthread_cond_t  cv;
+} line_queue_t;
+
+static void lq_init(line_queue_t* q)
+{
+    memset(q, 0, sizeof(*q));
+    pthread_mutex_init(&q->mu, NULL);
+    pthread_cond_init(&q->cv, NULL);
+}
+
+static void lq_push(line_queue_t* q, char* text)
+{
+    line_cell_t* c = malloc(sizeof(*c));
+    if (!c) {
+        free(text);
+        return;
+    }
+    *c = (line_cell_t){.text = text, .next = NULL};
+    pthread_mutex_lock(&q->mu);
+    if (q->tail) {
+        q->tail->next = c;
+    } else {
+        q->head = c;
+    }
+    q->tail = c;
+    pthread_cond_signal(&q->cv);
+    pthread_mutex_unlock(&q->mu);
+}
+
+/** Blocking pop; returns NULL on EOF. */
+static char* lq_pop(line_queue_t* q)
+{
+    pthread_mutex_lock(&q->mu);
+    while (!q->head && !q->closed) {
+        pthread_cond_wait(&q->cv, &q->mu);
+    }
+    line_cell_t* c    = q->head;
+    char*        text = NULL;
+    if (c) {
+        q->head = c->next;
+        if (!q->head) {
+            q->tail = NULL;
+        }
+        text = c->text;
+        free(c);
+    }
+    pthread_mutex_unlock(&q->mu);
+    return text;
+}
+
+static void lq_close(line_queue_t* q)
+{
+    pthread_mutex_lock(&q->mu);
+    q->closed = true;
+    pthread_cond_broadcast(&q->cv);
+    pthread_mutex_unlock(&q->mu);
+}
+
+static line_queue_t g_lines;
+
+static void* reader_main(void* arg)
+{
+    (void)arg;
+    char buf[4096];
+    while (fgets(buf, sizeof(buf), stdin)) {
+        size_t n = strlen(buf);
+        while (n > 0 && (buf[n - 1] == '\n' || buf[n - 1] == '\r')) {
+            buf[--n] = '\0';
+        }
+        lq_push(&g_lines, strdup(buf));
+    }
+    lq_push(&g_lines, NULL); /* EOF sentinel */
+    return NULL;
+}
+
+/* While an approval prompt waits, the next line is handed to the gate
+ * through a small handshake slot instead of the pending FIFO. */
+static pthread_mutex_t g_gate_mu     = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  g_gate_cv     = PTHREAD_COND_INITIALIZER;
+static char*           g_gate_line   = NULL; /**< next answer for the gate */
+static bool            g_gate_waiting = false;
+static bool            g_gate_eof     = false;
+
+/** Hand a line to the waiting approval gate (takes ownership of @p line). */
+static void gate_put(char* line)
+{
+    pthread_mutex_lock(&g_gate_mu);
+    g_gate_line = line;
+    pthread_cond_broadcast(&g_gate_cv);
+    pthread_mutex_unlock(&g_gate_mu);
+}
+
+/** Watcher during a turn: empty line -> interrupt once; lines -> pending FIFO. */
+typedef struct watcher_ctx {
+    aegis_coding_agent_t* agent;
+    char**                pending;
+    size_t                n;
+    size_t                cap;
+    bool                  interrupted;
+} watcher_ctx_t;
+
+static watcher_ctx_t* g_gate_watcher = NULL; /**< pending-FIFO owner */
+
+/** Blocking take for the approval gate; NULL = EOF (ownership transferred). */
+static char* gate_take(void)
+{
+    /* Fast path: the watcher may have handed a line over already. */
+    pthread_mutex_lock(&g_gate_mu);
+    if (g_gate_line) {
+        char* ready = g_gate_line;
+        g_gate_line = NULL;
+        pthread_mutex_unlock(&g_gate_mu);
+        return ready;
+    }
+    g_gate_waiting = true;
+    pthread_mutex_unlock(&g_gate_mu);
+
+    /* Lines typed before the gate opened may sit in the watcher's pending
+     * FIFO: drain the oldest one first. */
+    watcher_ctx_t* w = g_gate_watcher;
+    if (w && w->n > 0) {
+        char* queued = w->pending[0];
+        memmove(w->pending, w->pending + 1, (w->n - 1) * sizeof(char*));
+        w->n--;
+        pthread_mutex_lock(&g_gate_mu);
+        g_gate_waiting = false;
+        pthread_mutex_unlock(&g_gate_mu);
+        return queued;
+    }
+
+    /* Nothing queued: pull directly from the reader queue. */
+    char* line = lq_pop(&g_lines);
+    if (!line) {
+        pthread_mutex_lock(&g_gate_mu);
+        g_gate_waiting = false;
+        pthread_mutex_unlock(&g_gate_mu);
+        return NULL; /* EOF => deny */
+    }
+    pthread_mutex_lock(&g_gate_mu);
+    g_gate_waiting = false;
+    pthread_mutex_unlock(&g_gate_mu);
+    return line;
+}
+
+static void* watcher_main(void* arg)
+{
+    watcher_ctx_t* w = arg;
+    while (1) {
+        char* line = lq_pop(&g_lines);
+        if (!line) {
+            pthread_mutex_lock(&g_gate_mu);
+            g_gate_eof = true;
+            pthread_cond_broadcast(&g_gate_cv);
+            pthread_mutex_unlock(&g_gate_mu);
+            break; /* EOF: stop watching; leftover lines stay queued */
+        }
+        {
+            /* Hand the line to the approval gate if it is waiting. */
+            pthread_mutex_lock(&g_gate_mu);
+            bool waiting = g_gate_waiting;
+            pthread_mutex_unlock(&g_gate_mu);
+            if (waiting) {
+                gate_put(line);
+                continue;
+            }
+        }
+        if (line[0] == '\0') {
+            if (!w->interrupted) {
+                w->interrupted = true;
+                aegis_coding_agent_interrupt(w->agent);
+            }
+            free(line);
+            continue;
+        }
+        if (w->n == w->cap) {
+            size_t     cap  = w->cap ? w->cap * 2 : 8;
+            char**     p    = realloc(w->pending, cap * sizeof(char*));
+            if (!p) {
+                free(line);
+                continue;
+            }
+            w->pending = p;
+            w->cap     = cap;
+        }
+        w->pending[w->n++] = line;
+    }
+    return NULL;
 }
 
 /* /tools visitor: print "name — description" plus the parameter list. */
@@ -96,20 +300,23 @@ static aegis_tool_approval_t cli_approval_cb(const char* tool_name, const char* 
     }
     printf("approve %s %s? [y/n/a] ", tool_name, args_json ? args_json : "");
     fflush(stdout);
-    char answer[16] = {0};
-    if (!fgets(answer, sizeof(answer), stdin)) {
-        cx->line_open = false;
+    /* Answers come through the gate handshake: the watcher thread routes
+     * the next typed line here (the reader thread owns stdin). */
+    char* answer_line = gate_take();
+    cx->line_open = false;
+    if (!answer_line) {
         return AEGIS_TOOL_APPROVAL_DENY; /* EOF => deny */
     }
-    cx->line_open = false;
-    if (answer[0] == 'a') {
+    char verdict = answer_line[0];
+    free(answer_line);
+    if (verdict == 'a') {
         if (cx->allowed_count < 16) {
             snprintf(cx->allowed_tools[cx->allowed_count++],
                      sizeof(cx->allowed_tools[0]), "%s", tool_name);
         }
         return AEGIS_TOOL_APPROVAL_ALLOW; /* list full degrades to y */
     }
-    if (answer[0] == 'y') {
+    if (verdict == 'y') {
         return AEGIS_TOOL_APPROVAL_ALLOW;
     }
     return AEGIS_TOOL_APPROVAL_DENY;
@@ -240,19 +447,19 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
     if (!json_mode_env()) {
         aegis_coding_agent_set_event_callback(agent, cli_event_cb, &stream_ctx);
     }
-    char        line[4096];
     int         json_mode = json_mode_env();
+    lq_init(&g_lines);
+    pthread_t   reader;
+    bool        reader_up = pthread_create(&reader, NULL, reader_main, NULL) == 0;
     while (1) {
         printf("> ");
         fflush(stdout);
-        if (!fgets(line, sizeof(line), stdin)) {
-            break;
+        char* line = reader_up ? lq_pop(&g_lines) : NULL;
+        if (!line) {
+            break; /* EOF */
         }
-        size_t len = strlen(line);
-        while (len > 0 && (line[len - 1] == '\n' || line[len - 1] == '\r')) {
-            line[--len] = '\0';
-        }
-        if (len == 0) {
+        if (line[0] == '\0') {
+            free(line);
             continue;
         }
         if (strcmp(line, "/help") == 0 || strcmp(line, "/h") == 0) {
@@ -353,6 +560,7 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/quit") == 0 || strcmp(line, "/exit") == 0 || strcmp(line, "/q") == 0) {
+            free(line);
             break;
         }
         if (strncmp(line, "/clear", 6) == 0) {
@@ -425,8 +633,24 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         }
         stream_ctx.text_emitted = false;
         stream_ctx.line_open    = false;
-        aegis_status_t st2 = aegis_coding_agent_run(agent, line);
+        /* Watch for interrupts / queued lines while the turn runs. */
+        watcher_ctx_t w = {.agent = agent, .pending = NULL, .n = 0, .cap = 0,
+                           .interrupted = false};
+        g_gate_watcher = &w;
+        pthread_t watcher;
+        bool      watcher_up = pthread_create(&watcher, NULL, watcher_main, &w) == 0;
+        aegis_status_t st2   = aegis_coding_agent_run(agent, line);
+        if (watcher_up) {
+            lq_close(&g_lines); /* wake the watcher if blocked */
+            pthread_join(watcher, NULL);
+            lq_init(&g_lines); /* reopen for the next turn */
+            g_gate_watcher = NULL;
+        }
+        free(line);
         cli_stream_prelude(&stream_ctx);
+        if (st2 == AEGIS_ERR_CANCELLED) {
+            printf("⏹ interrupted\n");
+        }
         if (st2 == AEGIS_OK) {
             aegis_session_t* sess = aegis_coding_agent_session(agent);
             size_t           n    = aegis_session_message_count(sess);
@@ -454,11 +678,21 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             if (!json_mode) {
                 printf("\nDone.\n");
             }
-        } else if (st2 == AEGIS_ERR_CANCELLED) {
-            printf("cancelled\n");
-        } else {
+        } else if (st2 != AEGIS_ERR_CANCELLED) {
             printf("error: %s\n", aegis_status_str(st2));
         }
+        /* Drain lines queued during the turn: each runs through the same
+         * REPL logic by pushing them back as the next inputs. */
+        if (watcher_up) {
+            for (size_t i = 0; i < w.n; i++) {
+                lq_push(&g_lines, w.pending[i]);
+            }
+            free(w.pending);
+        }
+    }
+    if (reader_up) {
+        lq_close(&g_lines);
+        pthread_join(reader, NULL);
     }
     aegis_session_t* sess = aegis_coding_agent_session(agent);
     if (sess) {
