@@ -335,6 +335,21 @@ static int emit_record(sse_state_t* s, const char* record, size_t len)
     return 1;
 }
 
+/* curl progress callback: abort the transfer as soon as the token is
+ * cancelled. libcurl polls this at least once per second while idle and
+ * on every data event while streaming, so an interrupt takes effect at
+ * the next chunk boundary (or within ~1s during a silent stall). */
+static int sse_progress(void* user, curl_off_t dltotal, curl_off_t dlnow,
+                        curl_off_t ultotal, curl_off_t ulnow)
+{
+    (void)dltotal; (void)dlnow; (void)ultotal; (void)ulnow;
+    sse_state_t* s = user;
+    if (s && s->token && aegis_cancellation_token_is_cancelled(s->token)) {
+        return 1; /* non-zero aborts the transfer */
+    }
+    return 0;
+}
+
 static size_t on_sse_write(void* ptr, size_t size, size_t nmemb, void* user)
 {
     sse_state_t* s = user;
@@ -400,6 +415,9 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_sse_write);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &state);
+    curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, sse_progress);
+    curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &state);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 60000L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
@@ -410,6 +428,8 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
         if (!emit_record(&state, state.pending, state.pending_len)) cr = CURLE_WRITE_ERROR;
     }
     free(state.pending); curl_slist_free_all(headers); curl_easy_cleanup(curl); free(body);
+    /* Cancellation takes precedence: an aborted-by-callback transfer is a
+     * cancel, not a provider failure. */
     if (token && aegis_cancellation_token_is_cancelled(token)) return AEGIS_ERR_CANCELLED;
     if (cr != CURLE_OK) return AEGIS_ERR_PROVIDER;
     if (http < 200 || http >= 300) return AEGIS_ERR_PROVIDER;
@@ -512,6 +532,10 @@ static aegis_status_t structured_complete(void* user, const aegis_model_request_
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_complete_write);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
+    { sse_state_t ps = {.ctx = ctx, .req = req, .token = token};
+      curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
+      curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, sse_progress);
+      curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &ps); }
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 60000L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);

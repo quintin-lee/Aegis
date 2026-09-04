@@ -21,6 +21,7 @@ typedef struct {
     int saw_stream;
     int multi_chunk_tool;   /* stream a tool call split across chunks */
     int reasoning_field;    /* 0=none, 1=reasoning_content, 2=reasoning */
+    int slow_chunks;        /* dribble chunks with delays (cancel test) */
     const char* req_model;  /* captured "model" from request body */
     char* req_model_copy;
 } fixture_t;
@@ -94,6 +95,12 @@ static void* fixture_thread(void* user)
     if (fixture->close_without_done) {
         body = "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n";
     }
+    if (fixture->slow_chunks) {
+        /* One chunk, then a pause long enough for the test to cancel. */
+        body = "data: {\"choices\":[{\"delta\":{\"content\":\"first\"}}]}\n\n"
+               "data: {\"choices\":[{\"delta\":{\"content\":\"second\"}}]}\n\n"
+               "data: [DONE]\n\n";
+    }
 
     char header[256];
     int  header_len = snprintf(
@@ -102,7 +109,13 @@ static void* fixture_thread(void* user)
         fixture->status_code, fixture->status_code == 200 ? "OK" : "Bad Request",
         fixture->status_code == 200 ? "text/event-stream" : "application/json", strlen(body));
     assert(send(client, header, (size_t)header_len, 0) == header_len);
-    if (fixture->status_code == 200) {
+    if (fixture->slow_chunks) {
+        /* Dribble: send the first 12 bytes, pause, send the rest. */
+        assert(send(client, body, 12, 0) == 12);
+        struct timespec slow = {.tv_sec = 1, .tv_nsec = 0};
+        nanosleep(&slow, NULL);
+        (void)!send(client, body + 12, strlen(body) - 12, 0);
+    } else if (fixture->status_code == 200) {
         assert(send(client, body, 12, 0) == 12);
         struct timespec delay = {.tv_sec = 0, .tv_nsec = 1000000L};
         nanosleep(&delay, NULL);
@@ -171,6 +184,15 @@ static int start_fixture(fixture_t* fixture)
     socklen_t len = sizeof(addr);
     assert(getsockname(fixture->server_fd, (struct sockaddr*)&addr, &len) == 0);
     return ntohs(addr.sin_port);
+}
+
+static void* sse_cancel_helper(void* arg)
+{
+    aegis_cancellation_token_t* tok = arg;
+    struct timespec             pause = {.tv_sec = 0, .tv_nsec = 150000000L};
+    nanosleep(&pause, NULL);
+    aegis_cancellation_token_request_cancel(tok);
+    return NULL;
 }
 
 int main(void)
@@ -295,6 +317,38 @@ int main(void)
     close(error_fixture.server_fd);
     aegis_openai_model_destroy(error_context);
     free(error_fixture.req_model_copy);
+
+    /* Cancel mid-transfer: the client token is cancelled while the fixture
+     * pauses between chunks; the provider must return CANCELLED promptly,
+     * not wait for the transfer to finish. */
+    {
+        fixture_t slow_fixture = {.status_code = 200, .slow_chunks = 1};
+        port                   = start_fixture(&slow_fixture);
+        assert(pthread_create(&thread, NULL, fixture_thread, &slow_fixture) == 0);
+        snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
+        aegis_openai_model_ctx_t* slow_context = NULL;
+        aegis_model_backend_t     slow_backend = {0};
+        assert(aegis_openai_model_create("test-key", base_url, "test-model", &slow_context,
+                                         &slow_backend) == AEGIS_OK);
+        aegis_cancellation_token_t* tok = NULL;
+        assert(aegis_cancellation_token_create(&tok) == AEGIS_OK);
+
+        events_t slow_events = {0};
+        /* Cancel from a helper thread: 150ms lands inside the 1s fixture
+         * pause between chunks. */
+        pthread_t helper;
+        assert(pthread_create(&helper, NULL, sse_cancel_helper, tok) == 0);
+
+        aegis_status_t st = slow_backend.stream(slow_backend.user, &request, tok,
+                                                collect_event, &slow_events);
+        assert(st == AEGIS_ERR_CANCELLED);
+        pthread_join(helper, NULL);
+        pthread_join(thread, NULL);
+        aegis_cancellation_token_destroy(tok);
+        close(slow_fixture.server_fd);
+        aegis_openai_model_destroy(slow_context);
+        free(slow_fixture.req_model_copy);
+    }
 
     aegis_message_destroy(user);
     aegis_message_list_destroy(messages);
