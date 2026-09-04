@@ -127,6 +127,24 @@ static aegis_status_t model_backend_stream(void* user, const aegis_model_request
     return callback(&end, callback_user);
 }
 
+/* Simulates a provider that observes cancellation mid-stream: emits one
+ * text delta then returns CANCELLED (without STREAM_END). */
+static aegis_status_t cancel_mid_stream(void* user, const aegis_model_request_t* request,
+                                        const aegis_cancellation_token_t* token,
+                                        aegis_model_stream_callback_fn    callback,
+                                        void*                             callback_user)
+{
+    (void)user;
+    (void)request;
+    (void)token;
+    const char*                part = "partial text";
+    aegis_model_stream_event_t ev   = {
+        .type = AEGIS_MODEL_STREAM_TEXT_DELTA, .data = part, .len = strlen(part),
+    };
+    assert(callback(&ev, callback_user) == AEGIS_OK);
+    return AEGIS_ERR_CANCELLED;
+}
+
 int main(void)
 {
     aegis_session_t* session = NULL;
@@ -229,6 +247,49 @@ int main(void)
     assert(read_calls == 1);
 
     assert(aegis_agent_loop_set_tool_approval(NULL, approve_all, NULL) == AEGIS_ERR_INVALID);
+
+    /* ── Cancellation: partial reply is preserved + marker appended ────── */
+    {
+        int                   turn2    = 0;
+        aegis_model_backend_t cbackend = {
+            .user = &turn2, .complete = NULL, .stream = cancel_mid_stream,
+            .capabilities = AEGIS_MODEL_CAP_TEXT | AEGIS_MODEL_CAP_STREAMING,
+        };
+        aegis_model_client_t* cmodel = NULL;
+        assert(aegis_model_client_create_with_backend("fixture-cancel", &cbackend, &cmodel) ==
+               AEGIS_OK);
+        aegis_agent_loop_config_t ccfg = {
+            .session = session, .model = cmodel, .tools = tools, .system_prompt = "fixture",
+        };
+        aegis_agent_loop_t* cloop = NULL;
+        assert(aegis_agent_loop_create(&ccfg, &cloop) == AEGIS_OK);
+
+        size_t before = aegis_session_message_count(session);
+        assert(aegis_agent_loop_run_turn(cloop, "interrupt me") == AEGIS_ERR_CANCELLED);
+        assert(aegis_agent_loop_state(cloop) == AEGIS_AGENT_LOOP_CANCELLED);
+
+        /* session gained: user msg, partial assistant msg, marker user msg */
+        assert(aegis_session_message_count(session) == before + 3);
+        const aegis_message_t* amsg = aegis_session_message_at(session, before + 1);
+        assert(aegis_message_role(amsg) == AEGIS_MESSAGE_ASSISTANT);
+        assert(strcmp(aegis_message_content(amsg), "partial text") == 0);
+        const aegis_message_t* marker = aegis_session_message_at(session, before + 2);
+        assert(aegis_message_role(marker) == AEGIS_MESSAGE_USER);
+        assert(strcmp(aegis_message_content(marker), "[interrupted by user]") == 0);
+
+        /* Token rebind: set_token validates and stores. */
+        aegis_cancellation_token_t* tok = NULL;
+        assert(aegis_cancellation_token_create(&tok) == AEGIS_OK);
+        assert(aegis_agent_loop_set_token(cloop, tok) == AEGIS_OK);
+        assert(aegis_agent_loop_set_token(NULL, tok) == AEGIS_ERR_INVALID);
+        aegis_cancellation_token_request_cancel(tok);
+        /* run_turn refuses immediately on a cancelled token (pre-existing guard) */
+        assert(aegis_agent_loop_run_turn(cloop, "x") == AEGIS_ERR_CANCELLED);
+        aegis_cancellation_token_destroy(tok);
+
+        aegis_agent_loop_destroy(cloop);
+        aegis_model_client_destroy(cmodel);
+    }
 
     aegis_agent_loop_destroy(loop);
     aegis_model_client_destroy(model);

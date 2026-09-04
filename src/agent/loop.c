@@ -93,6 +93,17 @@ aegis_status_t aegis_agent_loop_cancel(aegis_agent_loop_t* l)
     return AEGIS_OK;
 }
 
+aegis_status_t aegis_agent_loop_set_token(aegis_agent_loop_t* l, aegis_cancellation_token_t* token)
+{
+    if (!l) {
+        return AEGIS_ERR_INVALID;
+    }
+    pthread_mutex_lock(&l->lock);
+    l->token = token;
+    pthread_mutex_unlock(&l->lock);
+    return AEGIS_OK;
+}
+
 aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* l, aegis_agent_event_fn fn,
                                                    void* user)
 {
@@ -594,6 +605,41 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
         st                 = aegis_model_stream(l->model, &req, l->token, stream_cb, &acc);
         aegis_message_list_destroy(ctx_msgs);
         if (st != AEGIS_OK) {
+            if (st == AEGIS_ERR_CANCELLED) {
+                /* Preserve whatever streamed before the interrupt, then
+                 * mark it so the next turn has the interruption context. */
+                aegis_message_t* pm = NULL;
+                if (aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &pm) == AEGIS_OK &&
+                    aegis_message_set_content(pm, acc.text ? acc.text : "") == AEGIS_OK) {
+                    if (acc.reasoning) {
+                        aegis_message_set_reasoning(pm, acc.reasoning);
+                    }
+                    for (size_t i = 0; i < acc.call_count; i++) {
+                        aegis_tool_call_t* call = NULL;
+                        if (aegis_tool_call_create(&call) == AEGIS_OK &&
+                            aegis_tool_call_set_id(call, acc.calls[i].call_id) == AEGIS_OK &&
+                            aegis_tool_call_set_name(call, acc.calls[i].name) == AEGIS_OK &&
+                            aegis_tool_call_set_arguments(
+                                call, acc.calls[i].arguments ? acc.calls[i].arguments : "{}") ==
+                                AEGIS_OK &&
+                            aegis_message_add_tool_call(pm, call) == AEGIS_OK) {
+                            /* attached */
+                        }
+                        aegis_tool_call_destroy(call);
+                    }
+                    aegis_session_append_message(l->session, pm);
+                    aegis_message_t* mk = NULL;
+                    if (aegis_message_create(AEGIS_MESSAGE_USER, &mk) == AEGIS_OK &&
+                        aegis_message_set_content(mk, "[interrupted by user]") == AEGIS_OK) {
+                        aegis_session_append_message(l->session, mk);
+                        aegis_message_destroy(mk);
+                    }
+                    aegis_message_destroy(pm);
+                }
+                stream_accum_destroy(&acc);
+                set_state(l, AEGIS_AGENT_LOOP_CANCELLED);
+                return AEGIS_ERR_CANCELLED;
+            }
             stream_accum_destroy(&acc);
             set_state(l, AEGIS_AGENT_LOOP_FAILED);
             return st;

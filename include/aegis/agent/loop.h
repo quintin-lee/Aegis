@@ -83,6 +83,11 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* loop, const char* u
 aegis_status_t aegis_agent_loop_run(aegis_agent_loop_t* loop, const char* user_input);
 
 aegis_status_t aegis_agent_loop_cancel(aegis_agent_loop_t* loop);
+
+/** Rebind the loop's cancellation token at runtime (borrowed; NULL = none).
+ *  Thread-safe; takes the loop lock briefly. */
+aegis_status_t aegis_agent_loop_set_token(aegis_agent_loop_t*         loop,
+                                          aegis_cancellation_token_t* token);
 aegis_status_t aegis_agent_loop_pause(aegis_agent_loop_t* loop);
 aegis_status_t aegis_agent_loop_resume(aegis_agent_loop_t* loop);
 
