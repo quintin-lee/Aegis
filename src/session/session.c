@@ -258,12 +258,14 @@ aegis_status_t aegis_session_save(const aegis_session_t* s, const char* path)
         const char*            id      = aegis_message_id(m) ? aegis_message_id(m) : "";
         fprintf(f, "{\"type\":\"message\",\"id\":\"%s\",\"role\":\"%s\",\"content\":\"", id, role);
         json_escape(f, content);
+        fputs("\"", f); /* close the content string */
         const char* reasoning = aegis_message_reasoning(m);
         if (reasoning) {
             fputs(",\"reasoning\":\"", f);
             json_escape(f, reasoning);
+            fputs("\"", f); /* close the reasoning string */
         }
-        fputs("\"}\n", f);
+        fputs("}\n", f);
         // tool calls if any
         size_t tc = aegis_message_tool_call_count(m);
         for (size_t j = 0; j < tc; j++) {
