@@ -3,7 +3,10 @@
 #include "aegis/coding/coding_agent.h"
 #include "aegis/session/session.h"
 #include <dirent.h>
+#include <errno.h>
+#include <poll.h>
 #include <pthread.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -122,14 +125,63 @@ static void lq_close(line_queue_t* q)
 
 static line_queue_t g_lines;
 
+/* Set on quit: releases the poll-waiting reader even without EOF (a PTY
+ * never delivers EOF while the session stays attached). */
+static volatile sig_atomic_t g_reader_shutdown = 0;
+
+/* Read one line from stdin with a timeout so shutdown can release us.
+ * Returns 1 with *line set (NUL-terminated, no newline), 0 on timeout/shutdown,
+ * -1 on EOF. */
+static int read_line_timeout(char* buf, size_t cap)
+{
+    size_t n = 0;
+    for (;;) {
+        struct pollfd pfd = {.fd = STDIN_FILENO, .events = POLLIN, .revents = 0};
+        int              rc = poll(&pfd, 1, 100);
+        if (rc < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return -1;
+        }
+        if (rc == 0) {
+            if (g_reader_shutdown) {
+                return 0;
+            }
+            continue;
+        }
+        char ch;
+        ssize_t got = read(STDIN_FILENO, &ch, 1);
+        if (got == 0) {
+            return n > 0 ? (buf[n] = '\0', 1) : -1;
+        }
+        if (got < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return -1;
+        }
+        if (ch == '\n' || ch == '\r') {
+            buf[n] = '\0';
+            return 1;
+        }
+        if (n + 1 < cap) {
+            buf[n++] = ch;
+        }
+    }
+}
+
 static void* reader_main(void* arg)
 {
     (void)arg;
     char buf[4096];
-    while (fgets(buf, sizeof(buf), stdin)) {
-        size_t n = strlen(buf);
-        while (n > 0 && (buf[n - 1] == '\n' || buf[n - 1] == '\r')) {
-            buf[--n] = '\0';
+    while (!g_reader_shutdown) {
+        int rc = read_line_timeout(buf, sizeof(buf));
+        if (rc < 0) {
+            break; /* EOF */
+        }
+        if (rc == 0) {
+            continue; /* timed out; re-check shutdown flag */
         }
         lq_push(&g_lines, strdup(buf));
     }
@@ -451,6 +503,9 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
     lq_init(&g_lines);
     pthread_t   reader;
     bool        reader_up = pthread_create(&reader, NULL, reader_main, NULL) == 0;
+    if (reader_up) {
+        pthread_detach(reader); /* quit must not block on a PTY (no EOF) */
+    }
     while (1) {
         printf("> ");
         fflush(stdout);
@@ -691,8 +746,10 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         }
     }
     if (reader_up) {
+        /* Release the poll-waiting reader, then let it exit on its own;
+         * joining would hang under a PTY, where stdin never EOFs. */
+        g_reader_shutdown = 1;
         lq_close(&g_lines);
-        pthread_join(reader, NULL);
     }
     aegis_session_t* sess = aegis_coding_agent_session(agent);
     if (sess) {
