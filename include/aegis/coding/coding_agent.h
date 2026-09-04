@@ -66,6 +66,16 @@ aegis_status_t aegis_coding_agent_tools(const aegis_coding_agent_t* agent,
 aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* agent, const char* model);
 
 /**
+ * @brief Swap in a pre-built model client (test/debug seam).
+ *
+ * Takes ownership of @p client and rebuilds the agent loop around it;
+ * the session, tools, and event/approval callbacks are untouched.
+ * Primarily for fixture backends in tests.
+ */
+aegis_status_t aegis_coding_agent_set_model_client(aegis_coding_agent_t*  agent,
+                                                   aegis_model_client_t*  client);
+
+/**
  * @brief Register (or clear) the agent-loop event observer.
  *
  * The callback receives streaming text deltas and tool start/end events
@@ -86,6 +96,16 @@ aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* agent
 aegis_status_t aegis_coding_agent_set_tool_approval(aegis_coding_agent_t*  agent,
                                                     aegis_tool_approval_fn fn,
                                                     void*                  user);
+
+/**
+ * @brief Request cooperative interruption of the current turn.
+ *
+ * Lock-free and callable from any thread (including the CLI reader
+ * thread). Safe when no turn is running. The agent owns one
+ * cancellation token per turn; a fresh token is created for each run,
+ * so an earlier interrupt never leaks into the next turn.
+ */
+aegis_status_t aegis_coding_agent_interrupt(const aegis_coding_agent_t* agent);
 
 #ifdef __cplusplus
 }

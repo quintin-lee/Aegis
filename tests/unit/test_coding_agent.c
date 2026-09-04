@@ -2,6 +2,7 @@
 #include "aegis/coding/coding_agent.h"
 #include "aegis/session/session.h"
 #include "aegis/tool/tool.h"
+#include "aegis/agent/loop.h"
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,6 +21,25 @@ static aegis_tool_approval_t deny_all_fwd(const char* n, const char* a, void* u)
     (void)a;
     (void)u;
     return AEGIS_TOOL_APPROVAL_DENY;
+}
+
+/* Interrupt fixture: agent under test, targeted by the stream backend. */
+static aegis_coding_agent_t* g_int_agent = NULL;
+
+static aegis_status_t int_stream(void* user, const aegis_model_request_t* request,
+                                 const aegis_cancellation_token_t* token,
+                                 aegis_model_stream_callback_fn    callback, void* callback_user)
+{
+    (void)user;
+    (void)request;
+    (void)token;
+    const char*                part = "partial";
+    aegis_model_stream_event_t ev   = {
+        .type = AEGIS_MODEL_STREAM_TEXT_DELTA, .data = part, .len = strlen(part),
+    };
+    callback(&ev, callback_user);
+    aegis_coding_agent_interrupt(g_int_agent);
+    return AEGIS_ERR_CANCELLED;
 }
 
 /* Event observer: count events and remember whether text was streamed. */
@@ -109,7 +129,41 @@ int main(void)
     assert(strcmp(found.name, "read") == 0);
     assert(found.description != NULL);
     assert(aegis_coding_agent_tools(NULL, &tools1) == AEGIS_ERR_INVALID);
-    assert(aegis_coding_agent_tools(agent3, NULL) == AEGIS_ERR_INVALID);
+    assert(aegis_coding_agent_tools(agent3, NULL) == AEGIS_ERR_INVALID);    /* ── Interrupt: idle interrupt is safe; each run gets a fresh token ── */
+    {
+        aegis_coding_agent_config_t icfg = {0};
+        aegis_coding_agent_t*       ia   = NULL;
+        expect_ok(aegis_coding_agent_create(&icfg, &ia), "create interrupt agent");
+        /* Swap in the interrupting backend (set_model_client takes ownership
+         * of the client and destroys the previous one). */
+        aegis_model_backend_t ibackend = {
+            .user         = NULL,
+            .complete     = NULL,
+            .stream       = int_stream,
+            .capabilities = AEGIS_MODEL_CAP_TEXT | AEGIS_MODEL_CAP_STREAMING,
+        };
+        aegis_model_client_t* iclient = NULL;
+        assert(aegis_model_client_create_with_backend("fixture-int", &ibackend, &iclient) ==
+               AEGIS_OK);
+        expect_ok(aegis_coding_agent_set_model_client(ia, iclient), "set int client");
+        g_int_agent = ia;
+
+        assert(aegis_coding_agent_interrupt(NULL) == AEGIS_ERR_INVALID);
+        assert(aegis_coding_agent_interrupt(ia) == AEGIS_OK); /* idle: safe no-op */
+
+        /* Mid-turn interrupt: stream emits a delta then interrupts itself. */
+        assert(aegis_coding_agent_run(ia, "interrupt me") == AEGIS_ERR_CANCELLED);
+
+        /* Swap back to a well-behaved client; the next run must work: the
+         * per-turn token must not carry the old cancel. */
+        aegis_model_client_t* good = NULL;
+        assert(aegis_model_client_create("mock", &good) == AEGIS_OK);
+        expect_ok(aegis_coding_agent_set_model_client(ia, good), "restore good client");
+        expect_ok(aegis_coding_agent_run(ia, "after interrupt"), "run after interrupt");
+
+        aegis_coding_agent_destroy(ia);
+        g_int_agent = NULL;
+    }
 
     aegis_coding_agent_destroy(agent3);
     printf("ALL_CODING_AGENT_TESTS PASSED\n");

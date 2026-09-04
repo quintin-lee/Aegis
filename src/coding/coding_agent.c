@@ -6,6 +6,7 @@
 #include "aegis/skill/loader.h"
 #include "aegis/session/session.h"
 #include "aegis/agent/loop.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include "aegis/model/model.h"
 #include "aegis/tool/tool.h"
 #ifdef AEGIS_OPENAI_PROVIDER
@@ -29,15 +30,16 @@ struct aegis_coding_agent {
 #ifdef AEGIS_OPENAI_PROVIDER
     aegis_openai_model_ctx_t* openai_model;
 #endif
-    aegis_tool_registry_t*  tools;
-    aegis_mutation_queue_t* mq;
-    aegis_agent_loop_t*     loop;
-    aegis_skill_registry_t* skills;
-    aegis_agent_event_fn    ev_fn;   /**< Borrowed observer; NULL disables. */
-    void*                   ev_user; /**< Borrowed, passed to ev_fn.        */
-    aegis_tool_approval_fn  ap_fn;   /**< Borrowed gate; NULL = allow all.  */
-    void*                   ap_user; /**< Borrowed, passed to ap_fn.        */
-    bool                    owns_tools;
+    aegis_tool_registry_t*        tools;
+    aegis_mutation_queue_t*       mq;
+    aegis_agent_loop_t*           loop;
+    aegis_cancellation_token_t*   token; /**< Per-turn; recreated each run. */
+    aegis_skill_registry_t*       skills;
+    aegis_agent_event_fn          ev_fn;   /**< Borrowed observer; NULL disables. */
+    void*                         ev_user; /**< Borrowed, passed to ev_fn.        */
+    aegis_tool_approval_fn        ap_fn;   /**< Borrowed gate; NULL = allow all.  */
+    void*                         ap_user; /**< Borrowed, passed to ap_fn.        */
+    bool                          owns_tools;
 };
 
 static char* dup_or_null(const char* s)
@@ -165,8 +167,7 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     lcfg.system_prompt = CODING_AGENT_SYSTEM_PROMPT;
     lcfg.on_event      = a->ev_fn;
     lcfg.event_user    = a->ev_user;
-    lcfg.tool_approval = a->ap_fn;
-    lcfg.approval_user = a->ap_user;
+    lcfg.token         = a->token;
     lcfg.tool_approval = a->ap_fn;
     lcfg.approval_user = a->ap_user;
     st                 = aegis_agent_loop_create(&lcfg, &a->loop);
@@ -218,6 +219,9 @@ void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
     if (a->session) {
         aegis_session_destroy(a->session);
     }
+    if (a->token) {
+        aegis_cancellation_token_destroy(a->token);
+    }
     free(a->model_name);
     free(a->provider);
     free(a->api_key);
@@ -235,6 +239,7 @@ aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* a, aegis
     if (!a || !session) {
         return AEGIS_ERR_INVALID;
     }
+    aegis_agent_loop_set_token(a->loop, NULL); /* unbind before rebuild */
     aegis_agent_loop_t*       replacement = NULL;
     aegis_agent_loop_config_t cfg         = {
         .session       = session,
@@ -243,6 +248,7 @@ aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* a, aegis
         .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
         .on_event      = a->ev_fn,
         .event_user    = a->ev_user,
+        .token         = a->token,
         .tool_approval = a->ap_fn,
         .approval_user = a->ap_user,
     };
@@ -264,7 +270,59 @@ aegis_status_t aegis_coding_agent_run(aegis_coding_agent_t* a, const char* user_
     if (!a || !user_input) {
         return AEGIS_ERR_INVALID;
     }
+    /* Fresh token per turn: cancellation is one-shot and must not leak
+     * into the next run. */
+    aegis_cancellation_token_t* tok = NULL;
+    aegis_status_t              st  = aegis_cancellation_token_create(&tok);
+    if (st != AEGIS_OK) {
+        return st;
+    }
+    if (a->token) {
+        aegis_cancellation_token_destroy(a->token);
+    }
+    a->token = tok;
+    aegis_agent_loop_set_token(a->loop, tok);
     return aegis_agent_loop_run(a->loop, user_input);
+}
+
+aegis_status_t aegis_coding_agent_interrupt(const aegis_coding_agent_t* a)
+{
+    if (!a || !a->loop) {
+        return AEGIS_ERR_INVALID;
+    }
+    return aegis_agent_loop_cancel((aegis_agent_loop_t*)a->loop);
+}
+
+aegis_status_t aegis_coding_agent_set_model_client(aegis_coding_agent_t* a,
+                                                   aegis_model_client_t* client)
+{
+    if (!a || !client) {
+        return AEGIS_ERR_INVALID;
+    }
+    aegis_agent_loop_set_token(a->loop, NULL); /* unbind before rebuild */
+    aegis_agent_loop_t*       replacement = NULL;
+    aegis_agent_loop_config_t lcfg        = {
+        .session       = a->session,
+        .model         = client,
+        .tools         = a->tools,
+        .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
+        .on_event      = a->ev_fn,
+        .event_user    = a->ev_user,
+        .token         = a->token,
+        .tool_approval = a->ap_fn,
+        .approval_user = a->ap_user,
+    };
+    aegis_status_t st = aegis_agent_loop_create(&lcfg, &replacement);
+    if (st != AEGIS_OK) {
+        return st;
+    }
+    aegis_agent_loop_t*   old_loop   = a->loop;
+    aegis_model_client_t* old_client = a->model;
+    a->loop                          = replacement;
+    a->model                         = client;
+    aegis_agent_loop_destroy(old_loop);
+    aegis_model_client_destroy(old_client);
+    return AEGIS_OK;
 }
 
 const char* aegis_coding_agent_model_name(const aegis_coding_agent_t* a)
@@ -334,6 +392,7 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char*
         .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
         .on_event      = a->ev_fn,
         .event_user    = a->ev_user,
+        .token         = a->token,
         .tool_approval = a->ap_fn,
         .approval_user = a->ap_user,
     };
