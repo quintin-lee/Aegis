@@ -518,7 +518,19 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/help") == 0 || strcmp(line, "/h") == 0) {
-            printf("/help /model /tools /session /sessions /resume /fork /tree /compact /json /stream /approvals /clear /quit\n");
+            printf("/help /model /tools /usage /session /sessions /resume /fork /tree /compact /json /stream /approvals /clear /quit\n");
+            continue;
+        }
+        if (strcmp(line, "/usage") == 0) {
+            aegis_usage_t ulast = {0}, utotal = {0};
+            if (aegis_coding_agent_usage(agent, &ulast, &utotal) != AEGIS_OK) {
+                printf("error: usage unavailable\n");
+                continue;
+            }
+            printf("last turn: in %u · out %u · total %u\n", ulast.input_tokens,
+                   ulast.output_tokens, ulast.total_tokens);
+            printf("session:   in %u · out %u · total %u\n", utotal.input_tokens,
+                   utotal.output_tokens, utotal.total_tokens);
             continue;
         }
         if (strcmp(line, "/tools") == 0) {
@@ -707,6 +719,14 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             printf("⏹ interrupted\n");
         }
         if (st2 == AEGIS_OK) {
+            if (!json_mode) {
+                aegis_usage_t ulast = {0}, utotal = {0};
+                if (aegis_coding_agent_usage(agent, &ulast, &utotal) == AEGIS_OK &&
+                    utotal.total_tokens > 0) {
+                    printf("tokens: in %u · out %u · total %u (session %u)\n", ulast.input_tokens,
+                           ulast.output_tokens, ulast.total_tokens, utotal.total_tokens);
+                }
+            }
             aegis_session_t* sess = aegis_coding_agent_session(agent);
             size_t           n    = aegis_session_message_count(sess);
             if (n > 0) {

@@ -339,6 +339,20 @@ aegis_status_t aegis_coding_agent_tools(const aegis_coding_agent_t* a, aegis_too
     return (*out) ? AEGIS_OK : AEGIS_ERR_INVALID;
 }
 
+aegis_status_t aegis_coding_agent_usage(aegis_coding_agent_t* a,
+                                        aegis_usage_t*        last,
+                                        aegis_usage_t*        total)
+{
+    if (!a || !last || !total) {
+        return AEGIS_ERR_INVALID;
+    }
+    aegis_status_t st = aegis_agent_loop_last_usage(a->loop, last);
+    if (st != AEGIS_OK) {
+        return st;
+    }
+    return aegis_agent_loop_usage(a->loop, total);
+}
+
 aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* a,
                                                      aegis_agent_event_fn  fn,
                                                      void*                 user)

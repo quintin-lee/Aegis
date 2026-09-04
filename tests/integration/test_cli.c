@@ -542,6 +542,7 @@ static void test_interactive_commands(void)
     assert_contains(out, "/resume", "help lists resume");
     assert_contains(out, "/model", "help lists model");
     assert_contains(out, "/tools", "help lists tools");
+    assert_contains(out, "/usage", "help lists usage");
 
     /* 4b. /tools lists every registered coding tool with a description */
     assert(run_cli_stdin("/tools\n/quit\n", out, sizeof(out), &ec) == 0);
@@ -551,6 +552,12 @@ static void test_interactive_commands(void)
     assert_contains(out, "edit —", "edit tool");
     assert_contains(out, "bash —", "bash tool");
     assert_contains(out, "path: string", "read param spec");
+
+    /* 4c. /usage: mock reports usage; after one turn, both lines show it */
+    assert(run_cli_stdin("hello\n/usage\n/quit\n", out, sizeof(out), &ec) == 0);
+    assert_contains(out, "tokens: in ", "per-turn usage line");
+    assert_contains(out, "last turn: in ", "usage last");
+    assert_contains(out, "session:   in ", "usage total");
 
     /* 5. /resume missing file keeps session intact */
     assert(run_cli_stdin("/resume /tmp/does_not_exist_xyz.jsonl\n/quit\n", out, sizeof(out), &ec) == 0);

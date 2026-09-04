@@ -107,6 +107,17 @@ aegis_status_t aegis_coding_agent_set_tool_approval(aegis_coding_agent_t*  agent
  */
 aegis_status_t aegis_coding_agent_interrupt(const aegis_coding_agent_t* agent);
 
+/**
+ * @brief Copy token usage: latest run() and lifetime total.
+ * @param last  Out: usage of the most recent run() (zeroes when the provider
+ *              did not report usage).
+ * @param total Out: aggregate across all turns.
+ * @return AEGIS_OK, or AEGIS_ERR_INVALID when agent, last or total is NULL.
+ */
+aegis_status_t aegis_coding_agent_usage(aegis_coding_agent_t* agent,
+                                        aegis_usage_t*        last,
+                                        aegis_usage_t*        total);
+
 #ifdef __cplusplus
 }
 #endif

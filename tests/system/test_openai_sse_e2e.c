@@ -19,9 +19,11 @@ typedef struct {
     int close_without_done;
     int saw_auth;
     int saw_stream;
+    int saw_include_usage; /* request asked the server for usage in the stream */
     int multi_chunk_tool;   /* stream a tool call split across chunks */
     int reasoning_field;    /* 0=none, 1=reasoning_content, 2=reasoning */
     int slow_chunks;        /* dribble chunks with delays (cancel test) */
+    int with_usage;         /* stream a final usage record */
     const char* req_model;  /* captured "model" from request body */
     char* req_model_copy;
 } fixture_t;
@@ -41,6 +43,8 @@ static void* fixture_thread(void* user)
     }
     fixture->saw_auth = strstr(request, "Authorization: Bearer test-key") != NULL;
     fixture->saw_stream = strstr(request, "stream") != NULL;
+    fixture->saw_include_usage =
+        strstr(request, "\"include_usage\":true") != NULL;
     /* Capture the model name from the body (after the header blank line). */
     const char* body_start = strstr(request, "\r\n\r\n");
     if (body_start) {
@@ -95,6 +99,12 @@ static void* fixture_thread(void* user)
     if (fixture->close_without_done) {
         body = "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n";
     }
+    if (fixture->with_usage) {
+        body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
+               "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":19,"
+               "\"completion_tokens\":23,\"total_tokens\":42}}\n\n"
+               "data: [DONE]\n\n";
+    }
     if (fixture->slow_chunks) {
         /* One chunk, then a pause long enough for the test to cancel. */
         body = "data: {\"choices\":[{\"delta\":{\"content\":\"first\"}}]}\n\n"
@@ -139,6 +149,8 @@ typedef struct {
     char   reasoning[128];
     size_t reasoning_len;
     int    reasoning_deltas;
+    int    usage_events;
+    uint32_t usage_in, usage_out, usage_total;
 } events_t;
 
 static aegis_status_t collect_event(const aegis_model_stream_event_t* event, void* user)
@@ -167,6 +179,14 @@ static aegis_status_t collect_event(const aegis_model_stream_event_t* event, voi
         events->args[event->len] = '\0';
     } else if (event->type == AEGIS_MODEL_STREAM_TOOL_CALL_END) {
         ++events->ends;
+    } else if (event->type == AEGIS_MODEL_STREAM_USAGE) {
+        ++events->usage_events;
+        if (event->data && event->len >= sizeof(aegis_usage_t)) {
+            const aegis_usage_t* u = event->data;
+            events->usage_in    = u->input_tokens;
+            events->usage_out   = u->output_tokens;
+            events->usage_total = u->total_tokens;
+        }
     }
     return AEGIS_OK;
 }
@@ -229,6 +249,26 @@ int main(void)
     close(fixture.server_fd);
     aegis_openai_model_destroy(context);
     free(fixture.req_model_copy);
+
+    /* Usage record: provider streams a usage object before [DONE]. */
+    fixture_t u_fixture = {.status_code = 200, .with_usage = 1};
+    port      = start_fixture(&u_fixture);
+    assert(pthread_create(&thread, NULL, fixture_thread, &u_fixture) == 0);
+    snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
+    aegis_openai_model_ctx_t* u_context = NULL;
+    aegis_model_backend_t     u_backend = {0};
+    assert(aegis_openai_model_create("test-key", base_url, "test-model", &u_context,
+                                     &u_backend) == AEGIS_OK);
+    events_t u_events = {0};
+    assert(u_backend.stream(u_backend.user, &request, NULL, collect_event, &u_events) == AEGIS_OK);
+    assert(strcmp(u_events.text, "Hi") == 0);
+    assert(u_events.usage_events == 1);
+    assert(u_events.usage_in == 19 && u_events.usage_out == 23 && u_events.usage_total == 42);
+    assert(u_fixture.saw_include_usage);
+    pthread_join(thread, NULL);
+    close(u_fixture.server_fd);
+    aegis_openai_model_destroy(u_context);
+    free(u_fixture.req_model_copy);
 
     /* Multi-chunk tool call: args-only delta must not clobber id/name. */
     fixture_t mc_fixture = {.status_code = 200, .multi_chunk_tool = 1};

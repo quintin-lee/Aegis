@@ -129,7 +129,23 @@ int main(void)
     assert(strcmp(found.name, "read") == 0);
     assert(found.description != NULL);
     assert(aegis_coding_agent_tools(NULL, &tools1) == AEGIS_ERR_INVALID);
-    assert(aegis_coding_agent_tools(agent3, NULL) == AEGIS_ERR_INVALID);    /* ── Interrupt: idle interrupt is safe; each run gets a fresh token ── */
+    assert(aegis_coding_agent_tools(agent3, NULL) == AEGIS_ERR_INVALID);
+
+    /* ── Usage: forwarded from the loop; agent3 ran 2 mock turns ── */
+    {
+        aegis_usage_t last = {0}, total = {0};
+        expect_ok(aegis_coding_agent_usage(agent3, &last, &total), "usage accessor");
+        /* Mock emits len input + len output; two turns of "mock stream for:
+         * ..." produce a nonzero aggregate. */
+        assert(total.input_tokens > 0 && total.output_tokens > 0);
+        assert(total.total_tokens == total.input_tokens + total.output_tokens);
+        assert(last.input_tokens > 0);
+        assert(aegis_coding_agent_usage(NULL, &last, &total) == AEGIS_ERR_INVALID);
+        assert(aegis_coding_agent_usage(agent3, NULL, &total) == AEGIS_ERR_INVALID);
+        assert(aegis_coding_agent_usage(agent3, &last, NULL) == AEGIS_ERR_INVALID);
+    }
+
+    /* ── Interrupt: idle interrupt is safe; each run gets a fresh token ── */
     {
         aegis_coding_agent_config_t icfg = {0};
         aegis_coding_agent_t*       ia   = NULL;

@@ -196,6 +196,9 @@ static char* build_body(const aegis_model_request_t* req, const char* fallback_m
         if (!append_raw(&b, "]", 1)) goto fail;
     }
     if (req->stream && !append_raw(&b, ",\"stream\":true", strlen(",\"stream\":true"))) goto fail;
+    if (req->stream && !append_raw(&b, ",\"stream_options\":{\"include_usage\":true}",
+                                   strlen(",\"stream_options\":{\"include_usage\":true}")))
+        goto fail;
     if (req->max_tokens) {
         char tmp[64]; int k = snprintf(tmp, sizeof(tmp), ",\"max_tokens\":%u", req->max_tokens);
         if (k < 0 || !append_raw(&b, tmp, (size_t)k)) goto fail;
@@ -282,6 +285,21 @@ static int emit_record(sse_state_t* s, const char* record, size_t len)
         aegis_status_t rc = s->callback(&ev, s->callback_user);
         free(decoded);
         if (rc != AEGIS_OK) { free(json); return 0; }
+    }
+    /* Usage final record (stream_options.include_usage): no choices delta.
+     * Parse before content so a record carrying both never misroutes. */
+    const char* usage_p = strstr(json, "\"usage\"");
+    if (usage_p) {
+        aegis_usage_t u = {0};
+        json_uint_after(usage_p, "\"prompt_tokens\"", &u.input_tokens);
+        json_uint_after(usage_p, "\"completion_tokens\"", &u.output_tokens);
+        json_uint_after(usage_p, "\"total_tokens\"", &u.total_tokens);
+        aegis_model_stream_event_t ev = {
+            .type = AEGIS_MODEL_STREAM_USAGE, .data = &u, .len = sizeof(u)};
+        aegis_status_t rc = s->callback(&ev, s->callback_user);
+        if (rc != AEGIS_OK) { free(json); return 0; }
+        free(json);
+        return 1;
     }
     const char* content = json_string_after(json, "\"content\"");
     if (content) {
