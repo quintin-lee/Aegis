@@ -3,6 +3,7 @@
 
 #include "aegis/agent/state.h"
 #include "aegis/session/session.h"
+#include "aegis/message/usage.h"
 #include "aegis/model/model.h"
 #include "aegis/tool/tool.h"
 #include "aegis/common/cancellation/cancellation.h"
@@ -106,6 +107,14 @@ aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* loop,
  */
 aegis_status_t aegis_agent_loop_set_tool_approval(aegis_agent_loop_t*    loop,
                                                   aegis_tool_approval_fn fn, void* user);
+
+/** Copy the token usage of the most recent completed turn. Zeroes when the
+ *  provider did not report usage. AEGIS_ERR_INVALID when loop or out is NULL. */
+aegis_status_t aegis_agent_loop_last_usage(const aegis_agent_loop_t* loop, aegis_usage_t* out);
+
+/** Copy lifetime token usage accumulated across all completed turns.
+ *  AEGIS_ERR_INVALID when loop or out is NULL. */
+aegis_status_t aegis_agent_loop_usage(const aegis_agent_loop_t* loop, aegis_usage_t* out);
 
 #ifdef __cplusplus
 }

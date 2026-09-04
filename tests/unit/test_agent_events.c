@@ -111,6 +111,10 @@ static aegis_status_t model_backend_stream(void* user, const aegis_model_request
         assert(callback(&start, callback_user) == AEGIS_OK);
         assert(callback(&delta, callback_user) == AEGIS_OK);
         assert(callback(&end, callback_user) == AEGIS_OK);
+        aegis_usage_t              u  = {.input_tokens = 11, .output_tokens = 7, .total_tokens = 18};
+        aegis_model_stream_event_t uu = {
+            .type = AEGIS_MODEL_STREAM_USAGE, .data = &u, .len = sizeof(u)};
+        assert(callback(&uu, callback_user) == AEGIS_OK);
     } else {
         const char*                r     = "thinking hard";
         aegis_model_stream_event_t rev   = {
@@ -122,6 +126,13 @@ static aegis_status_t model_backend_stream(void* user, const aegis_model_request
             .type = AEGIS_MODEL_STREAM_TEXT_DELTA, .data = text, .len = strlen(text),
         };
         assert(callback(&event, callback_user) == AEGIS_OK);
+        /* Providers report usage near the end of the stream. */
+        aegis_model_stream_event_t usage = {
+            .type = AEGIS_MODEL_STREAM_USAGE, .data = NULL, .len = sizeof(aegis_usage_t),
+        };
+        aegis_usage_t u = {.input_tokens = 11, .output_tokens = 7, .total_tokens = 18};
+        usage.data       = &u;
+        assert(callback(&usage, callback_user) == AEGIS_OK);
     }
     aegis_model_stream_event_t end = {.type = AEGIS_MODEL_STREAM_END};
     return callback(&end, callback_user);
@@ -247,6 +258,19 @@ int main(void)
     assert(read_calls == 1);
 
     assert(aegis_agent_loop_set_tool_approval(NULL, approve_all, NULL) == AEGIS_ERR_INVALID);
+
+    /* ── Usage aggregation: last turn + lifetime totals ─────────────────── */
+    {
+        aegis_usage_t last = {0}, total = {0};
+        assert(aegis_agent_loop_last_usage(loop, &last) == AEGIS_OK);
+        assert(aegis_agent_loop_usage(loop, &total) == AEGIS_OK);
+        /* Five run_turns each made two model rounds (tool call + reply);
+         * every round reports 11/7/18. Last round = the final reply. */
+        assert(last.input_tokens == 11 && last.output_tokens == 7 && last.total_tokens == 18);
+        assert(total.input_tokens == 110 && total.output_tokens == 70 && total.total_tokens == 180);
+        assert(aegis_agent_loop_usage(NULL, &total) == AEGIS_ERR_INVALID);
+        assert(aegis_agent_loop_usage(loop, NULL) == AEGIS_ERR_INVALID);
+    }
 
     /* ── Cancellation: partial reply is preserved + marker appended ────── */
     {

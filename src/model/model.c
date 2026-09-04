@@ -222,6 +222,13 @@ aegis_status_t aegis_model_stream(aegis_model_client_t* client, const aegis_mode
             return st;
         }
     }
+    /* Report deterministic usage before END, mirroring real providers. */
+    aegis_usage_t              usage = {.input_tokens  = len,
+                                        .output_tokens = len,
+                                        .total_tokens  = len * 2};
+    aegis_model_stream_event_t uev   = {
+        .type = AEGIS_MODEL_STREAM_USAGE, .data = &usage, .len = sizeof(usage)};
+    cb(&uev, user);
     aegis_model_stream_event_t end = {.type = AEGIS_MODEL_STREAM_END, .data = NULL, .len = 0};
     return cb(&end, user);
 }

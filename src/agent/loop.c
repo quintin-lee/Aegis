@@ -23,6 +23,8 @@ struct aegis_agent_loop {
     void*                       event_user;
     aegis_tool_approval_fn      tool_approval;
     void*                       approval_user;
+    aegis_usage_t               last_usage;  /**< usage of the most recent completed turn */
+    aegis_usage_t               total_usage; /**< lifetime usage across all turns       */
     pthread_mutex_t             lock;
 };
 
@@ -215,6 +217,8 @@ typedef struct stream_accum {
     stream_call_accum_t* calls;
     size_t               call_count;
     size_t               call_cap;
+    aegis_usage_t        usage;   /**< from AEGIS_MODEL_STREAM_USAGE, if reported */
+    bool                 has_usage;
     aegis_agent_loop_t*  loop; /**< Borrowed; set per run for event forwarding. */
 } stream_accum_t;
 
@@ -530,6 +534,11 @@ static aegis_status_t stream_cb(const aegis_model_stream_event_t* ev, void* user
             acc->loop->on_event(&out_ev, acc->loop->event_user);
         }
     }
+    if (ev->type == AEGIS_MODEL_STREAM_USAGE && ev->data &&
+        ev->len >= sizeof(aegis_usage_t)) {
+        memcpy(&acc->usage, ev->data, sizeof(aegis_usage_t));
+        acc->has_usage = true;
+    }
     if (ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_START ||
         ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_DELTA ||
         ev->type == AEGIS_MODEL_STREAM_TOOL_CALL_END) {
@@ -575,6 +584,9 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
     }
 
     set_state(l, AEGIS_AGENT_LOOP_RUNNING);
+    pthread_mutex_lock(&l->lock);
+    l->last_usage = (aegis_usage_t){0};
+    pthread_mutex_unlock(&l->lock);
 
     for (unsigned turn = 0; turn < 16; ++turn) {
         if (l->token && aegis_cancellation_token_is_cancelled(l->token)) {
@@ -680,6 +692,14 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
                 return AEGIS_ERR_NOMEM;
             }
             aegis_tool_call_destroy(call);
+        }
+        if (acc.has_usage) {
+            pthread_mutex_lock(&l->lock);
+            l->last_usage  = acc.usage;
+            l->total_usage.input_tokens += acc.usage.input_tokens;
+            l->total_usage.output_tokens += acc.usage.output_tokens;
+            l->total_usage.total_tokens += acc.usage.total_tokens;
+            pthread_mutex_unlock(&l->lock);
         }
         stream_accum_destroy(&acc);
 
@@ -802,4 +822,26 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
 aegis_status_t aegis_agent_loop_run(aegis_agent_loop_t* l, const char* user_input)
 {
     return aegis_agent_loop_run_turn(l, user_input);
+}
+
+aegis_status_t aegis_agent_loop_last_usage(const aegis_agent_loop_t* loop, aegis_usage_t* out)
+{
+    if (!loop || !out) {
+        return AEGIS_ERR_INVALID;
+    }
+    pthread_mutex_lock(&((aegis_agent_loop_t*)loop)->lock);
+    *out = loop->last_usage;
+    pthread_mutex_unlock(&((aegis_agent_loop_t*)loop)->lock);
+    return AEGIS_OK;
+}
+
+aegis_status_t aegis_agent_loop_usage(const aegis_agent_loop_t* loop, aegis_usage_t* out)
+{
+    if (!loop || !out) {
+        return AEGIS_ERR_INVALID;
+    }
+    pthread_mutex_lock(&((aegis_agent_loop_t*)loop)->lock);
+    *out = loop->total_usage;
+    pthread_mutex_unlock(&((aegis_agent_loop_t*)loop)->lock);
+    return AEGIS_OK;
 }

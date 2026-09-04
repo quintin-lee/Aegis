@@ -247,7 +247,7 @@ static void* sse_fixture_thread(void* user)
              * line lands mid-transfer; the CLI aborts and never reads the
              * rest (which is why plain send is fine here). */
             (void)!send(client, body, 12, 0);
-            struct timespec stall = {.tv_sec = 3, .tv_nsec = 0};
+            struct timespec stall = {.tv_sec = 0, .tv_nsec = 300000000L}; /* was 3s: ctest default 60s cap */
             nanosleep(&stall, NULL);
             (void)!send(client, body + 12, strlen(body) - 12, 0);
         } else {
