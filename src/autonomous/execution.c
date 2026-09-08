@@ -4,9 +4,8 @@
 #include "aegis/security/security.h"
 #include <string.h>
 
-static aegis_status_t autonomous_default_work(aegis_task_t* task,
-                                               const aegis_cancellation_token_t* token,
-                                               void* user)
+static aegis_status_t autonomous_default_work(aegis_task_t*                     task,
+                                              const aegis_cancellation_token_t* token, void* user)
 {
     (void)user;
     if (!task) {

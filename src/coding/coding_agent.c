@@ -30,16 +30,16 @@ struct aegis_coding_agent {
 #ifdef AEGIS_OPENAI_PROVIDER
     aegis_openai_model_ctx_t* openai_model;
 #endif
-    aegis_tool_registry_t*        tools;
-    aegis_mutation_queue_t*       mq;
-    aegis_agent_loop_t*           loop;
-    aegis_cancellation_token_t*   token; /**< Per-turn; recreated each run. */
-    aegis_skill_registry_t*       skills;
-    aegis_agent_event_fn          ev_fn;   /**< Borrowed observer; NULL disables. */
-    void*                         ev_user; /**< Borrowed, passed to ev_fn.        */
-    aegis_tool_approval_fn        ap_fn;   /**< Borrowed gate; NULL = allow all.  */
-    void*                         ap_user; /**< Borrowed, passed to ap_fn.        */
-    bool                          owns_tools;
+    aegis_tool_registry_t*      tools;
+    aegis_mutation_queue_t*     mq;
+    aegis_agent_loop_t*         loop;
+    aegis_cancellation_token_t* token; /**< Per-turn; recreated each run. */
+    aegis_skill_registry_t*     skills;
+    aegis_agent_event_fn        ev_fn;   /**< Borrowed observer; NULL disables. */
+    void*                       ev_user; /**< Borrowed, passed to ev_fn.        */
+    aegis_tool_approval_fn      ap_fn;   /**< Borrowed gate; NULL = allow all.  */
+    void*                       ap_user; /**< Borrowed, passed to ap_fn.        */
+    bool                        owns_tools;
 };
 
 static char* dup_or_null(const char* s)
@@ -48,10 +48,9 @@ static char* dup_or_null(const char* s)
 }
 
 #ifdef AEGIS_OPENAI_PROVIDER
-static aegis_status_t build_openai_model(aegis_coding_agent_t*         a,
-                                         const char*                   model_name,
-                                         aegis_openai_model_ctx_t**    out_ctx,
-                                         aegis_model_client_t**        out_client)
+static aegis_status_t build_openai_model(aegis_coding_agent_t* a, const char* model_name,
+                                         aegis_openai_model_ctx_t** out_ctx,
+                                         aegis_model_client_t**     out_client)
 {
     aegis_model_backend_t backend = {0};
     aegis_status_t        st =
@@ -339,9 +338,8 @@ aegis_status_t aegis_coding_agent_tools(const aegis_coding_agent_t* a, aegis_too
     return (*out) ? AEGIS_OK : AEGIS_ERR_INVALID;
 }
 
-aegis_status_t aegis_coding_agent_usage(aegis_coding_agent_t* a,
-                                        aegis_usage_t*        last,
-                                        aegis_usage_t*        total)
+aegis_status_t aegis_coding_agent_usage(aegis_coding_agent_t* a, aegis_usage_t* last,
+                                        aegis_usage_t* total)
 {
     if (!a || !last || !total) {
         return AEGIS_ERR_INVALID;
@@ -354,8 +352,7 @@ aegis_status_t aegis_coding_agent_usage(aegis_coding_agent_t* a,
 }
 
 aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* a,
-                                                     aegis_agent_event_fn  fn,
-                                                     void*                 user)
+                                                     aegis_agent_event_fn fn, void* user)
 {
     if (!a) {
         return AEGIS_ERR_INVALID;
@@ -366,8 +363,7 @@ aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* a,
 }
 
 aegis_status_t aegis_coding_agent_set_tool_approval(aegis_coding_agent_t*  a,
-                                                    aegis_tool_approval_fn fn,
-                                                    void*                  user)
+                                                    aegis_tool_approval_fn fn, void* user)
 {
     if (!a) {
         return AEGIS_ERR_INVALID;
@@ -422,13 +418,13 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char*
     }
 
     // Atomic swap: new loop/client in, old ones destroyed.
-    aegis_agent_loop_t*   old_loop    = a->loop;
-    aegis_model_client_t* old_client  = a->model;
-    char*                 old_name    = a->model_name;
+    aegis_agent_loop_t*   old_loop   = a->loop;
+    aegis_model_client_t* old_client = a->model;
+    char*                 old_name   = a->model_name;
 #ifdef AEGIS_OPENAI_PROVIDER
-    aegis_openai_model_ctx_t* old_ctx  = a->openai_model;
+    aegis_openai_model_ctx_t* old_ctx = a->openai_model;
 #endif
-    char*                 new_name    = strdup(model);
+    char* new_name = strdup(model);
     if (!new_name) {
         // Out of memory: keep everything old, discard the replacement.
         aegis_agent_loop_destroy(replacement);
@@ -440,9 +436,9 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char*
 #endif
         return AEGIS_ERR_NOMEM;
     }
-    a->loop        = replacement;
-    a->model       = new_client;
-    a->model_name  = new_name;
+    a->loop       = replacement;
+    a->model      = new_client;
+    a->model_name = new_name;
 #ifdef AEGIS_OPENAI_PROVIDER
     a->openai_model = new_ctx;
 #endif

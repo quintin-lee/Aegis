@@ -28,17 +28,17 @@ typedef struct aegis_agent_loop aegis_agent_loop_t;
  * of the callback.
  */
 typedef enum aegis_agent_event_type {
-    AEGIS_AGENT_EVENT_TEXT_DELTA = 0, /**< data/len: borrowed text fragment   */
-    AEGIS_AGENT_EVENT_TOOL_START = 1, /**< tool_name/call_id set               */
-    AEGIS_AGENT_EVENT_TOOL_END   = 2, /**< tool_name/call_id set; status = tool
-                                           outcome; data/len = borrowed result
-                                           string when status == AEGIS_OK      */
+    AEGIS_AGENT_EVENT_TEXT_DELTA = 0,      /**< data/len: borrowed text fragment   */
+    AEGIS_AGENT_EVENT_TOOL_START = 1,      /**< tool_name/call_id set               */
+    AEGIS_AGENT_EVENT_TOOL_END   = 2,      /**< tool_name/call_id set; status = tool
+                                                outcome; data/len = borrowed result
+                                                string when status == AEGIS_OK      */
     AEGIS_AGENT_EVENT_REASONING_DELTA = 3, /**< data/len: borrowed reasoning fragment */
 } aegis_agent_event_type_t;
 
 typedef struct aegis_agent_event {
     aegis_agent_event_type_t type;
-    const void*              data;      /**< Borrowed; valid during callback only */
+    const void*              data; /**< Borrowed; valid during callback only */
     size_t                   len;
     const char*              tool_name; /**< TOOL_* events only                   */
     const char*              call_id;   /**< TOOL_* events only                   */
@@ -59,8 +59,7 @@ typedef enum aegis_tool_approval {
  *  the tool runs. DENY feeds "user denied tool <name>" back as the tool
  *  result so the turn continues. Invoked without loop locks held. */
 typedef aegis_tool_approval_t (*aegis_tool_approval_fn)(const char* tool_name,
-                                                        const char* arguments_json,
-                                                        void*       user);
+                                                        const char* arguments_json, void* user);
 
 typedef struct aegis_agent_loop_config {
     aegis_session_t*            session;        // borrowed
@@ -97,7 +96,7 @@ aegis_status_t aegis_agent_loop_resume(aegis_agent_loop_t* loop);
  * @param fn New callback (NULL disables event emission).
  * @return AEGIS_OK, or AEGIS_ERR_INVALID when loop is NULL.
  */
-aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* loop,
+aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t*  loop,
                                                    aegis_agent_event_fn fn, void* user);
 
 /**

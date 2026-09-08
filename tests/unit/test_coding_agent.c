@@ -28,14 +28,16 @@ static aegis_coding_agent_t* g_int_agent = NULL;
 
 static aegis_status_t int_stream(void* user, const aegis_model_request_t* request,
                                  const aegis_cancellation_token_t* token,
-                                 aegis_model_stream_callback_fn    callback, void* callback_user)
+                                 aegis_model_stream_callback_fn callback, void* callback_user)
 {
     (void)user;
     (void)request;
     (void)token;
     const char*                part = "partial";
     aegis_model_stream_event_t ev   = {
-        .type = AEGIS_MODEL_STREAM_TEXT_DELTA, .data = part, .len = strlen(part),
+        .type = AEGIS_MODEL_STREAM_TEXT_DELTA,
+        .data = part,
+        .len  = strlen(part),
     };
     callback(&ev, callback_user);
     aegis_coding_agent_interrupt(g_int_agent);

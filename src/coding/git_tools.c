@@ -16,12 +16,12 @@
 
 /* ── Limits ────────────────────────────────────────────────────────────── */
 
-#define GIT_MAX_OUTPUT     (128 * 1024) /* 128KB — diffs can be large */
-#define GIT_MAX_LOG        (64 * 1024)  /* 64KB — log/status          */
-#define GIT_COMMIT_MSG_MAX 512
-#define GIT_LOG_COUNT_MAX  50
+#define GIT_MAX_OUTPUT        (128 * 1024) /* 128KB — diffs can be large */
+#define GIT_MAX_LOG           (64 * 1024)  /* 64KB — log/status          */
+#define GIT_COMMIT_MSG_MAX    512
+#define GIT_LOG_COUNT_MAX     50
 #define GIT_LOG_COUNT_DEFAULT 10
-#define GIT_PATH_MAX       1024
+#define GIT_PATH_MAX          1024
 
 /* ── Output buffer (same pattern as discovery_tools.c) ────────────────── */
 
@@ -91,10 +91,9 @@ static bool git_arg_is_safe(const char* s)
     }
     for (const char* p = s; *p; p++) {
         char c = *p;
-        if (c == '$' || c == '`' || c == '"' || c == '\'' || c == '\\' ||
-            c == '(' || c == ')' || c == '&' || c == ';' || c == '|' ||
-            c == '#' || c == '!' || c == '{' || c == '}' || c == '<' ||
-            c == '>' || c == '\n' || c == '\r') {
+        if (c == '$' || c == '`' || c == '"' || c == '\'' || c == '\\' || c == '(' || c == ')' ||
+            c == '&' || c == ';' || c == '|' || c == '#' || c == '!' || c == '{' || c == '}' ||
+            c == '<' || c == '>' || c == '\n' || c == '\r') {
             return false;
         }
     }
@@ -112,9 +111,8 @@ static bool git_branch_name_valid(const char* name)
     }
     for (const char* p = name; *p; p++) {
         char c = *p;
-        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-              (c >= '0' && c <= '9') || c == '.' || c == '_' ||
-              c == '-' || c == '/')) {
+        if (!((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+              c == '.' || c == '_' || c == '-' || c == '/')) {
             return false;
         }
     }
@@ -151,9 +149,8 @@ static const char* git_project_root(void)
  *         AEGIS_ERR_NOMEM on allocation failure.
  */
 static aegis_status_t git_exec(const char* project_root, char** argv,
-                                const aegis_cancellation_token_t* token,
-                                size_t max_output, char** out,
-                                int* exit_code)
+                               const aegis_cancellation_token_t* token, size_t max_output,
+                               char** out, int* exit_code)
 {
     int pipefd[2];
     if (pipe(pipefd) != 0) {
@@ -203,7 +200,7 @@ static aegis_status_t git_exec(const char* project_root, char** argv,
             free(output);
             close(pipefd[0]);
             waitpid(pid, NULL, 0);
-            *out = strdup("");
+            *out       = strdup("");
             *exit_code = -1;
             return AEGIS_ERR_CANCELLED;
         }
@@ -303,17 +300,16 @@ static aegis_status_t git_exec(const char* project_root, char** argv,
 
 /* ── git_status ────────────────────────────────────────────────────────── */
 
-static aegis_status_t tool_git_status_execute(void* user,
-                                               const aegis_tool_args_t* args,
-                                               const aegis_cancellation_token_t* token,
-                                               aegis_tool_result_t* out)
+static aegis_status_t tool_git_status_execute(void* user, const aegis_tool_args_t* args,
+                                              const aegis_cancellation_token_t* token,
+                                              aegis_tool_result_t*              out)
 {
     (void)user;
-    const char* path = ".";
-    const aegis_tool_value_t* v = NULL;
+    const char*               path = ".";
+    const aegis_tool_value_t* v    = NULL;
 
-    if (args && aegis_tool_args_find(args, "path", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
+    if (args && aegis_tool_args_find(args, "path", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
+        v->as.str.ptr) {
         path = v->as.str.ptr;
     }
 
@@ -323,9 +319,9 @@ static aegis_status_t tool_git_status_execute(void* user,
 
     const char* root = git_project_root();
 
-    char* argv[] = {"git", "status", "--porcelain=v1", "--branch", "--", (char*)path, NULL};
-    char* output = NULL;
-    int   ec     = 0;
+    char* argv[]      = {"git", "status", "--porcelain=v1", "--branch", "--", (char*)path, NULL};
+    char* output      = NULL;
+    int   ec          = 0;
     aegis_status_t st = git_exec(root, argv, token, GIT_MAX_LOG, &output, &ec);
 
     if (st != AEGIS_OK) {
@@ -357,27 +353,25 @@ static aegis_status_t tool_git_status_execute(void* user,
 
 /* ── git_diff ──────────────────────────────────────────────────────────── */
 
-static aegis_status_t tool_git_diff_execute(void* user,
-                                             const aegis_tool_args_t* args,
-                                             const aegis_cancellation_token_t* token,
-                                             aegis_tool_result_t* out)
+static aegis_status_t tool_git_diff_execute(void* user, const aegis_tool_args_t* args,
+                                            const aegis_cancellation_token_t* token,
+                                            aegis_tool_result_t*              out)
 {
     (void)user;
-    const char* path = NULL;
-    bool        staged = false;
-    const char* base   = NULL;
-    const aegis_tool_value_t* v = NULL;
+    const char*               path   = NULL;
+    bool                      staged = false;
+    const char*               base   = NULL;
+    const aegis_tool_value_t* v      = NULL;
 
-    if (args && aegis_tool_args_find(args, "path", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
+    if (args && aegis_tool_args_find(args, "path", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
+        v->as.str.ptr) {
         path = v->as.str.ptr;
     }
-    if (args && aegis_tool_args_find(args, "staged", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_BOOL) {
+    if (args && aegis_tool_args_find(args, "staged", &v) && v && v->type == AEGIS_TOOL_VAL_BOOL) {
         staged = v->as.b;
     }
-    if (args && aegis_tool_args_find(args, "base", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
+    if (args && aegis_tool_args_find(args, "base", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
+        v->as.str.ptr) {
         base = v->as.str.ptr;
     }
 
@@ -392,7 +386,7 @@ static aegis_status_t tool_git_diff_execute(void* user,
 
     /* Build argv: up to 8 elements */
     char* argv[8];
-    int   argc = 0;
+    int   argc   = 0;
     argv[argc++] = "git";
     argv[argc++] = "diff";
 
@@ -409,9 +403,9 @@ static aegis_status_t tool_git_diff_execute(void* user,
 
     argv[argc] = NULL;
 
-    char* output = NULL;
-    int   ec     = 0;
-    aegis_status_t st = git_exec(root, argv, token, GIT_MAX_OUTPUT, &output, &ec);
+    char*          output = NULL;
+    int            ec     = 0;
+    aegis_status_t st     = git_exec(root, argv, token, GIT_MAX_OUTPUT, &output, &ec);
 
     if (st != AEGIS_OK) {
         if (st == AEGIS_ERR_CANCELLED) {
@@ -435,15 +429,14 @@ static aegis_status_t tool_git_diff_execute(void* user,
 
 /* ── git_commit ────────────────────────────────────────────────────────── */
 
-static aegis_status_t tool_git_commit_execute(void* user,
-                                               const aegis_tool_args_t* args,
-                                               const aegis_cancellation_token_t* token,
-                                               aegis_tool_result_t* out)
+static aegis_status_t tool_git_commit_execute(void* user, const aegis_tool_args_t* args,
+                                              const aegis_cancellation_token_t* token,
+                                              aegis_tool_result_t*              out)
 {
     (void)user;
-    const char* message = NULL;
-    const char* files   = NULL;
-    const aegis_tool_value_t* v = NULL;
+    const char*               message = NULL;
+    const char*               files   = NULL;
+    const aegis_tool_value_t* v       = NULL;
 
     if (args && aegis_tool_args_find(args, "message", &v) && v &&
         v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
@@ -459,8 +452,8 @@ static aegis_status_t tool_git_commit_execute(void* user,
         return aegis_tool_result_set_string(out, "error: unsafe commit message");
     }
 
-    if (args && aegis_tool_args_find(args, "files", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
+    if (args && aegis_tool_args_find(args, "files", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
+        v->as.str.ptr) {
         files = v->as.str.ptr;
     }
 
@@ -475,13 +468,13 @@ static aegis_status_t tool_git_commit_execute(void* user,
         /* Build git add argv: ["git", "add", "--", file1, file2, ..., NULL]
          * Max 32 files */
         char* add_argv[34];
-        int   add_argc = 0;
+        int   add_argc       = 0;
         add_argv[add_argc++] = "git";
         add_argv[add_argc++] = "add";
         add_argv[add_argc++] = "--";
 
         char* saveptr = NULL;
-        char* token_r  = strtok_r(files_copy, ",", &saveptr);
+        char* token_r = strtok_r(files_copy, ",", &saveptr);
         while (token_r && add_argc < 33) {
             /* Trim leading/trailing whitespace */
             while (*token_r == ' ' || *token_r == '\t') {
@@ -498,13 +491,13 @@ static aegis_status_t tool_git_commit_execute(void* user,
                 return aegis_tool_result_set_string(out, buf);
             }
             add_argv[add_argc++] = token_r;
-            token_r = strtok_r(NULL, ",", &saveptr);
+            token_r              = strtok_r(NULL, ",", &saveptr);
         }
         add_argv[add_argc] = NULL;
 
-        char* add_output = NULL;
-        int   add_ec     = 0;
-        aegis_status_t ast = git_exec(root, add_argv, token, 4096, &add_output, &add_ec);
+        char*          add_output = NULL;
+        int            add_ec     = 0;
+        aegis_status_t ast        = git_exec(root, add_argv, token, 4096, &add_output, &add_ec);
         free(add_output);
 
         if (ast != AEGIS_OK) {
@@ -512,10 +505,10 @@ static aegis_status_t tool_git_commit_execute(void* user,
         }
     } else {
         /* Stage all changes (tracked + untracked) */
-        char* add_argv[] = {"git", "add", "-A", NULL};
-        char* add_output = NULL;
-        int   add_ec     = 0;
-        aegis_status_t ast = git_exec(root, add_argv, token, 4096, &add_output, &add_ec);
+        char*          add_argv[] = {"git", "add", "-A", NULL};
+        char*          add_output = NULL;
+        int            add_ec     = 0;
+        aegis_status_t ast        = git_exec(root, add_argv, token, 4096, &add_output, &add_ec);
         free(add_output);
 
         if (ast != AEGIS_OK) {
@@ -524,9 +517,9 @@ static aegis_status_t tool_git_commit_execute(void* user,
     }
 
     /* Step 2: Commit */
-    char* commit_argv[] = {"git", "commit", "-m", (char*)message, NULL};
-    char* commit_output = NULL;
-    int   commit_ec     = 0;
+    char*          commit_argv[] = {"git", "commit", "-m", (char*)message, NULL};
+    char*          commit_output = NULL;
+    int            commit_ec     = 0;
     aegis_status_t cst = git_exec(root, commit_argv, token, 4096, &commit_output, &commit_ec);
 
     if (cst != AEGIS_OK) {
@@ -551,8 +544,8 @@ static aegis_status_t tool_git_commit_execute(void* user,
                     if (hlen > 12) {
                         hlen = 12;
                     }
-                    snprintf(result, sizeof(result), "Committed %.*s: \"%s\"",
-                             (int)hlen, hash, message);
+                    snprintf(result, sizeof(result), "Committed %.*s: \"%s\"", (int)hlen, hash,
+                             message);
                 }
             }
         }
@@ -562,8 +555,8 @@ static aegis_status_t tool_git_commit_execute(void* user,
                 snprintf(result, sizeof(result), "nothing to commit (working tree clean)");
             } else {
                 /* Use first line of output */
-                const char* nl = strchr(commit_output, '\n');
-                size_t len = nl ? (size_t)(nl - commit_output) : strlen(commit_output);
+                const char* nl  = strchr(commit_output, '\n');
+                size_t      len = nl ? (size_t)(nl - commit_output) : strlen(commit_output);
                 if (len > sizeof(result) - 32) {
                     len = sizeof(result) - 32;
                 }
@@ -580,19 +573,17 @@ static aegis_status_t tool_git_commit_execute(void* user,
 
 /* ── git_log ───────────────────────────────────────────────────────────── */
 
-static aegis_status_t tool_git_log_execute(void* user,
-                                            const aegis_tool_args_t* args,
-                                            const aegis_cancellation_token_t* token,
-                                            aegis_tool_result_t* out)
+static aegis_status_t tool_git_log_execute(void* user, const aegis_tool_args_t* args,
+                                           const aegis_cancellation_token_t* token,
+                                           aegis_tool_result_t*              out)
 {
     (void)user;
-    int         count  = GIT_LOG_COUNT_DEFAULT;
-    const char* path   = NULL;
-    const char* format = "oneline";
-    const aegis_tool_value_t* v = NULL;
+    int                       count  = GIT_LOG_COUNT_DEFAULT;
+    const char*               path   = NULL;
+    const char*               format = "oneline";
+    const aegis_tool_value_t* v      = NULL;
 
-    if (args && aegis_tool_args_find(args, "count", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_INT) {
+    if (args && aegis_tool_args_find(args, "count", &v) && v && v->type == AEGIS_TOOL_VAL_INT) {
         count = (int)v->as.i;
         if (count < 1) {
             count = 1;
@@ -602,13 +593,13 @@ static aegis_status_t tool_git_log_execute(void* user,
         }
     }
 
-    if (args && aegis_tool_args_find(args, "path", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
+    if (args && aegis_tool_args_find(args, "path", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
+        v->as.str.ptr) {
         path = v->as.str.ptr;
     }
 
-    if (args && aegis_tool_args_find(args, "format", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
+    if (args && aegis_tool_args_find(args, "format", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
+        v->as.str.ptr) {
         format = v->as.str.ptr;
     }
 
@@ -635,7 +626,7 @@ static aegis_status_t tool_git_log_execute(void* user,
     snprintf(count_str, sizeof(count_str), "%d", count);
 
     char* argv[8];
-    int   argc = 0;
+    int   argc   = 0;
     argv[argc++] = "git";
     argv[argc++] = "log";
     argv[argc++] = fmt_buf;
@@ -662,9 +653,9 @@ static aegis_status_t tool_git_log_execute(void* user,
     }
     final_argv[fargc] = NULL;
 
-    char* output = NULL;
-    int   ec     = 0;
-    aegis_status_t st = git_exec(root, final_argv, token, GIT_MAX_LOG, &output, &ec);
+    char*          output = NULL;
+    int            ec     = 0;
+    aegis_status_t st     = git_exec(root, final_argv, token, GIT_MAX_LOG, &output, &ec);
 
     if (st != AEGIS_OK) {
         if (st == AEGIS_ERR_CANCELLED) {
@@ -694,33 +685,32 @@ static aegis_status_t tool_git_log_execute(void* user,
 
 /* ── git_branch ────────────────────────────────────────────────────────── */
 
-static aegis_status_t tool_git_branch_execute(void* user,
-                                               const aegis_tool_args_t* args,
-                                               const aegis_cancellation_token_t* token,
-                                               aegis_tool_result_t* out)
+static aegis_status_t tool_git_branch_execute(void* user, const aegis_tool_args_t* args,
+                                              const aegis_cancellation_token_t* token,
+                                              aegis_tool_result_t*              out)
 {
     (void)user;
-    const char* action = "list";
-    const char* name   = NULL;
-    const aegis_tool_value_t* v = NULL;
+    const char*               action = "list";
+    const char*               name   = NULL;
+    const aegis_tool_value_t* v      = NULL;
 
-    if (args && aegis_tool_args_find(args, "action", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
+    if (args && aegis_tool_args_find(args, "action", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
+        v->as.str.ptr) {
         action = v->as.str.ptr;
     }
 
-    if (args && aegis_tool_args_find(args, "name", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
+    if (args && aegis_tool_args_find(args, "name", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
+        v->as.str.ptr) {
         name = v->as.str.ptr;
     }
 
     const char* root = git_project_root();
 
     if (strcmp(action, "list") == 0) {
-        char* argv[] = {"git", "branch", "-a", "--list", NULL};
-        char* output = NULL;
-        int   ec     = 0;
-        aegis_status_t st = git_exec(root, argv, token, GIT_MAX_LOG, &output, &ec);
+        char*          argv[] = {"git", "branch", "-a", "--list", NULL};
+        char*          output = NULL;
+        int            ec     = 0;
+        aegis_status_t st     = git_exec(root, argv, token, GIT_MAX_LOG, &output, &ec);
 
         if (st != AEGIS_OK) {
             if (st == AEGIS_ERR_CANCELLED) {
@@ -753,10 +743,10 @@ static aegis_status_t tool_git_branch_execute(void* user,
             return aegis_tool_result_set_string(out, "error: invalid branch name");
         }
 
-        char* argv[] = {"git", "branch", (char*)name, NULL};
-        char* output = NULL;
-        int   ec     = 0;
-        aegis_status_t st = git_exec(root, argv, token, 4096, &output, &ec);
+        char*          argv[] = {"git", "branch", (char*)name, NULL};
+        char*          output = NULL;
+        int            ec     = 0;
+        aegis_status_t st     = git_exec(root, argv, token, 4096, &output, &ec);
 
         if (st != AEGIS_OK) {
             if (st == AEGIS_ERR_CANCELLED) {
@@ -769,8 +759,8 @@ static aegis_status_t tool_git_branch_execute(void* user,
         if (ec == 0) {
             snprintf(result, sizeof(result), "Created branch %s", name);
         } else {
-            snprintf(result, sizeof(result), "error: branch creation failed (exit %d)%s",
-                     ec, output ? ": " : "");
+            snprintf(result, sizeof(result), "error: branch creation failed (exit %d)%s", ec,
+                     output ? ": " : "");
             if (output && output[0]) {
                 /* Append git's error message */
                 size_t rlen = strlen(result);
@@ -792,10 +782,10 @@ static aegis_status_t tool_git_branch_execute(void* user,
             return aegis_tool_result_set_string(out, "error: invalid branch name");
         }
 
-        char* argv[] = {"git", "switch", (char*)name, NULL};
-        char* output = NULL;
-        int   ec     = 0;
-        aegis_status_t st = git_exec(root, argv, token, 4096, &output, &ec);
+        char*          argv[] = {"git", "switch", (char*)name, NULL};
+        char*          output = NULL;
+        int            ec     = 0;
+        aegis_status_t st     = git_exec(root, argv, token, 4096, &output, &ec);
 
         if (st != AEGIS_OK) {
             if (st == AEGIS_ERR_CANCELLED) {
@@ -821,60 +811,75 @@ static aegis_status_t tool_git_branch_execute(void* user,
 
 /* git_status */
 static const aegis_tool_param_spec_t git_status_params[] = {
-    {.name = "path", .type = AEGIS_TOOL_VAL_STRING, .required = false,
+    {.name        = "path",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
      .description = "Subdirectory to check (default: project root)"},
 };
-static const aegis_tool_schema_t git_status_schema = {
-    .params = git_status_params, .param_count = 1
-};
+static const aegis_tool_schema_t git_status_schema = {.params      = git_status_params,
+                                                      .param_count = 1};
 
 /* git_diff */
 static const aegis_tool_param_spec_t git_diff_params[] = {
-    {.name = "path", .type = AEGIS_TOOL_VAL_STRING, .required = false,
+    {.name        = "path",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
      .description = "File or directory to diff (default: all)"},
-    {.name = "staged", .type = AEGIS_TOOL_VAL_BOOL, .required = false,
+    {.name        = "staged",
+     .type        = AEGIS_TOOL_VAL_BOOL,
+     .required    = false,
      .description = "Show staged changes instead of working tree (default: false)"},
-    {.name = "base", .type = AEGIS_TOOL_VAL_STRING, .required = false,
+    {.name        = "base",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
      .description = "Base commit/ref for comparison (default: HEAD)"},
 };
-static const aegis_tool_schema_t git_diff_schema = {
-    .params = git_diff_params, .param_count = 3
-};
+static const aegis_tool_schema_t git_diff_schema = {.params = git_diff_params, .param_count = 3};
 
 /* git_commit */
 static const aegis_tool_param_spec_t git_commit_params[] = {
-    {.name = "message", .type = AEGIS_TOOL_VAL_STRING, .required = true,
+    {.name        = "message",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = true,
      .description = "Commit message (max 512 chars, no shell metacharacters)"},
-    {.name = "files", .type = AEGIS_TOOL_VAL_STRING, .required = false,
+    {.name        = "files",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
      .description = "Comma-separated file paths to stage (default: all tracked changes)"},
 };
-static const aegis_tool_schema_t git_commit_schema = {
-    .params = git_commit_params, .param_count = 2
-};
+static const aegis_tool_schema_t git_commit_schema = {.params      = git_commit_params,
+                                                      .param_count = 2};
 
 /* git_log */
 static const aegis_tool_param_spec_t git_log_params[] = {
-    {.name = "count", .type = AEGIS_TOOL_VAL_INT, .required = false,
+    {.name        = "count",
+     .type        = AEGIS_TOOL_VAL_INT,
+     .required    = false,
      .description = "Number of commits (default: 10, max: 50)"},
-    {.name = "path", .type = AEGIS_TOOL_VAL_STRING, .required = false,
+    {.name        = "path",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
      .description = "Filter by file or directory"},
-    {.name = "format", .type = AEGIS_TOOL_VAL_STRING, .required = false,
+    {.name        = "format",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
      .description = "Output format: oneline (default), short, full"},
 };
-static const aegis_tool_schema_t git_log_schema = {
-    .params = git_log_params, .param_count = 3
-};
+static const aegis_tool_schema_t git_log_schema = {.params = git_log_params, .param_count = 3};
 
 /* git_branch */
 static const aegis_tool_param_spec_t git_branch_params[] = {
-    {.name = "action", .type = AEGIS_TOOL_VAL_STRING, .required = true,
+    {.name        = "action",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = true,
      .description = "Action: list, create, or switch"},
-    {.name = "name", .type = AEGIS_TOOL_VAL_STRING, .required = false,
+    {.name        = "name",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
      .description = "Branch name (required for create/switch)"},
 };
-static const aegis_tool_schema_t git_branch_schema = {
-    .params = git_branch_params, .param_count = 2
-};
+static const aegis_tool_schema_t git_branch_schema = {.params      = git_branch_params,
+                                                      .param_count = 2};
 
 /* ── Tool definitions ──────────────────────────────────────────────────── */
 

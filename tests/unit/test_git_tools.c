@@ -64,8 +64,7 @@ static void test_git_status_basic(void)
     create_file("hello.txt", "hello world\n");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_status.execute(
-        NULL, NULL, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_status.execute(NULL, NULL, NULL, &result);
     expect_ok(st, "git_status execute");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -92,8 +91,7 @@ static void test_git_status_with_path(void)
     expect_ok(aegis_tool_args_add_string(args, "path", "subdir"), "add path");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_status.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_status.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_status with path");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -118,8 +116,7 @@ static void test_git_diff_working(void)
     create_file("test.c", "line1\nmodified\n");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_diff.execute(
-        NULL, NULL, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_diff.execute(NULL, NULL, NULL, &result);
     expect_ok(st, "git_diff execute");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -148,8 +145,7 @@ static void test_git_diff_staged(void)
     expect_ok(aegis_tool_args_add_bool(args, "staged", true), "add staged");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_diff.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_diff.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_diff staged");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -173,8 +169,7 @@ static void test_git_commit_basic(void)
     expect_ok(aegis_tool_args_add_string(args, "message", "test commit"), "add message");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_commit.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_commit.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_commit execute");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -206,8 +201,7 @@ static void test_git_commit_specific_files(void)
     expect_ok(aegis_tool_args_add_string(args, "files", "file1.txt"), "add files");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_commit.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_commit.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_commit specific files");
 
     /* Verify file1 is committed, file2 is not */
@@ -236,8 +230,7 @@ static void test_git_commit_rejects_unsafe_message(void)
     expect_ok(aegis_tool_args_add_string(args, "message", "test; rm -rf /"), "add unsafe msg");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_commit.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_commit.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_commit should return OK but with error in result");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -260,8 +253,7 @@ static void test_git_commit_rejects_unsafe_file(void)
     expect_ok(aegis_tool_args_add_string(args, "files", "../escape.c"), "add unsafe file");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_commit.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_commit.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_commit should return OK with error in result");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -291,8 +283,7 @@ static void test_git_log_basic(void)
     expect_ok(aegis_tool_args_add_int(args, "count", 2), "add count");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_log.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_log.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_log execute");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -326,8 +317,7 @@ static void test_git_log_by_path(void)
     expect_ok(aegis_tool_args_add_string(args, "path", "src"), "add path");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_log.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_log.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_log by path");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -352,8 +342,7 @@ static void test_git_log_format_oneline(void)
     expect_ok(aegis_tool_args_add_string(args, "format", "oneline"), "add format");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_log.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_log.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_log oneline");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -383,8 +372,7 @@ static void test_git_branch_list(void)
     expect_ok(aegis_tool_args_add_string(args, "action", "list"), "add action");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_branch.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_branch.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_branch list");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -411,8 +399,7 @@ static void test_git_branch_create(void)
     expect_ok(aegis_tool_args_add_string(args, "name", "feature/test"), "add name");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_branch.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_branch.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_branch create");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -442,8 +429,7 @@ static void test_git_branch_create_rejects_unsafe_name(void)
     expect_ok(aegis_tool_args_add_string(args, "name", "a; rm -rf /"), "add unsafe name");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_branch.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_branch.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_branch should return OK with error");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -471,8 +457,7 @@ static void test_git_branch_switch(void)
     expect_ok(aegis_tool_args_add_string(args, "name", "dev"), "add name");
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_branch.execute(
-        NULL, args, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_branch.execute(NULL, args, NULL, &result);
     expect_ok(st, "git_branch switch");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);
@@ -493,8 +478,7 @@ static void test_git_status_not_a_repo(void)
     assert(chdir(tmpdir) == 0);
 
     aegis_tool_result_t result = {0};
-    aegis_status_t st = aegis_coding_tool_git_status.execute(
-        NULL, NULL, NULL, &result);
+    aegis_status_t      st     = aegis_coding_tool_git_status.execute(NULL, NULL, NULL, &result);
     expect_ok(st, "git_status should return OK (with error in result)");
 
     assert(result.value.type == AEGIS_TOOL_VAL_STRING);

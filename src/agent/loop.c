@@ -45,15 +45,15 @@ aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
     if (!l) {
         return AEGIS_ERR_NOMEM;
     }
-    l->session    = cfg->session;
-    l->model      = cfg->model;
-    l->tools      = cfg->tools;
-    l->token      = cfg->token;
-    l->on_event       = cfg->on_event;
-    l->event_user     = cfg->event_user;
-    l->tool_approval  = cfg->tool_approval;
-    l->approval_user  = cfg->approval_user;
-    l->state   = AEGIS_AGENT_LOOP_IDLE;
+    l->session       = cfg->session;
+    l->model         = cfg->model;
+    l->tools         = cfg->tools;
+    l->token         = cfg->token;
+    l->on_event      = cfg->on_event;
+    l->event_user    = cfg->event_user;
+    l->tool_approval = cfg->tool_approval;
+    l->approval_user = cfg->approval_user;
+    l->state         = AEGIS_AGENT_LOOP_IDLE;
     if (cfg->system_prompt) {
         l->system_prompt = strdup(cfg->system_prompt);
     }
@@ -119,8 +119,8 @@ aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* l, aegis_
     return AEGIS_OK;
 }
 
-aegis_status_t aegis_agent_loop_set_tool_approval(aegis_agent_loop_t*    l,
-                                                  aegis_tool_approval_fn fn, void* user)
+aegis_status_t aegis_agent_loop_set_tool_approval(aegis_agent_loop_t* l, aegis_tool_approval_fn fn,
+                                                  void* user)
 {
     if (!l) {
         return AEGIS_ERR_INVALID;
@@ -217,7 +217,7 @@ typedef struct stream_accum {
     stream_call_accum_t* calls;
     size_t               call_count;
     size_t               call_cap;
-    aegis_usage_t        usage;   /**< from AEGIS_MODEL_STREAM_USAGE, if reported */
+    aegis_usage_t        usage; /**< from AEGIS_MODEL_STREAM_USAGE, if reported */
     bool                 has_usage;
     aegis_agent_loop_t*  loop; /**< Borrowed; set per run for event forwarding. */
 } stream_accum_t;
@@ -534,8 +534,7 @@ static aegis_status_t stream_cb(const aegis_model_stream_event_t* ev, void* user
             acc->loop->on_event(&out_ev, acc->loop->event_user);
         }
     }
-    if (ev->type == AEGIS_MODEL_STREAM_USAGE && ev->data &&
-        ev->len >= sizeof(aegis_usage_t)) {
+    if (ev->type == AEGIS_MODEL_STREAM_USAGE && ev->data && ev->len >= sizeof(aegis_usage_t)) {
         memcpy(&acc->usage, ev->data, sizeof(aegis_usage_t));
         acc->has_usage = true;
     }
@@ -695,7 +694,7 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
         }
         if (acc.has_usage) {
             pthread_mutex_lock(&l->lock);
-            l->last_usage  = acc.usage;
+            l->last_usage = acc.usage;
             l->total_usage.input_tokens += acc.usage.input_tokens;
             l->total_usage.output_tokens += acc.usage.output_tokens;
             l->total_usage.total_tokens += acc.usage.total_tokens;
@@ -744,13 +743,13 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
             }
             if (l->on_event) {
                 aegis_agent_event_t ev = {
-                    .type = AEGIS_AGENT_EVENT_TOOL_START,
+                    .type      = AEGIS_AGENT_EVENT_TOOL_START,
                     .tool_name = name,
-                    .call_id = cid,
+                    .call_id   = cid,
                 };
                 l->on_event(&ev, l->event_user);
             }
-            aegis_tool_result_t result = {0};
+            aegis_tool_result_t   result  = {0};
             aegis_tool_approval_t verdict = AEGIS_TOOL_APPROVAL_ALLOW;
             if (l->tool_approval) {
                 verdict = l->tool_approval(name, raw_args ? raw_args : "{}", l->approval_user);

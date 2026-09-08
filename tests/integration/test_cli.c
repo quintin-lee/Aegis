@@ -189,25 +189,31 @@ static void* sse_fixture_thread(void* user)
             return NULL;
         }
         int client = accept(fx->server_fd, NULL, NULL);
-        if (client < 0) return NULL;
+        if (client < 0) {
+            return NULL;
+        }
         char   request[32768] = {0};
-        size_t used = 0;
+        size_t used           = 0;
         while (used + 1 < sizeof(request) && !strstr(request, "\r\n\r\n")) {
             ssize_t received = recv(client, request + used, sizeof(request) - used - 1, 0);
-            if (received <= 0) break;
+            if (received <= 0) {
+                break;
+            }
             used += (size_t)received;
             request[used] = '\0';
         }
         /* Drain the JSON body per Content-Length so the client can send it fully. */
         const char* cl = strstr(request, "content-length:");
         if (cl) {
-            size_t need = (size_t)strtoul(cl + strlen("content-length:"), NULL, 10);
+            size_t      need       = (size_t)strtoul(cl + strlen("content-length:"), NULL, 10);
             const char* body_start = strstr(request, "\r\n\r\n");
             if (body_start) {
                 size_t have = used - (size_t)(body_start + 4 - request);
                 while (have < need && used + 1 < sizeof(request)) {
                     ssize_t received = recv(client, request + used, sizeof(request) - used - 1, 0);
-                    if (received <= 0) break;
+                    if (received <= 0) {
+                        break;
+                    }
                     used += (size_t)received;
                     request[used] = '\0';
                     have += (size_t)received;
@@ -219,7 +225,7 @@ static void* sse_fixture_thread(void* user)
          * tool calls on connections 0 and 2 regardless of role (a prior tool
          * result stays in context after the first round). */
         const char* body;
-        int serve_tool;
+        int         serve_tool;
         if (fx->tool_pattern) {
             serve_tool = (fx->count % 2 == 0);
             fx->count++;
@@ -227,15 +233,17 @@ static void* sse_fixture_thread(void* user)
             serve_tool = !strstr(request, "\"role\":\"tool\"");
         }
         if (!serve_tool) {
-            body = "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"thinking\"}}]}\n\n"
-                   "data: {\"choices\":[{\"delta\":{\"content\":\"read done\"}}]}\n\n"
-                   "data: [DONE]\n\n";
+            body =
+                "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"thinking\"}}]}\n\n"
+                "data: {\"choices\":[{\"delta\":{\"content\":\"read done\"}}]}\n\n"
+                "data: [DONE]\n\n";
         } else {
-            body = "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-it\","
-                   "\"function\":{\"name\":\"read\",\"arguments\":\"\"}}]}}]}\n\n"
-                   "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,"
-                   "\"function\":{\"arguments\":\"{\\\"path\\\": \\\"a.txt\\\"}\"}}]}}]}\n\n"
-                   "data: [DONE]\n\n";
+            body =
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-it\","
+                "\"function\":{\"name\":\"read\",\"arguments\":\"\"}}]}}]}\n\n"
+                "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,"
+                "\"function\":{\"arguments\":\"{\\\"path\\\": \\\"a.txt\\\"}\"}}]}}]}\n\n"
+                "data: [DONE]\n\n";
         }
         char header[256];
         int  header_len = snprintf(header, sizeof(header),
@@ -248,7 +256,8 @@ static void* sse_fixture_thread(void* user)
              * line lands mid-transfer; the CLI aborts and never reads the
              * rest (which is why plain send is fine here). */
             (void)!send(client, body, 12, 0);
-            struct timespec stall = {.tv_sec = 0, .tv_nsec = 300000000L}; /* was 3s: ctest default 60s cap */
+            struct timespec stall = {.tv_sec  = 0,
+                                     .tv_nsec = 300000000L}; /* was 3s: ctest default 60s cap */
             nanosleep(&stall, NULL);
             (void)!send(client, body + 12, strlen(body) - 12, 0);
         } else {
@@ -285,7 +294,7 @@ static void test_openai_provider_streaming(void)
     /* Resolve the CLI binary BEFORE chdir: find_cli_bin() resolves relative
      * candidates against the current directory, and the temp dir has none. */
     const char* bin = find_cli_bin();
-    char tmp[PATH_MAX];
+    char        tmp[PATH_MAX];
     assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
     char cwd[PATH_MAX];
     assert(getcwd(cwd, sizeof(cwd)) != NULL);
@@ -301,7 +310,7 @@ static void test_openai_provider_streaming(void)
     pthread_t     thread;
     assert(pthread_create(&thread, NULL, sse_fixture_thread, &fx) == 0);
 
-    char        env_cmd[8192];
+    char env_cmd[8192];
     char in_file[PATH_MAX + 16];
     snprintf(in_file, sizeof(in_file), "%s/input.txt", tmp);
     f = fopen(in_file, "w");
@@ -356,7 +365,7 @@ static void test_openai_provider_approvals(void)
     return;
 #else
     const char* bin = find_cli_bin();
-    char tmp[PATH_MAX];
+    char        tmp[PATH_MAX];
     assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
     char cwd[PATH_MAX];
     assert(getcwd(cwd, sizeof(cwd)) != NULL);
@@ -366,7 +375,7 @@ static void test_openai_provider_approvals(void)
     fputs("fixture-file-body", f);
     fclose(f);
 
-    sse_fixture_t fx = {.server_fd = -1, .port = 0, .tool_pattern = 1, .count = 0};
+    sse_fixture_t fx   = {.server_fd = -1, .port = 0, .tool_pattern = 1, .count = 0};
     int           port = start_sse_fixture(&fx);
     pthread_t     thread;
     assert(pthread_create(&thread, NULL, sse_fixture_thread, &fx) == 0);
@@ -387,9 +396,9 @@ static void test_openai_provider_approvals(void)
              port, bin, in_file);
     FILE* fp = popen(env_cmd, "r");
     assert(fp);
-    char out[16384] = {0};
-    size_t pos = 0;
-    char linebuf[1024];
+    char   out[16384] = {0};
+    size_t pos        = 0;
+    char   linebuf[1024];
     while (fgets(linebuf, sizeof(linebuf), fp)) {
         size_t tl = strlen(linebuf);
         if (pos + tl + 1 < sizeof(out)) {
@@ -431,13 +440,13 @@ static void test_openai_provider_stop_command(void)
     return;
 #else
     const char* bin = find_cli_bin();
-    char tmp[PATH_MAX];
+    char        tmp[PATH_MAX];
     assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
     char cwd[PATH_MAX];
     assert(getcwd(cwd, sizeof(cwd)) != NULL);
     assert(chdir(tmp) == 0);
 
-    sse_fixture_t fx = {.server_fd = -1, .port = 0, .tool_pattern = 1, .slow = 1, .count = 0};
+    sse_fixture_t fx   = {.server_fd = -1, .port = 0, .tool_pattern = 1, .slow = 1, .count = 0};
     int           port = start_sse_fixture(&fx);
     pthread_t     thread;
     assert(pthread_create(&thread, NULL, sse_fixture_thread, &fx) == 0);
@@ -462,7 +471,7 @@ static void test_openai_provider_stop_command(void)
              "AEGIS_OPENAI_BASE_URL=http://127.0.0.1:%d/v1 sh -c "
              "'%s < %s' 2>&1",
              port, bin, in_file);
-    FILE*  fp = popen(env_cmd, "r");
+    FILE* fp = popen(env_cmd, "r");
     assert(fp);
     char   out[16384] = {0};
     size_t pos        = 0;
@@ -500,13 +509,13 @@ static void test_openai_provider_interrupt(void)
     return;
 #else
     const char* bin = find_cli_bin();
-    char tmp[PATH_MAX];
+    char        tmp[PATH_MAX];
     assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
     char cwd[PATH_MAX];
     assert(getcwd(cwd, sizeof(cwd)) != NULL);
     assert(chdir(tmp) == 0);
 
-    sse_fixture_t fx = {.server_fd = -1, .port = 0, .tool_pattern = 1, .slow = 1, .count = 0};
+    sse_fixture_t fx   = {.server_fd = -1, .port = 0, .tool_pattern = 1, .slow = 1, .count = 0};
     int           port = start_sse_fixture(&fx);
     pthread_t     thread;
     assert(pthread_create(&thread, NULL, sse_fixture_thread, &fx) == 0);
@@ -531,7 +540,7 @@ static void test_openai_provider_interrupt(void)
              "AEGIS_OPENAI_BASE_URL=http://127.0.0.1:%d/v1 sh -c "
              "'%s < %s' 2>&1",
              port, bin, in_file);
-    FILE*  fp = popen(env_cmd, "r");
+    FILE* fp = popen(env_cmd, "r");
     assert(fp);
     char   out[16384] = {0};
     size_t pos        = 0;
@@ -581,8 +590,8 @@ static void test_interactive_commands(void)
     assert(strstr(out, "model: gpt-x") != strstr(out, "switched"));
 
     /* find the saved session file */
-    char         sess_path[PATH_MAX] = {0};
-    DIR*         d                   = opendir(".aegis");
+    char sess_path[PATH_MAX] = {0};
+    DIR* d                   = opendir(".aegis");
     assert(d);
     struct dirent* ent;
     while ((ent = readdir(d)) != NULL) {
@@ -630,7 +639,8 @@ static void test_interactive_commands(void)
     assert_contains(out, "session:   in ", "usage total");
 
     /* 5. /resume missing file keeps session intact */
-    assert(run_cli_stdin("/resume /tmp/does_not_exist_xyz.jsonl\n/quit\n", out, sizeof(out), &ec) == 0);
+    assert(run_cli_stdin("/resume /tmp/does_not_exist_xyz.jsonl\n/quit\n", out, sizeof(out), &ec) ==
+           0);
     assert_contains(out, "resume failed", "resume missing");
 
     /* 6. streaming on: tokens appear exactly once (streamed-first dedup) */

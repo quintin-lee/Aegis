@@ -25,9 +25,9 @@ typedef struct out_buf {
     char*  buf;
     size_t len;
     size_t cap;
-    size_t count;    /**< result lines emitted */
+    size_t count; /**< result lines emitted */
     bool   truncated;
-    bool   stopped;  /**< set once a cap is hit; walker aborts */
+    bool   stopped; /**< set once a cap is hit; walker aborts */
 } out_buf_t;
 
 static void out_buf_init(out_buf_t* b)
@@ -188,10 +188,10 @@ static aegis_status_t tool_list_execute(void* user, const aegis_tool_args_t* arg
                                         aegis_tool_result_t*              out)
 {
     (void)user;
-    const char*           path = ".";
-    const aegis_tool_value_t* v  = NULL;
-    if (args && aegis_tool_args_find(args, "path", &v) && v &&
-        v->type == AEGIS_TOOL_VAL_STRING && v->as.str.ptr) {
+    const char*               path = ".";
+    const aegis_tool_value_t* v    = NULL;
+    if (args && aegis_tool_args_find(args, "path", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
+        v->as.str.ptr) {
         path = v->as.str.ptr;
     }
     if (!aegis_safe_relative_path(path)) {
@@ -206,8 +206,8 @@ static aegis_status_t tool_list_execute(void* user, const aegis_tool_args_t* arg
     }
 
     // Collect entries so we can sort (dirs first) before emitting.
-    size_t         n       = 0;
-    size_t         cap     = 64;
+    size_t        n       = 0;
+    size_t        cap     = 64;
     sort_entry_t* entries = (sort_entry_t*)malloc(cap * sizeof(*entries));
     if (!entries) {
         closedir(d);
@@ -295,7 +295,7 @@ static aegis_status_t tool_list_execute(void* user, const aegis_tool_args_t* arg
 // ── glob ────────────────────────────────────────────────────────────────
 
 typedef struct glob_ctx {
-    out_buf_t  out;
+    out_buf_t   out;
     const char* pattern;
 } glob_ctx_t;
 
@@ -323,7 +323,7 @@ static aegis_status_t tool_glob_execute(void* user, const aegis_tool_args_t* arg
                                         aegis_tool_result_t*              out)
 {
     (void)user;
-    const aegis_tool_value_t* v = NULL;
+    const aegis_tool_value_t* v       = NULL;
     const char*               pattern = NULL;
     const char*               path    = ".";
     if (aegis_tool_args_find(args, "pattern", &v) && v && v->type == AEGIS_TOOL_VAL_STRING &&
@@ -348,7 +348,7 @@ static aegis_status_t tool_glob_execute(void* user, const aegis_tool_args_t* arg
         return aegis_tool_result_set_string(out, buf);
     }
 
-    glob_ctx_t gc = {.out = {0}, .pattern = pattern};
+    glob_ctx_t gc   = {.out = {0}, .pattern = pattern};
     walk_ctx_t wctx = {.token = token, .cancelled = false};
 
     if (S_ISREG(pst.st_mode)) {
@@ -391,11 +391,11 @@ typedef struct grep_ctx {
 
 static bool file_is_binary(const char* full)
 {
-    FILE*         f = fopen(full, "rb");
+    FILE* f = fopen(full, "rb");
     if (!f) {
         return true;  // unreadable: treat as binary so it is skipped
     }
-    char  probe[1024];
+    char   probe[1024];
     size_t n = fread(probe, 1, sizeof(probe), f);
     fclose(f);
     for (size_t i = 0; i < n; i++) {
@@ -428,7 +428,7 @@ static aegis_status_t grep_visit(const char* rel, const char* full, void* user, 
         return AEGIS_OK;
     }
 
-    char  linebuf[DISC_MAX_LINE];
+    char   linebuf[DISC_MAX_LINE];
     size_t lineno = 0;
     while (fgets(linebuf, sizeof(linebuf), f)) {
         lineno++;
@@ -501,9 +501,9 @@ static aegis_status_t tool_grep_execute(void* user, const aegis_tool_args_t* arg
 
     aegis_status_t result = AEGIS_OK;
     if (S_ISREG(st.st_mode)) {
-        grep_ctx_t gc = {.out = {0}, .re = re, .include = include, .re_ready = true};
-        bool     stop = false;
-        result       = grep_visit(path, path, &gc, &stop);
+        grep_ctx_t gc   = {.out = {0}, .re = re, .include = include, .re_ready = true};
+        bool       stop = false;
+        result          = grep_visit(path, path, &gc, &stop);
         if (result == AEGIS_OK) {
             if (gc.out.buf != NULL) {
                 if (gc.out.truncated) {
@@ -524,9 +524,9 @@ static aegis_status_t tool_grep_execute(void* user, const aegis_tool_args_t* arg
             out_buf_destroy(&gc.out);
         }
     } else {
-        grep_ctx_t gc   = {.out = {0}, .re = re, .include = include, .re_ready = true};
-        walk_ctx_t wctx = {.token = token, .cancelled = false};
-        aegis_status_t rc2 = walk_tree(path, "", 0, grep_visit, &gc, &wctx);
+        grep_ctx_t     gc   = {.out = {0}, .re = re, .include = include, .re_ready = true};
+        walk_ctx_t     wctx = {.token = token, .cancelled = false};
+        aegis_status_t rc2  = walk_tree(path, "", 0, grep_visit, &gc, &wctx);
         if (rc2 != AEGIS_OK) {
             out_buf_destroy(&gc.out);
             regfree(&re);
@@ -555,20 +555,38 @@ static aegis_status_t tool_grep_execute(void* user, const aegis_tool_args_t* arg
 // ── Schemas & definitions ───────────────────────────────────────────────
 
 static const aegis_tool_param_spec_t list_params[] = {
-    {.name = "path", .type = AEGIS_TOOL_VAL_STRING, .required = false, .description = "Directory to list (default .)"},
+    {.name        = "path",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
+     .description = "Directory to list (default .)"},
 };
 static const aegis_tool_schema_t list_schema = {.params = list_params, .param_count = 1};
 
 static const aegis_tool_param_spec_t glob_params[] = {
-    {.name = "pattern", .type = AEGIS_TOOL_VAL_STRING, .required = true, .description = "Filename glob, matched recursively"},
-    {.name = "path", .type = AEGIS_TOOL_VAL_STRING, .required = false, .description = "Root directory (default .)"},
+    {.name        = "pattern",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = true,
+     .description = "Filename glob, matched recursively"},
+    {.name        = "path",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
+     .description = "Root directory (default .)"},
 };
 static const aegis_tool_schema_t glob_schema = {.params = glob_params, .param_count = 2};
 
 static const aegis_tool_param_spec_t grep_params[] = {
-    {.name = "pattern", .type = AEGIS_TOOL_VAL_STRING, .required = true, .description = "POSIX extended regex"},
-    {.name = "path", .type = AEGIS_TOOL_VAL_STRING, .required = false, .description = "File or directory (default .)"},
-    {.name = "include", .type = AEGIS_TOOL_VAL_STRING, .required = false, .description = "Filename filter glob, e.g. *.c"},
+    {.name        = "pattern",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = true,
+     .description = "POSIX extended regex"},
+    {.name        = "path",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
+     .description = "File or directory (default .)"},
+    {.name        = "include",
+     .type        = AEGIS_TOOL_VAL_STRING,
+     .required    = false,
+     .description = "Filename filter glob, e.g. *.c"},
 };
 static const aegis_tool_schema_t grep_schema = {.params = grep_params, .param_count = 3};
 

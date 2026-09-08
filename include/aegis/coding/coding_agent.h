@@ -72,8 +72,8 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* agent, const c
  * the session, tools, and event/approval callbacks are untouched.
  * Primarily for fixture backends in tests.
  */
-aegis_status_t aegis_coding_agent_set_model_client(aegis_coding_agent_t*  agent,
-                                                   aegis_model_client_t*  client);
+aegis_status_t aegis_coding_agent_set_model_client(aegis_coding_agent_t* agent,
+                                                   aegis_model_client_t* client);
 
 /**
  * @brief Register (or clear) the agent-loop event observer.
@@ -85,8 +85,7 @@ aegis_status_t aegis_coding_agent_set_model_client(aegis_coding_agent_t*  agent,
  * @return AEGIS_OK, or AEGIS_ERR_INVALID when agent is NULL.
  */
 aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* agent,
-                                                     aegis_agent_event_fn  fn,
-                                                     void*                 user);
+                                                     aegis_agent_event_fn fn, void* user);
 
 /**
  * @brief Install or clear the tool approval gate (forwarded to the loop).
@@ -94,8 +93,7 @@ aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* agent
  * @return AEGIS_OK, or AEGIS_ERR_INVALID when agent is NULL.
  */
 aegis_status_t aegis_coding_agent_set_tool_approval(aegis_coding_agent_t*  agent,
-                                                    aegis_tool_approval_fn fn,
-                                                    void*                  user);
+                                                    aegis_tool_approval_fn fn, void* user);
 
 /**
  * @brief Request cooperative interruption of the current turn.
@@ -114,9 +112,8 @@ aegis_status_t aegis_coding_agent_interrupt(const aegis_coding_agent_t* agent);
  * @param total Out: aggregate across all turns.
  * @return AEGIS_OK, or AEGIS_ERR_INVALID when agent, last or total is NULL.
  */
-aegis_status_t aegis_coding_agent_usage(aegis_coding_agent_t* agent,
-                                        aegis_usage_t*        last,
-                                        aegis_usage_t*        total);
+aegis_status_t aegis_coding_agent_usage(aegis_coding_agent_t* agent, aegis_usage_t* last,
+                                        aegis_usage_t* total);
 
 #ifdef __cplusplus
 }

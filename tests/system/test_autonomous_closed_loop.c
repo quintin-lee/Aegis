@@ -42,22 +42,22 @@ static void teardown_registry(aegis_provider_registry_t* reg, llm_mock_ctx_t* ct
 static void test_computational_plan_is_executable(void)
 {
     printf("[test] computational_plan_is_executable ...\n");
-    const char* resp = "STEP|-1|computational||compute|perform computation\n";
-    const char* seq[1] = {resp};
-    aegis_provider_registry_t* reg = NULL;
-    llm_mock_ctx_t* ctx = NULL;
-    const aegis_llm_ops_t* ops = NULL;
-    aegis_provider_def_t def;
+    const char*                resp   = "STEP|-1|computational||compute|perform computation\n";
+    const char*                seq[1] = {resp};
+    aegis_provider_registry_t* reg    = NULL;
+    llm_mock_ctx_t*            ctx    = NULL;
+    const aegis_llm_ops_t*     ops    = NULL;
+    aegis_provider_def_t       def;
     setup_registry(&reg, &ctx, &ops, &def, seq, 1);
     aegis_autonomous_agent_config_t cfg = {
         .provider_registry = reg,
         .llm_provider_name = def.name,
-        .max_iterations = 1,
+        .max_iterations    = 1,
     };
     aegis_autonomous_agent_t* aa = NULL;
     expect_ok(aegis_autonomous_agent_create(&aa, &cfg), "create computational agent");
     aegis_autonomous_result_t result = {0};
-    aegis_status_t rc = aegis_autonomous_agent_run(aa, "compute", &result);
+    aegis_status_t            rc     = aegis_autonomous_agent_run(aa, "compute", &result);
     assert(rc != AEGIS_ERR_NOT_FOUND);
     assert(result.tasks_executed == 1);
     aegis_autonomous_agent_destroy(aa);

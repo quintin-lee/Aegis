@@ -109,8 +109,8 @@ static void cleanup_fixture(char* dir, char* cwdbuf)
 static void test_list(void)
 {
     printf("[test] list ...\n");
-    char*  dir    = make_fixture();
-    char*  cwdbuf = getcwd(NULL, 0);
+    char* dir    = make_fixture();
+    char* cwdbuf = getcwd(NULL, 0);
     assert(chdir(dir) == 0);
     aegis_tool_registry_t* reg = NULL;
     expect_ok(aegis_tool_registry_create(&reg), "reg");
@@ -141,8 +141,8 @@ static void test_list(void)
 static void test_glob(void)
 {
     printf("[test] glob ...\n");
-    char*  dir    = make_fixture();
-    char*  cwdbuf = getcwd(NULL, 0);
+    char* dir    = make_fixture();
+    char* cwdbuf = getcwd(NULL, 0);
     assert(chdir(dir) == 0);
     aegis_tool_registry_t* reg = NULL;
     expect_ok(aegis_tool_registry_create(&reg), "reg");
@@ -174,16 +174,15 @@ static void test_glob(void)
 static void test_grep(void)
 {
     printf("[test] grep ...\n");
-    char*  dir    = make_fixture();
-    char*  cwdbuf = getcwd(NULL, 0);
+    char* dir    = make_fixture();
+    char* cwdbuf = getcwd(NULL, 0);
     assert(chdir(dir) == 0);
     aegis_tool_registry_t* reg = NULL;
     expect_ok(aegis_tool_registry_create(&reg), "reg");
     expect_ok(aegis_coding_discovery_tools_register_all(reg), "register");
 
     char* out = NULL;
-    expect_ok(call_tool(reg, "grep", "pattern", "main", "include", "*.c", &out),
-              "grep main");
+    expect_ok(call_tool(reg, "grep", "pattern", "main", "include", "*.c", &out), "grep main");
     assert(strstr(out, "sub/b.c:1:"));
     free(out);
 

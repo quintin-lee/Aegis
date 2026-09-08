@@ -26,15 +26,15 @@ static void print_banner(const char* model)
 /* ── Live streaming output ────────────────────────────────────────── */
 
 typedef struct cli_stream_ctx {
-    bool        enabled;        /**< /stream on|off                              */
-    bool        text_emitted;   /**< streamed text already shown for this turn   */
-    bool        line_open;      /**< current line has unterminated content       */
-    bool        reasoning_open; /**< dim-italic reasoning block is being printed */
-    bool        tool_running;   /**< TOOL_START seen, awaiting TOOL_END          */
-    struct timespec tool_start; /**< wall clock at TOOL_START                    */
-    bool        approvals;      /**< /approvals on|off                           */
-    char        allowed_tools[16][64]; /**< always-allow list (session-lifetime) */
-    size_t      allowed_count;
+    bool            enabled;               /**< /stream on|off                              */
+    bool            text_emitted;          /**< streamed text already shown for this turn   */
+    bool            line_open;             /**< current line has unterminated content       */
+    bool            reasoning_open;        /**< dim-italic reasoning block is being printed */
+    bool            tool_running;          /**< TOOL_START seen, awaiting TOOL_END          */
+    struct timespec tool_start;            /**< wall clock at TOOL_START                    */
+    bool            approvals;             /**< /approvals on|off                           */
+    char            allowed_tools[16][64]; /**< always-allow list (session-lifetime) */
+    size_t          allowed_count;
 } cli_stream_ctx_t;
 
 static void cli_stream_prelude(cli_stream_ctx_t* cx)
@@ -57,7 +57,7 @@ static bool json_mode_env(void)
  * running turn are not lost: an empty line interrupts the turn, a
  * non-empty line queues as the next input. */
 typedef struct line_cell {
-    char*             text;  /**< Heap copy; NULL = EOF sentinel. */
+    char*             text; /**< Heap copy; NULL = EOF sentinel. */
     struct line_cell* next;
 } line_cell_t;
 
@@ -186,7 +186,7 @@ static int read_line_timeout(char* buf, size_t cap)
     size_t n = 0;
     for (;;) {
         struct pollfd pfd = {.fd = STDIN_FILENO, .events = POLLIN, .revents = 0};
-        int              rc = poll(&pfd, 1, 100);
+        int           rc  = poll(&pfd, 1, 100);
         if (rc < 0) {
             if (errno == EINTR) {
                 continue;
@@ -199,7 +199,7 @@ static int read_line_timeout(char* buf, size_t cap)
             }
             continue;
         }
-        char ch;
+        char    ch;
         ssize_t got = read(STDIN_FILENO, &ch, 1);
         if (got == 0) {
             return n > 0 ? (buf[n] = '\0', 1) : -1;
@@ -236,7 +236,7 @@ static int read_line_timeout(char* buf, size_t cap)
                 continue; /* ignored sequence; keep assembling the line */
             }
             if (ch == '\n' || ch == '\r') {
-                buf[n]   = '\0';
+                buf[n] = '\0';
                 fputs("\r\n", stdout);
                 fflush(stdout);
                 return 1;
@@ -283,9 +283,9 @@ static void* reader_main(void* arg)
 
 /* While an approval prompt waits, the next line is handed to the gate
  * through a small handshake slot instead of the pending FIFO. */
-static pthread_mutex_t g_gate_mu     = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t  g_gate_cv     = PTHREAD_COND_INITIALIZER;
-static char*           g_gate_line   = NULL; /**< next answer for the gate */
+static pthread_mutex_t g_gate_mu      = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  g_gate_cv      = PTHREAD_COND_INITIALIZER;
+static char*           g_gate_line    = NULL; /**< next answer for the gate */
 static bool            g_gate_waiting = false;
 static bool            g_gate_eof     = false;
 
@@ -381,8 +381,8 @@ static void* watcher_main(void* arg)
             continue;
         }
         if (w->n == w->cap) {
-            size_t     cap  = w->cap ? w->cap * 2 : 8;
-            char**     p    = realloc(w->pending, cap * sizeof(char*));
+            size_t cap = w->cap ? w->cap * 2 : 8;
+            char** p   = realloc(w->pending, cap * sizeof(char*));
             if (!p) {
                 free(line);
                 continue;
@@ -399,11 +399,16 @@ static void* watcher_main(void* arg)
 static const char* cli_val_type_str(aegis_tool_value_type_t t)
 {
     switch (t) {
-    case AEGIS_TOOL_VAL_STRING: return "string";
-    case AEGIS_TOOL_VAL_INT: return "int";
-    case AEGIS_TOOL_VAL_FLOAT: return "float";
-    case AEGIS_TOOL_VAL_BOOL: return "bool";
-    default: return "bytes";
+    case AEGIS_TOOL_VAL_STRING:
+        return "string";
+    case AEGIS_TOOL_VAL_INT:
+        return "int";
+    case AEGIS_TOOL_VAL_FLOAT:
+        return "float";
+    case AEGIS_TOOL_VAL_BOOL:
+        return "bool";
+    default:
+        return "bytes";
     }
 }
 
@@ -414,8 +419,8 @@ static aegis_status_t cli_print_tool_def(const aegis_tool_def_t* def, void* user
     for (size_t i = 0; def->schema.params && i < def->schema.param_count; i++) {
         const aegis_tool_param_spec_t* p = &def->schema.params[i];
         if (p->description) {
-            printf("    %s%s: %s (%s)\n", p->name, p->required ? "" : "?", cli_val_type_str(p->type),
-                   p->description);
+            printf("    %s%s: %s (%s)\n", p->name, p->required ? "" : "?",
+                   cli_val_type_str(p->type), p->description);
         } else {
             printf("    %s%s: %s\n", p->name, p->required ? "" : "?", cli_val_type_str(p->type));
         }
@@ -447,7 +452,7 @@ static aegis_tool_approval_t cli_approval_cb(const char* tool_name, const char* 
     /* Answers come through the gate handshake: the watcher thread routes
      * the next typed line here (the reader thread owns stdin). */
     char* answer_line = gate_take();
-    cx->line_open = false;
+    cx->line_open     = false;
     if (!answer_line) {
         return AEGIS_TOOL_APPROVAL_DENY; /* EOF => deny */
     }
@@ -455,8 +460,8 @@ static aegis_tool_approval_t cli_approval_cb(const char* tool_name, const char* 
     free(answer_line);
     if (verdict == 'a') {
         if (cx->allowed_count < 16) {
-            snprintf(cx->allowed_tools[cx->allowed_count++],
-                     sizeof(cx->allowed_tools[0]), "%s", tool_name);
+            snprintf(cx->allowed_tools[cx->allowed_count++], sizeof(cx->allowed_tools[0]), "%s",
+                     tool_name);
         }
         return AEGIS_TOOL_APPROVAL_ALLOW; /* list full degrades to y */
     }
@@ -582,20 +587,20 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         }
     }
     print_banner(aegis_coding_agent_model_name(agent));
-    static cli_stream_ctx_t stream_ctx = {.enabled        = true,
-                                          .text_emitted   = false,
-                                          .line_open      = false,
-                                          .approvals      = false,
-                                          .allowed_count  = 0};
+    static cli_stream_ctx_t stream_ctx = {.enabled       = true,
+                                          .text_emitted  = false,
+                                          .line_open     = false,
+                                          .approvals     = false,
+                                          .allowed_count = 0};
     aegis_coding_agent_set_tool_approval(agent, cli_approval_cb, &stream_ctx);
     if (!json_mode_env()) {
         aegis_coding_agent_set_event_callback(agent, cli_event_cb, &stream_ctx);
     }
-    int         json_mode = json_mode_env();
+    int json_mode = json_mode_env();
     raw_enable();
     lq_init(&g_lines);
-    pthread_t   reader;
-    bool        reader_up = pthread_create(&reader, NULL, reader_main, NULL) == 0;
+    pthread_t reader;
+    bool      reader_up = pthread_create(&reader, NULL, reader_main, NULL) == 0;
     if (reader_up) {
         pthread_detach(reader); /* quit must not block on a PTY (no EOF) */
     }
@@ -611,7 +616,9 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/help") == 0 || strcmp(line, "/h") == 0) {
-            printf("/help /model /tools /usage /session /sessions /resume /fork /tree /compact /json /stream /approvals /stop /clear /quit\n");
+            printf(
+                "/help /model /tools /usage /session /sessions /resume /fork /tree /compact /json "
+                "/stream /approvals /stop /clear /quit\n");
             continue;
         }
         if (strcmp(line, "/usage") == 0) {
@@ -628,7 +635,7 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         }
         if (strcmp(line, "/tools") == 0) {
             aegis_tool_registry_t* tools = NULL;
-            aegis_status_t        stt   = aegis_coding_agent_tools(agent, &tools);
+            aegis_status_t         stt   = aegis_coding_agent_tools(agent, &tools);
             if (stt != AEGIS_OK) {
                 printf("error: %s\n", aegis_status_str(stt));
                 continue;
@@ -675,16 +682,17 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             while ((ent = readdir(d)) != NULL) {
                 const char* n = ent->d_name;
                 size_t      l = strlen(n);
-                if (strncmp(n, "session-", 8) != 0 || l < 8 + 4 || strcmp(n + l - 6, ".jsonl") != 0) {
+                if (strncmp(n, "session-", 8) != 0 || l < 8 + 4 ||
+                    strcmp(n + l - 6, ".jsonl") != 0) {
                     continue;
                 }
-                char        pbuf[1024];
+                char pbuf[1024];
                 snprintf(pbuf, sizeof(pbuf), ".aegis/%s", n);
                 struct stat st;
                 if (stat(pbuf, &st) != 0) {
                     continue;
                 }
-                char tsbuf[32];
+                char      tsbuf[32];
                 struct tm tm_v;
                 localtime_r(&st.st_mtime, &tm_v);
                 strftime(tsbuf, sizeof(tsbuf), "%Y-%m-%d %H:%M:%S", &tm_v);
@@ -771,8 +779,7 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
                 stream_ctx.approvals = (arg[0] == 'o' && arg[1] == 'n');
                 printf("approvals %s\n", stream_ctx.approvals ? "on" : "off");
             } else if (*arg == '\0') {
-                printf("approvals %s, always-allowed:",
-                       stream_ctx.approvals ? "on" : "off");
+                printf("approvals %s, always-allowed:", stream_ctx.approvals ? "on" : "off");
                 for (size_t i = 0; i < stream_ctx.allowed_count; i++) {
                     printf(" %s", stream_ctx.allowed_tools[i]);
                 }
@@ -800,12 +807,11 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         stream_ctx.text_emitted = false;
         stream_ctx.line_open    = false;
         /* Watch for interrupts / queued lines while the turn runs. */
-        watcher_ctx_t w = {.agent = agent, .pending = NULL, .n = 0, .cap = 0,
-                           .interrupted = false};
-        g_gate_watcher = &w;
-        pthread_t watcher;
-        bool      watcher_up = pthread_create(&watcher, NULL, watcher_main, &w) == 0;
-        aegis_status_t st2   = aegis_coding_agent_run(agent, line);
+        watcher_ctx_t w = {.agent = agent, .pending = NULL, .n = 0, .cap = 0, .interrupted = false};
+        g_gate_watcher  = &w;
+        pthread_t      watcher;
+        bool           watcher_up = pthread_create(&watcher, NULL, watcher_main, &w) == 0;
+        aegis_status_t st2        = aegis_coding_agent_run(agent, line);
         if (watcher_up) {
             lq_close(&g_lines); /* wake the watcher if blocked */
             pthread_join(watcher, NULL);

@@ -14,18 +14,18 @@
 #include <time.h>
 
 typedef struct {
-    int server_fd;
-    int status_code;
-    int close_without_done;
-    int saw_auth;
-    int saw_stream;
-    int saw_include_usage; /* request asked the server for usage in the stream */
-    int multi_chunk_tool;   /* stream a tool call split across chunks */
-    int reasoning_field;    /* 0=none, 1=reasoning_content, 2=reasoning */
-    int slow_chunks;        /* dribble chunks with delays (cancel test) */
-    int with_usage;         /* stream a final usage record */
-    const char* req_model;  /* captured "model" from request body */
-    char* req_model_copy;
+    int         server_fd;
+    int         status_code;
+    int         close_without_done;
+    int         saw_auth;
+    int         saw_stream;
+    int         saw_include_usage; /* request asked the server for usage in the stream */
+    int         multi_chunk_tool;  /* stream a tool call split across chunks */
+    int         reasoning_field;   /* 0=none, 1=reasoning_content, 2=reasoning */
+    int         slow_chunks;       /* dribble chunks with delays (cancel test) */
+    int         with_usage;        /* stream a final usage record */
+    const char* req_model;         /* captured "model" from request body */
+    char*       req_model_copy;
 } fixture_t;
 
 static void* fixture_thread(void* user)
@@ -41,10 +41,9 @@ static void* fixture_thread(void* user)
         used += (size_t)received;
         request[used] = '\0';
     }
-    fixture->saw_auth = strstr(request, "Authorization: Bearer test-key") != NULL;
-    fixture->saw_stream = strstr(request, "stream") != NULL;
-    fixture->saw_include_usage =
-        strstr(request, "\"include_usage\":true") != NULL;
+    fixture->saw_auth          = strstr(request, "Authorization: Bearer test-key") != NULL;
+    fixture->saw_stream        = strstr(request, "stream") != NULL;
+    fixture->saw_include_usage = strstr(request, "\"include_usage\":true") != NULL;
     /* Capture the model name from the body (after the header blank line). */
     const char* body_start = strstr(request, "\r\n\r\n");
     if (body_start) {
@@ -52,17 +51,19 @@ static void* fixture_thread(void* user)
         const char* model_key = strstr(body_start, "\"model\":");
         if (model_key) {
             model_key += strlen("\"model\":");
-            while (*model_key == ' ') ++model_key;
+            while (*model_key == ' ') {
+                ++model_key;
+            }
             if (*model_key == '"') {
                 ++model_key;
-                char model_buf[64] = {0};
-                size_t mi = 0;
+                char   model_buf[64] = {0};
+                size_t mi            = 0;
                 while (*model_key && *model_key != '"' && mi + 1 < sizeof(model_buf)) {
                     model_buf[mi++] = *model_key++;
                 }
                 free(fixture->req_model_copy);
                 fixture->req_model_copy = strdup(model_buf);
-                fixture->req_model = fixture->req_model_copy;
+                fixture->req_model      = fixture->req_model_copy;
             }
         }
     }
@@ -73,43 +74,49 @@ static void* fixture_thread(void* user)
     } else if (fixture->multi_chunk_tool) {
         /* Tool call split across chunks: first chunk carries id+name with empty
          * arguments, second carries only arguments (no id/name keys). */
-        body = "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-mc\","
-               "\"function\":{\"name\":\"read\",\"arguments\":\"\"}}]}}]}\n\n"
-               "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,"
-               "\"function\":{\"arguments\":\"{\\\"path\\\": \\\"f.c\\\"}\"}}]}}]}\n\n"
-               "data: [DONE]\n\n";
+        body =
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-mc\","
+            "\"function\":{\"name\":\"read\",\"arguments\":\"\"}}]}}]}\n\n"
+            "data: {\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,"
+            "\"function\":{\"arguments\":\"{\\\"path\\\": \\\"f.c\\\"}\"}}]}}]}\n\n"
+            "data: [DONE]\n\n";
     } else if (fixture->reasoning_field == 1) {
-        body = "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"thin\"}}]}\n\n"
-               "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"king\"}}]}\n\n"
-               "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
-               "data: [DONE]\n\n";
+        body =
+            "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"thin\"}}]}\n\n"
+            "data: {\"choices\":[{\"delta\":{\"reasoning_content\":\"king\"}}]}\n\n"
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
+            "data: [DONE]\n\n";
     } else if (fixture->reasoning_field == 2) {
-        body = "data: {\"choices\":[{\"delta\":{\"reasoning\":\"why\"}}]}\n\n"
-               "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
-               "data: [DONE]\n\n";
+        body =
+            "data: {\"choices\":[{\"delta\":{\"reasoning\":\"why\"}}]}\n\n"
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
+            "data: [DONE]\n\n";
     } else {
-        body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n"
-               "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n"
-               "data: "
-               "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-"
-               "1\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"path\\\":"
-               "\\\"README.md\\\"}\"}}]}}]}\n\n"
-               "data: [DONE]\n\n";
+        body =
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hel\"}}]}\n\n"
+            "data: {\"choices\":[{\"delta\":{\"content\":\"lo\"}}]}\n\n"
+            "data: "
+            "{\"choices\":[{\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call-"
+            "1\",\"function\":{\"name\":\"read\",\"arguments\":\"{\\\"path\\\":"
+            "\\\"README.md\\\"}\"}}]}}]}\n\n"
+            "data: [DONE]\n\n";
     }
     if (fixture->close_without_done) {
         body = "data: {\"choices\":[{\"delta\":{\"content\":\"partial\"}}]}\n\n";
     }
     if (fixture->with_usage) {
-        body = "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
-               "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":19,"
-               "\"completion_tokens\":23,\"total_tokens\":42}}\n\n"
-               "data: [DONE]\n\n";
+        body =
+            "data: {\"choices\":[{\"delta\":{\"content\":\"Hi\"}}]}\n\n"
+            "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":19,"
+            "\"completion_tokens\":23,\"total_tokens\":42}}\n\n"
+            "data: [DONE]\n\n";
     }
     if (fixture->slow_chunks) {
         /* One chunk, then a pause long enough for the test to cancel. */
-        body = "data: {\"choices\":[{\"delta\":{\"content\":\"first\"}}]}\n\n"
-               "data: {\"choices\":[{\"delta\":{\"content\":\"second\"}}]}\n\n"
-               "data: [DONE]\n\n";
+        body =
+            "data: {\"choices\":[{\"delta\":{\"content\":\"first\"}}]}\n\n"
+            "data: {\"choices\":[{\"delta\":{\"content\":\"second\"}}]}\n\n"
+            "data: [DONE]\n\n";
     }
 
     char header[256];
@@ -138,18 +145,18 @@ static void* fixture_thread(void* user)
 }
 
 typedef struct {
-    char   text[128];
-    size_t text_len;
-    int    starts;
-    int    deltas;
-    int    ends;
-    char   name[32];
-    char   id[32];
-    char   args[128];
-    char   reasoning[128];
-    size_t reasoning_len;
-    int    reasoning_deltas;
-    int    usage_events;
+    char     text[128];
+    size_t   text_len;
+    int      starts;
+    int      deltas;
+    int      ends;
+    char     name[32];
+    char     id[32];
+    char     args[128];
+    char     reasoning[128];
+    size_t   reasoning_len;
+    int      reasoning_deltas;
+    int      usage_events;
     uint32_t usage_in, usage_out, usage_total;
 } events_t;
 
@@ -183,9 +190,9 @@ static aegis_status_t collect_event(const aegis_model_stream_event_t* event, voi
         ++events->usage_events;
         if (event->data && event->len >= sizeof(aegis_usage_t)) {
             const aegis_usage_t* u = event->data;
-            events->usage_in    = u->input_tokens;
-            events->usage_out   = u->output_tokens;
-            events->usage_total = u->total_tokens;
+            events->usage_in       = u->input_tokens;
+            events->usage_out      = u->output_tokens;
+            events->usage_total    = u->total_tokens;
         }
     }
     return AEGIS_OK;
@@ -208,7 +215,7 @@ static int start_fixture(fixture_t* fixture)
 
 static void* sse_cancel_helper(void* arg)
 {
-    aegis_cancellation_token_t* tok = arg;
+    aegis_cancellation_token_t* tok   = arg;
     struct timespec             pause = {.tv_sec = 0, .tv_nsec = 150000000L};
     nanosleep(&pause, NULL);
     aegis_cancellation_token_request_cancel(tok);
@@ -252,13 +259,13 @@ int main(void)
 
     /* Usage record: provider streams a usage object before [DONE]. */
     fixture_t u_fixture = {.status_code = 200, .with_usage = 1};
-    port      = start_fixture(&u_fixture);
+    port                = start_fixture(&u_fixture);
     assert(pthread_create(&thread, NULL, fixture_thread, &u_fixture) == 0);
     snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
     aegis_openai_model_ctx_t* u_context = NULL;
     aegis_model_backend_t     u_backend = {0};
-    assert(aegis_openai_model_create("test-key", base_url, "test-model", &u_context,
-                                     &u_backend) == AEGIS_OK);
+    assert(aegis_openai_model_create("test-key", base_url, "test-model", &u_context, &u_backend) ==
+           AEGIS_OK);
     events_t u_events = {0};
     assert(u_backend.stream(u_backend.user, &request, NULL, collect_event, &u_events) == AEGIS_OK);
     assert(strcmp(u_events.text, "Hi") == 0);
@@ -272,7 +279,7 @@ int main(void)
 
     /* Multi-chunk tool call: args-only delta must not clobber id/name. */
     fixture_t mc_fixture = {.status_code = 200, .multi_chunk_tool = 1};
-    port      = start_fixture(&mc_fixture);
+    port                 = start_fixture(&mc_fixture);
     assert(pthread_create(&thread, NULL, fixture_thread, &mc_fixture) == 0);
     snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
     aegis_openai_model_ctx_t* mc_context = NULL;
@@ -280,7 +287,8 @@ int main(void)
     assert(aegis_openai_model_create("test-key", base_url, "test-model", &mc_context,
                                      &mc_backend) == AEGIS_OK);
     events_t mc_events = {0};
-    assert(mc_backend.stream(mc_backend.user, &request, NULL, collect_event, &mc_events) == AEGIS_OK);
+    assert(mc_backend.stream(mc_backend.user, &request, NULL, collect_event, &mc_events) ==
+           AEGIS_OK);
     assert(mc_events.starts == 1 && mc_events.deltas >= 1 && mc_events.ends == 1);
     assert(strcmp(mc_events.name, "read") == 0);
     assert(strcmp(mc_events.id, "call-mc") == 0);
@@ -292,7 +300,7 @@ int main(void)
 
     /* Reasoning via "reasoning_content" (DeepSeek-style) split across chunks. */
     fixture_t rc_fixture = {.status_code = 200, .reasoning_field = 1};
-    port      = start_fixture(&rc_fixture);
+    port                 = start_fixture(&rc_fixture);
     assert(pthread_create(&thread, NULL, fixture_thread, &rc_fixture) == 0);
     snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
     aegis_openai_model_ctx_t* rc_context = NULL;
@@ -300,7 +308,8 @@ int main(void)
     assert(aegis_openai_model_create("test-key", base_url, "test-model", &rc_context,
                                      &rc_backend) == AEGIS_OK);
     events_t rc_events = {0};
-    assert(rc_backend.stream(rc_backend.user, &request, NULL, collect_event, &rc_events) == AEGIS_OK);
+    assert(rc_backend.stream(rc_backend.user, &request, NULL, collect_event, &rc_events) ==
+           AEGIS_OK);
     assert(rc_events.reasoning_deltas == 2);
     assert(strcmp(rc_events.reasoning, "thinking") == 0);
     assert(strcmp(rc_events.text, "Hi") == 0);
@@ -311,13 +320,13 @@ int main(void)
 
     /* Reasoning via "reasoning" (OpenRouter-style), single chunk. */
     fixture_t r_fixture = {.status_code = 200, .reasoning_field = 2};
-    port      = start_fixture(&r_fixture);
+    port                = start_fixture(&r_fixture);
     assert(pthread_create(&thread, NULL, fixture_thread, &r_fixture) == 0);
     snprintf(base_url, sizeof(base_url), "http://127.0.0.1:%d/v1", port);
     aegis_openai_model_ctx_t* r_context = NULL;
     aegis_model_backend_t     r_backend = {0};
-    assert(aegis_openai_model_create("test-key", base_url, "test-model", &r_context,
-                                     &r_backend) == AEGIS_OK);
+    assert(aegis_openai_model_create("test-key", base_url, "test-model", &r_context, &r_backend) ==
+           AEGIS_OK);
     events_t r_events = {0};
     assert(r_backend.stream(r_backend.user, &request, NULL, collect_event, &r_events) == AEGIS_OK);
     assert(r_events.reasoning_deltas == 1);
@@ -379,8 +388,8 @@ int main(void)
         pthread_t helper;
         assert(pthread_create(&helper, NULL, sse_cancel_helper, tok) == 0);
 
-        aegis_status_t st = slow_backend.stream(slow_backend.user, &request, tok,
-                                                collect_event, &slow_events);
+        aegis_status_t st =
+            slow_backend.stream(slow_backend.user, &request, tok, collect_event, &slow_events);
         assert(st == AEGIS_ERR_CANCELLED);
         pthread_join(helper, NULL);
         pthread_join(thread, NULL);

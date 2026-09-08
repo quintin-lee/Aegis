@@ -12,9 +12,9 @@
 
 typedef struct ev_rec {
     aegis_agent_event_type_t type;
-    char           tool_name[64];
-    aegis_status_t status;
-    char           text[64];
+    char                     tool_name[64];
+    aegis_status_t           status;
+    char                     text[64];
 } ev_rec_t;
 
 typedef struct ev_log {
@@ -22,13 +22,13 @@ typedef struct ev_log {
     size_t   n;
 } ev_log_t;
 
-static void ev_push(ev_log_t* log, aegis_agent_event_type_t t, const char* tool,
-                    aegis_status_t st, const char* text)
+static void ev_push(ev_log_t* log, aegis_agent_event_type_t t, const char* tool, aegis_status_t st,
+                    const char* text)
 {
     assert(log->n < 32);
     ev_rec_t* r = &log->items[log->n++];
-    r->type   = t;
-    r->status = st;
+    r->type     = t;
+    r->status   = st;
     snprintf(r->tool_name, sizeof(r->tool_name), "%s", tool ? tool : "");
     snprintf(r->text, sizeof(r->text), "%s", text ? text : "");
 }
@@ -96,42 +96,55 @@ static aegis_status_t model_backend_stream(void* user, const aegis_model_request
     if (*turn == 0) {
         ++*turn;
         aegis_model_stream_event_t start = {
-            .type = AEGIS_MODEL_STREAM_TOOL_CALL_START, .index = 0,
-            .tool_name = "read", .call_id = "call-1",
+            .type      = AEGIS_MODEL_STREAM_TOOL_CALL_START,
+            .index     = 0,
+            .tool_name = "read",
+            .call_id   = "call-1",
         };
         aegis_model_stream_event_t delta = {
-            .type = AEGIS_MODEL_STREAM_TOOL_CALL_DELTA,
-            .data = "{\"path\":\"README.md\"}", .len = strlen("{\"path\":\"README.md\"}"),
-            .index = 0, .tool_name = "read", .call_id = "call-1",
+            .type      = AEGIS_MODEL_STREAM_TOOL_CALL_DELTA,
+            .data      = "{\"path\":\"README.md\"}",
+            .len       = strlen("{\"path\":\"README.md\"}"),
+            .index     = 0,
+            .tool_name = "read",
+            .call_id   = "call-1",
         };
         aegis_model_stream_event_t end = {
-            .type = AEGIS_MODEL_STREAM_TOOL_CALL_END, .index = 0,
-            .tool_name = "read", .call_id = "call-1",
+            .type      = AEGIS_MODEL_STREAM_TOOL_CALL_END,
+            .index     = 0,
+            .tool_name = "read",
+            .call_id   = "call-1",
         };
         assert(callback(&start, callback_user) == AEGIS_OK);
         assert(callback(&delta, callback_user) == AEGIS_OK);
         assert(callback(&end, callback_user) == AEGIS_OK);
-        aegis_usage_t              u  = {.input_tokens = 11, .output_tokens = 7, .total_tokens = 18};
+        aegis_usage_t              u = {.input_tokens = 11, .output_tokens = 7, .total_tokens = 18};
         aegis_model_stream_event_t uu = {
             .type = AEGIS_MODEL_STREAM_USAGE, .data = &u, .len = sizeof(u)};
         assert(callback(&uu, callback_user) == AEGIS_OK);
     } else {
-        const char*                r     = "thinking hard";
-        aegis_model_stream_event_t rev   = {
-            .type = AEGIS_MODEL_STREAM_REASONING_DELTA, .data = r, .len = strlen(r),
+        const char*                r   = "thinking hard";
+        aegis_model_stream_event_t rev = {
+            .type = AEGIS_MODEL_STREAM_REASONING_DELTA,
+            .data = r,
+            .len  = strlen(r),
         };
         assert(callback(&rev, callback_user) == AEGIS_OK);
         const char*                text  = "done";
         aegis_model_stream_event_t event = {
-            .type = AEGIS_MODEL_STREAM_TEXT_DELTA, .data = text, .len = strlen(text),
+            .type = AEGIS_MODEL_STREAM_TEXT_DELTA,
+            .data = text,
+            .len  = strlen(text),
         };
         assert(callback(&event, callback_user) == AEGIS_OK);
         /* Providers report usage near the end of the stream. */
         aegis_model_stream_event_t usage = {
-            .type = AEGIS_MODEL_STREAM_USAGE, .data = NULL, .len = sizeof(aegis_usage_t),
+            .type = AEGIS_MODEL_STREAM_USAGE,
+            .data = NULL,
+            .len  = sizeof(aegis_usage_t),
         };
         aegis_usage_t u = {.input_tokens = 11, .output_tokens = 7, .total_tokens = 18};
-        usage.data       = &u;
+        usage.data      = &u;
         assert(callback(&usage, callback_user) == AEGIS_OK);
     }
     aegis_model_stream_event_t end = {.type = AEGIS_MODEL_STREAM_END};
@@ -150,7 +163,9 @@ static aegis_status_t cancel_mid_stream(void* user, const aegis_model_request_t*
     (void)token;
     const char*                part = "partial text";
     aegis_model_stream_event_t ev   = {
-        .type = AEGIS_MODEL_STREAM_TEXT_DELTA, .data = part, .len = strlen(part),
+        .type = AEGIS_MODEL_STREAM_TEXT_DELTA,
+        .data = part,
+        .len  = strlen(part),
     };
     assert(callback(&ev, callback_user) == AEGIS_OK);
     return AEGIS_ERR_CANCELLED;
@@ -182,7 +197,7 @@ int main(void)
     aegis_model_client_t* model = NULL;
     assert(aegis_model_client_create_with_backend("fixture", &backend, &model) == AEGIS_OK);
 
-    ev_log_t log = {0};
+    ev_log_t                  log    = {0};
     aegis_agent_loop_config_t config = {
         .session       = session,
         .model         = model,
@@ -227,11 +242,11 @@ int main(void)
     /* ── Tool approval hook ───────────────────────────────────────────── */
     /* Deny-all: probe must NOT run; denial text goes back as tool result. */
     read_calls = 0;
-    turn = 0;
+    turn       = 0;
     assert(aegis_agent_loop_set_tool_approval(loop, deny_all, NULL) == AEGIS_OK);
     assert(aegis_agent_loop_run_turn(loop, "read README.md again") == AEGIS_OK);
     assert(read_calls == 0);
-    size_t nm = aegis_session_message_count(session);
+    size_t                 nm     = aegis_session_message_count(session);
     const aegis_message_t* tr_msg = NULL;
     for (size_t i = nm; i > 0; i--) {
         const aegis_message_t* m = aegis_session_message_at(session, i - 1);
@@ -245,14 +260,14 @@ int main(void)
 
     /* Allow-all: executes normally. */
     read_calls = 0;
-    turn = 0;
+    turn       = 0;
     assert(aegis_agent_loop_set_tool_approval(loop, approve_all, NULL) == AEGIS_OK);
     assert(aegis_agent_loop_run_turn(loop, "read README.md once more") == AEGIS_OK);
     assert(read_calls == 1);
 
     /* Unset the gate: back to implicit allow. */
     read_calls = 0;
-    turn = 0;
+    turn       = 0;
     assert(aegis_agent_loop_set_tool_approval(loop, NULL, NULL) == AEGIS_OK);
     assert(aegis_agent_loop_run_turn(loop, "read README.md yet again") == AEGIS_OK);
     assert(read_calls == 1);
@@ -276,14 +291,19 @@ int main(void)
     {
         int                   turn2    = 0;
         aegis_model_backend_t cbackend = {
-            .user = &turn2, .complete = NULL, .stream = cancel_mid_stream,
+            .user         = &turn2,
+            .complete     = NULL,
+            .stream       = cancel_mid_stream,
             .capabilities = AEGIS_MODEL_CAP_TEXT | AEGIS_MODEL_CAP_STREAMING,
         };
         aegis_model_client_t* cmodel = NULL;
         assert(aegis_model_client_create_with_backend("fixture-cancel", &cbackend, &cmodel) ==
                AEGIS_OK);
         aegis_agent_loop_config_t ccfg = {
-            .session = session, .model = cmodel, .tools = tools, .system_prompt = "fixture",
+            .session       = session,
+            .model         = cmodel,
+            .tools         = tools,
+            .system_prompt = "fixture",
         };
         aegis_agent_loop_t* cloop = NULL;
         assert(aegis_agent_loop_create(&ccfg, &cloop) == AEGIS_OK);
