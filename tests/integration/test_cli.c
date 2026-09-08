@@ -17,6 +17,7 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <pthread.h>
+#include <signal.h>
 #include <sys/socket.h>
 #include <assert.h>
 #include <dirent.h>
@@ -422,6 +423,75 @@ static void test_openai_provider_approvals(void)
 #endif
 }
 
+static void test_openai_provider_stop_command(void)
+{
+    printf("[test] openai_provider_stop_command ...\n");
+#ifndef AEGIS_OPENAI_PROVIDER
+    printf("  skipped (no OpenAI provider)\n");
+    return;
+#else
+    const char* bin = find_cli_bin();
+    char tmp[PATH_MAX];
+    assert(mktmpdir(tmp, sizeof(tmp)) != NULL);
+    char cwd[PATH_MAX];
+    assert(getcwd(cwd, sizeof(cwd)) != NULL);
+    assert(chdir(tmp) == 0);
+
+    sse_fixture_t fx = {.server_fd = -1, .port = 0, .tool_pattern = 1, .slow = 1, .count = 0};
+    int           port = start_sse_fixture(&fx);
+    pthread_t     thread;
+    assert(pthread_create(&thread, NULL, sse_fixture_thread, &fx) == 0);
+
+    char in_file[PATH_MAX + 16];
+    snprintf(in_file, sizeof(in_file), "%s/input.txt", tmp);
+    FILE* f = fopen(in_file, "w");
+    assert(f);
+    /* Line 1 starts a slow turn; line 2 is the /stop command mid-turn;
+     * line 3 is the next turn. */
+    fputs("hello\n/stop\nhello2\n/quit\n", f);
+    fclose(f);
+
+    f = fopen("a.txt", "w");
+    assert(f);
+    fputs("fixture-file-body", f);
+    fclose(f);
+
+    char env_cmd[8192];
+    snprintf(env_cmd, sizeof(env_cmd),
+             "AEGIS_PROVIDER=llm-openai OPENAI_API_KEY=test-key "
+             "AEGIS_OPENAI_BASE_URL=http://127.0.0.1:%d/v1 sh -c "
+             "'%s < %s' 2>&1",
+             port, bin, in_file);
+    FILE*  fp = popen(env_cmd, "r");
+    assert(fp);
+    char   out[16384] = {0};
+    size_t pos        = 0;
+    char   linebuf[1024];
+    while (fgets(linebuf, sizeof(linebuf), fp)) {
+        size_t tl = strlen(linebuf);
+        if (pos + tl + 1 < sizeof(out)) {
+            memcpy(out + pos, linebuf, tl);
+            pos += tl;
+            out[pos] = '\0';
+        }
+    }
+    pclose(fp);
+    pthread_join(thread, NULL);
+    close(fx.server_fd);
+
+    assert_contains(out, "⏹ interrupted", "interrupt marker via /stop");
+    /* The post-interrupt turn behavior (queued line drains through the REPL)
+     * is already covered by test_openai_provider_interrupt; here we verify
+     * only that /stop triggers the same interrupt as an empty line. */
+
+    assert(chdir(cwd) == 0);
+    char rmcmd[PATH_MAX * 2 + 64];
+    snprintf(rmcmd, sizeof(rmcmd), "rm -rf %s", tmp);
+    (void)system(rmcmd);
+    printf("  openai_provider_stop_command PASS\n");
+#endif
+}
+
 static void test_openai_provider_interrupt(void)
 {
     printf("[test] openai_provider_interrupt ...\n");
@@ -436,7 +506,7 @@ static void test_openai_provider_interrupt(void)
     assert(getcwd(cwd, sizeof(cwd)) != NULL);
     assert(chdir(tmp) == 0);
 
-    sse_fixture_t fx = {.server_fd = -1, .port = 0, .tool_pattern = 0, .slow = 1, .count = 0};
+    sse_fixture_t fx = {.server_fd = -1, .port = 0, .tool_pattern = 1, .slow = 1, .count = 0};
     int           port = start_sse_fixture(&fx);
     pthread_t     thread;
     assert(pthread_create(&thread, NULL, sse_fixture_thread, &fx) == 0);
@@ -546,7 +616,7 @@ static void test_interactive_commands(void)
 
     /* 4b. /tools lists every registered coding tool with a description */
     assert(run_cli_stdin("/tools\n/quit\n", out, sizeof(out), &ec) == 0);
-    assert_contains(out, "registered tools (7):", "tools header");
+    assert_contains(out, "registered tools (12):", "tools header");
     assert_contains(out, "read —", "read tool");
     assert_contains(out, "write —", "write tool");
     assert_contains(out, "edit —", "edit tool");
@@ -763,9 +833,14 @@ static void test_init_path(void)
 
 int main(void)
 {
+    /* The SSE fixture is a mock server: a cancelled client disconnects the
+     * socket mid-send, which would otherwise raise SIGPIPE and kill the
+     * whole test process. Disconnects are expected — ignore the signal. */
+    signal(SIGPIPE, SIG_IGN);
     test_openai_provider_streaming();
     test_openai_provider_approvals();
     test_openai_provider_interrupt();
+    test_openai_provider_stop_command();
     test_help_version();
     test_unknown_command();
     test_init_and_run();

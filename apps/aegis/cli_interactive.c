@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <termios.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -129,9 +130,57 @@ static line_queue_t g_lines;
  * never delivers EOF while the session stays attached). */
 static volatile sig_atomic_t g_reader_shutdown = 0;
 
+/* ── Raw-mode input (Esc-to-interrupt) ────────────────────────────────────
+ * A real interactive terminal is switched into non-canonical mode so a lone
+ * Esc byte arrives immediately (Claude-Code-style "press Esc to stop").
+ * ICANON | ECHO are cleared, ISIG is kept (Ctrl-C still terminates). When
+ * stdin is not a TTY (tests, pipes) none of this applies. */
+static struct termios g_orig_tio;
+static bool           g_raw_enabled = false;
+
+static void raw_enable(void)
+{
+    if (!isatty(STDIN_FILENO)) {
+        return;
+    }
+    if (tcgetattr(STDIN_FILENO, &g_orig_tio) != 0) {
+        return;
+    }
+    struct termios raw = g_orig_tio;
+    raw.c_lflag &= ~(tcflag_t)(ICANON | ECHO);
+    raw.c_cc[VMIN]  = 1;
+    raw.c_cc[VTIME] = 0;
+    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) == 0) {
+        g_raw_enabled = true;
+    }
+}
+
+static void raw_disable(void)
+{
+    if (g_raw_enabled) {
+        tcsetattr(STDIN_FILENO, TCSAFLUSH, &g_orig_tio);
+        g_raw_enabled = false;
+    }
+}
+
+/** Raw-mode echo of a single erase (backspace) step. */
+static void raw_erase(size_t* n)
+{
+    if (*n > 0) {
+        (*n)--;
+        fputs("\b \b", stdout);
+        fflush(stdout);
+    }
+}
+
 /* Read one line from stdin with a timeout so shutdown can release us.
  * Returns 1 with *line set (NUL-terminated, no newline), 0 on timeout/shutdown,
- * -1 on EOF. */
+ * -1 on EOF.
+ *
+ * Raw mode (TTY only): a lone Esc (0x1b) returns 1 with an EMPTY line — the
+ * caller routes empty lines to interrupt, exactly like Enter-to-interrupt.
+ * Esc + CSI/SS3 introducer ('[' or 'O') is consumed as an ignored arrow/function
+ * sequence. Printing chars are echoed; backspace erases. */
 static int read_line_timeout(char* buf, size_t cap)
 {
     size_t n = 0;
@@ -161,6 +210,49 @@ static int read_line_timeout(char* buf, size_t cap)
             }
             return -1;
         }
+
+        if (g_raw_enabled) {
+            if (ch == 0x1b) {
+                /* Lone Esc → interrupt (empty line). A following '[' or 'O'
+                 * within a short window marks an escape sequence to ignore. */
+                struct pollfd seq = {.fd = STDIN_FILENO, .events = POLLIN, .revents = 0};
+                if (poll(&seq, 1, 30) <= 0) {
+                    buf[0] = '\0';
+                    return 1;
+                }
+                /* Consume until the final byte of the CSI/SS3 sequence. */
+                char c2;
+                if (read(STDIN_FILENO, &c2, 1) == 1 && (c2 == '[' || c2 == 'O')) {
+                    char c3;
+                    for (;;) {
+                        if (read(STDIN_FILENO, &c3, 1) != 1) {
+                            break;
+                        }
+                        if (c3 >= 0x40 && c3 <= 0x7e) {
+                            break; /* final byte */
+                        }
+                    }
+                }
+                continue; /* ignored sequence; keep assembling the line */
+            }
+            if (ch == '\n' || ch == '\r') {
+                buf[n]   = '\0';
+                fputs("\r\n", stdout);
+                fflush(stdout);
+                return 1;
+            }
+            if (ch == 0x7f || ch == 0x08) {
+                raw_erase(&n);
+                continue;
+            }
+            if (n + 1 < cap) {
+                buf[n++] = ch;
+                fputc(ch, stdout);
+                fflush(stdout);
+            }
+            continue;
+        }
+
         if (ch == '\n' || ch == '\r') {
             buf[n] = '\0';
             return 1;
@@ -280,7 +372,7 @@ static void* watcher_main(void* arg)
                 continue;
             }
         }
-        if (line[0] == '\0') {
+        if (line[0] == '\0' || strcmp(line, "/stop") == 0) {
             if (!w->interrupted) {
                 w->interrupted = true;
                 aegis_coding_agent_interrupt(w->agent);
@@ -500,6 +592,7 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         aegis_coding_agent_set_event_callback(agent, cli_event_cb, &stream_ctx);
     }
     int         json_mode = json_mode_env();
+    raw_enable();
     lq_init(&g_lines);
     pthread_t   reader;
     bool        reader_up = pthread_create(&reader, NULL, reader_main, NULL) == 0;
@@ -518,7 +611,7 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/help") == 0 || strcmp(line, "/h") == 0) {
-            printf("/help /model /tools /usage /session /sessions /resume /fork /tree /compact /json /stream /approvals /clear /quit\n");
+            printf("/help /model /tools /usage /session /sessions /resume /fork /tree /compact /json /stream /approvals /stop /clear /quit\n");
             continue;
         }
         if (strcmp(line, "/usage") == 0) {
@@ -624,6 +717,12 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             }
             printf("resumed %s (%zu messages)\n", aegis_session_id(loaded),
                    aegis_session_message_count(loaded));
+            continue;
+        }
+        if (strcmp(line, "/stop") == 0) {
+            /* No turn is running here; the watcher handles /stop mid-turn. */
+            printf("not running\n");
+            free(line);
             continue;
         }
         if (strcmp(line, "/quit") == 0 || strcmp(line, "/exit") == 0 || strcmp(line, "/q") == 0) {
@@ -771,6 +870,7 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
         g_reader_shutdown = 1;
         lq_close(&g_lines);
     }
+    raw_disable();
     aegis_session_t* sess = aegis_coding_agent_session(agent);
     if (sess) {
         char path[1024];
