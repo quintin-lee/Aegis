@@ -4,6 +4,7 @@
 #include "aegis/coding/mutations.h"
 #include "path_safety.h"
 #include "aegis/coding/discovery_tools.h"
+#include "aegis/coding/git_tools.h"
 #include "aegis/tool/tool.h"
 #include "aegis/common/cancellation/cancellation.h"
 #include <stdlib.h>
@@ -549,6 +550,11 @@ aegis_status_t aegis_coding_tools_register_all(aegis_tool_registry_t*  reg,
         return st;
     }
     st = aegis_tool_registry_register(reg, &aegis_coding_tool_bash);
+    if (st != AEGIS_OK) {
+        return st;
+    }
+    // Register git tools
+    st = aegis_coding_git_tools_register_all(reg);
     if (st != AEGIS_OK) {
         return st;
     }
