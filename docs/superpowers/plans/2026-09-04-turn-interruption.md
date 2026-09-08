@@ -21,7 +21,7 @@
 
 The fixture backend (`model_backend_stream`, line 88) streams text `"done"` driven by an `int turn` counter in `backend.user`. For the interrupt scenario we need a *separate* fixture model whose stream callback triggers cancellation mid-stream. Steps:
 
-- [ ] **Step 1: Add fixture + scenario to `tests/unit/test_agent_events.c`**
+- [x] **Step 1: Add fixture + scenario to `tests/unit/test_agent_events.c`**
 
 Add after `model_backend_stream` (line ~130) a new backend whose stream emits one TEXT_DELTA (`"partial text"`) and then returns `AEGIS_ERR_CANCELLED` (simulating the provider observing cancellation). It needs access to the loop to cancel; store the loop pointer in a static, set right after `aegis_agent_loop_create`:
 
@@ -77,13 +77,13 @@ In `main`, before the final destroy/PASSED block, add a fresh loop sharing the s
 }
 ```
 
-- [ ] **Step 2: Build and verify RED**
+- [x] **Step 2: Build and verify RED**
 
 Run: `cmake --build build -j 2>&1 | grep -E "error" | head -5`
 Expected: `implicit declaration of function 'aegis_agent_loop_set_token'` is NOT expected here (test doesn't use it yet); the test should **compile** but FAIL at runtime:
 `assert(aegis_session_message_count(session) == before + 3)` — because the current loop discards `acc` and appends nothing on CANCELLED.
 
-- [ ] **Step 3: Implement partial preservation in `src/agent/loop.c`**
+- [x] **Step 3: Implement partial preservation in `src/agent/loop.c`**
 
 In `aegis_agent_loop_run_turn`, replace the model-stream error branch (lines ~594-601):
 
@@ -130,12 +130,12 @@ if (st != AEGIS_OK) {
 }
 ```
 
-- [ ] **Step 4: Run test to verify GREEN**
+- [x] **Step 4: Run test to verify GREEN**
 
 Run: `ctest --test-dir build -R unit_agent_events --output-on-failure 2>&1 | tail -3`
 Expected: `100% tests passed out of 1`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/agent/loop.c tests/unit/test_agent_events.c
@@ -149,7 +149,7 @@ git commit -m "feat: preserve partial reply and marker on turn cancellation"
 - Modify: `src/agent/loop.c` (next to `set_event_callback`, line ~96)
 - Test: `tests/unit/test_agent_events.c`
 
-- [ ] **Step 1: Add failing assertions to the interrupt scenario** (inside the Task-1 block, before destroy):
+- [x] **Step 1: Add failing assertions to the interrupt scenario** (inside the Task-1 block, before destroy):
 
 ```c
 /* Token rebind: a fresh token clears a cancelled state for the next run. */
@@ -166,11 +166,11 @@ aegis_cancellation_token_destroy(tok);
 
 Note: destroy of a bound token is the caller's responsibility to unbind first in real use; in the test the loop is destroyed right after, and the loop only stores the borrowed pointer, so this is safe here.
 
-- [ ] **Step 2: Build → RED** (implicit declaration of `aegis_agent_loop_set_token`)
+- [x] **Step 2: Build → RED** (implicit declaration of `aegis_agent_loop_set_token`)
 
 Run: `cmake --build build -j 2>&1 | grep -cE "error"` → expect ≥ 1
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 `include/aegis/agent/loop.h` (after the cancel/pause/resume declarations):
 
@@ -196,9 +196,9 @@ aegis_status_t aegis_agent_loop_set_token(aegis_agent_loop_t* l, aegis_cancellat
 }
 ```
 
-- [ ] **Step 4: GREEN** — `ctest --test-dir build -R unit_agent_events --output-on-failure 2>&1 | tail -1` → `100% tests passed out of 1`
+- [x] **Step 4: GREEN** — `ctest --test-dir build -R unit_agent_events --output-on-failure 2>&1 | tail -1` → `100% tests passed out of 1`
 
-- [ ] **Step 5: Commit** — `git add include/aegis/agent/loop.h src/agent/loop.c tests/unit/test_agent_events.c && git commit -m "feat: runtime token rebinding on agent loop"`
+- [x] **Step 5: Commit** — `git add include/aegis/agent/loop.h src/agent/loop.c tests/unit/test_agent_events.c && git commit -m "feat: runtime token rebinding on agent loop"`
 
 ## Chunk 2: Coding agent — per-turn token + interrupt()
 
@@ -209,7 +209,7 @@ aegis_status_t aegis_agent_loop_set_token(aegis_agent_loop_t* l, aegis_cancellat
 - Modify: `src/coding/coding_agent.c` (struct line ~22, three `loop_create` sites lines 172/249/340, `run` line ~262, destroy line ~191)
 - Test: `tests/unit/test_coding_agent.c`
 
-- [ ] **Step 1: Failing test in `tests/unit/test_coding_agent.c`**
+- [x] **Step 1: Failing test in `tests/unit/test_coding_agent.c`**
 
 The existing mock model (`src/model/model.c` default backend) checks the token between stream chunks and returns `AEGIS_ERR_CANCELLED`. To test interrupt mid-turn, add a fixture backend (file already includes `aegis/tool/tool.h`; add `#include "aegis/common/cancellation/cancellation.h"` and `#include "aegis/agent/loop.h"` if not present) whose stream cancels the loop via `aegis_coding_agent_interrupt` — but the coding-agent API takes the agent; simplest: use a global `aegis_coding_agent_t* g_agent` set before run, stream emits one TEXT_DELTA then calls `aegis_coding_agent_interrupt(g_agent)` and returns `AEGIS_ERR_CANCELLED`:
 
@@ -258,9 +258,9 @@ Test body (before final PASSED):
 }
 ```
 
-- [ ] **Step 2: Build → RED** (implicit declaration of `aegis_coding_agent_interrupt`)
+- [x] **Step 2: Build → RED** (implicit declaration of `aegis_coding_agent_interrupt`)
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 Header:
 
@@ -311,9 +311,9 @@ Destroy gains `if (a->token) { aegis_cancellation_token_destroy(a->token); }` be
 
 Note: `replace_session` (line ~249) and `set_model` (line ~340) rebuild the loop; add `.token = a->token,` so the current token stays bound.
 
-- [ ] **Step 4: GREEN** — `ctest --test-dir build -R unit_coding_agent --output-on-failure 2>&1 | tail -1` → `100% tests passed out of 1`
+- [x] **Step 4: GREEN** — `ctest --test-dir build -R unit_coding_agent --output-on-failure 2>&1 | tail -1` → `100% tests passed out of 1`
 
-- [ ] **Step 5: Commit** — `git add include/aegis/coding/coding_agent.h src/coding/coding_agent.c tests/unit/test_coding_agent.c && git commit -m "feat: coding agent per-turn token and interrupt()"`
+- [x] **Step 5: Commit** — `git add include/aegis/coding/coding_agent.h src/coding/coding_agent.c tests/unit/test_coding_agent.c && git commit -m "feat: coding agent per-turn token and interrupt()"`
 
 ## Chunk 3: OpenAI provider — curl immediate abort
 
@@ -322,7 +322,7 @@ Note: `replace_session` (line ~249) and `set_model` (line ~340) rebuild the loop
 **Files:**
 - Modify: `providers/llm/openai/structured_openai.c` (both `structured_stream` ~line 396 and the `complete` path's curl setup ~line 490s; `sse_state_t` at line ~35)
 
-- [ ] **Step 1: Failing test in `tests/unit/test_structured_openai.c`** — check how existing tests there drive curl (they likely use a local fixture server or mock). If a unit-level test is impractical without a slow server, cover via the integration slow-SSE scenario in Task 6 instead, and here only assert compile-level wiring. Prefer: extend `tests/system/test_openai_sse_e2e.c` with a *slow* fixture (sleep between chunks) and assert `AEGIS_ERR_CANCELLED` when the token is cancelled from another thread mid-transfer:
+- [x] **Step 1: Failing test in `tests/unit/test_structured_openai.c`** — check how existing tests there drive curl (they likely use a local fixture server or mock). If a unit-level test is impractical without a slow server, cover via the integration slow-SSE scenario in Task 6 instead, and here only assert compile-level wiring. Prefer: extend `tests/system/test_openai_sse_e2e.c` with a *slow* fixture (sleep between chunks) and assert `AEGIS_ERR_CANCELLED` when the token is cancelled from another thread mid-transfer:
 
 ```c
 /* In the SSE e2e test file: scenario "slow stream + cancel mid-transfer".
@@ -332,9 +332,9 @@ Note: `replace_session` (line ~249) and `set_model` (line ~340) rebuild the loop
  * AEGIS_ERR_CANCELLED well before the transfer completes. */
 ```
 
-- [ ] **Step 2: Run → RED** (returns `AEGIS_ERR_PROVIDER` or blocks until server finishes — not `AEGIS_ERR_CANCELLED` promptly)
+- [x] **Step 2: Run → RED** (returns `AEGIS_ERR_PROVIDER` or blocks until server finishes — not `AEGIS_ERR_CANCELLED` promptly)
 
-- [ ] **Step 3: Implement in `structured_openai.c`**
+- [x] **Step 3: Implement in `structured_openai.c`**
 
 Add to `sse_state_t`: keep existing `token` field (already present, line 35). Add progress callback:
 
@@ -370,9 +370,9 @@ if (token && aegis_cancellation_token_is_cancelled(token)) {
 
 (The stream path already returns CANCELLED post-perform but only *after* `cr != CURLE_OK` → `AEGIS_ERR_PROVIDER`; reorder so cancellation wins.)
 
-- [ ] **Step 4: GREEN** — `ctest --test-dir build -R "system_openai_sse_e2e|unit_structured_openai" --output-on-failure 2>&1 | tail -1`
+- [x] **Step 4: GREEN** — `ctest --test-dir build -R "system_openai_sse_e2e|unit_structured_openai" --output-on-failure 2>&1 | tail -1`
 
-- [ ] **Step 5: Commit** — `git add providers/llm/openai/structured_openai.c tests/system/test_openai_sse_e2e.c && git commit -m "feat: abort in-flight OpenAI requests on cancellation"`
+- [x] **Step 5: Commit** — `git add providers/llm/openai/structured_openai.c tests/system/test_openai_sse_e2e.c && git commit -m "feat: abort in-flight OpenAI requests on cancellation"`
 
 ## Chunk 4: CLI — reader thread, Enter-to-interrupt, queueing
 
@@ -383,7 +383,7 @@ if (token && aegis_cancellation_token_is_cancelled(token)) {
 - Modify: `CMakeLists.txt` line ~95 (`target_link_libraries(aegis PRIVATE aegis_core)` → add pthread)
 - Test: `tests/integration/test_cli.c`
 
-- [ ] **Step 1: CMake — link pthread into `aegis`**
+- [x] **Step 1: CMake — link pthread into `aegis`**
 
 ```cmake
 target_link_libraries(aegis PRIVATE aegis_core pthread)
@@ -391,7 +391,7 @@ target_link_libraries(aegis PRIVATE aegis_core pthread)
 
 (Keep the OpenAI conditional block as-is.)
 
-- [ ] **Step 2: Failing integration test in `tests/integration/test_cli.c`**
+- [x] **Step 2: Failing integration test in `tests/integration/test_cli.c`**
 
 Reuse the slow-SSE fixture pattern from Task 4's test (a fixture server variant with inter-chunk sleeps; add a `mode=slow` branch to the existing fixture thread in `test_openai_provider_streaming`, or a second fixture function `test_openai_provider_interrupt`):
 
@@ -406,11 +406,11 @@ Reuse the slow-SSE fixture pattern from Task 4's test (a fixture server variant 
  * the slow first turn); assert both replies appear in order. */
 ```
 
-- [ ] **Step 3: Run → RED** (empty line today is ignored → no `⏹ interrupted`)
+- [x] **Step 3: Run → RED** (empty line today is ignored → no `⏹ interrupted`)
 
 Run: `timeout 60 ./build/integration_cli > /tmp/int_t.log 2>&1; tr -d '\r' < /tmp/int_t.log | grep -c "interrupted"` → expect 0
 
-- [ ] **Step 4: Implement in `apps/aegis/cli_interactive.c`**
+- [x] **Step 4: Implement in `apps/aegis/cli_interactive.c`**
 
 Add includes `<pthread.h>`, `<sched.h>` (or use nanosleep via `<time.h>`, already included). Add above `cmd_interactive`:
 
@@ -552,15 +552,15 @@ Implementation detail to keep the diff small: convert the existing `while(1) { f
 
 Cancellation display: `run_line` keeps today's `st2 == AEGIS_ERR_CANCELLED → printf("cancelled\n")` branch but change the text to `⏹ interrupted`.
 
-- [ ] **Step 5: GREEN** — rebuild + `timeout 120 ./build/integration_cli > /tmp/int2.log 2>&1; echo $?; tr -d '\r' < /tmp/int2.log | grep -E "interrupted|mock stream for: hello2" | head -4`
+- [x] **Step 5: GREEN** — rebuild + `timeout 120 ./build/integration_cli > /tmp/int2.log 2>&1; echo $?; tr -d '\r' < /tmp/int2.log | grep -E "interrupted|mock stream for: hello2" | head -4`
 
-- [ ] **Step 6: Commit** — `git add apps/aegis/cli_interactive.c CMakeLists.txt tests/integration/test_cli.c && git commit -m "feat: Enter-to-interrupt and message queueing in interactive CLI"`
+- [x] **Step 6: Commit** — `git add apps/aegis/cli_interactive.c CMakeLists.txt tests/integration/test_cli.c && git commit -m "feat: Enter-to-interrupt and message queueing in interactive CLI"`
 
 ## Chunk 5: Full verification
 
 ### Task 6: Full suite + ASan + live smoke
 
-- [ ] **Step 1:** `pkill -9 -x aegis 2>/dev/null; ctest --test-dir build 2>&1 | grep "tests passed"` → expect `100% tests passed out of 60` (or 61+ with the new tests)
-- [ ] **Step 2:** `cmake -S . -B build-asan > /dev/null 2>&1 && cmake --build build-asan -j > /dev/null 2>&1 && ctest --test-dir build-asan 2>&1 | grep "tests passed"` → expect all green, zero leaks
-- [ ] **Step 3:** Live smoke with the real OpenAI mock server (`/tmp/aegis_live/mocksrv.py` extended with inter-chunk sleep): pipe `hello`, delay, empty line, `hello2`, `/quit` via a Python driver; verify `⏹ interrupted`, preserved partial text in the saved session JSONL, and that `hello2` gets a full reply
-- [ ] **Step 4:** Commit any remaining fixes; working tree clean
+- [x] **Step 1:** `pkill -9 -x aegis 2>/dev/null; ctest --test-dir build 2>&1 | grep "tests passed"` → expect `100% tests passed out of 60` (or 61+ with the new tests)
+- [x] **Step 2:** `cmake -S . -B build-asan > /dev/null 2>&1 && cmake --build build-asan -j > /dev/null 2>&1 && ctest --test-dir build-asan 2>&1 | grep "tests passed"` → expect all green, zero leaks
+- [x] **Step 3:** Live smoke with the real OpenAI mock server (`/tmp/aegis_live/mocksrv.py` extended with inter-chunk sleep): pipe `hello`, delay, empty line, `hello2`, `/quit` via a Python driver; verify `⏹ interrupted`, preserved partial text in the saved session JSONL, and that `hello2` gets a full reply
+- [x] **Step 4:** Commit any remaining fixes; working tree clean

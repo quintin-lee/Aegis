@@ -19,7 +19,7 @@
 **Files:**
 - Modify: `tests/unit/test_agent_events.c:66-103` (fixture backend), `:139-147` (assertions)
 
-- [ ] **Step 1: Extend fixture backend turn-1 (text turn) to emit reasoning before text**
+- [x] **Step 1: Extend fixture backend turn-1 (text turn) to emit reasoning before text**
 
 In `model_backend_stream`, else-branch (turn >= 1), before the TEXT_DELTA event:
 
@@ -38,7 +38,7 @@ In `model_backend_stream`, else-branch (turn >= 1), before the TEXT_DELTA event:
     }
 ```
 
-- [ ] **Step 2: Update event-sequence assertions**
+- [x] **Step 2: Update event-sequence assertions**
 
 ```c
     /* Event sequence: TOOL_START -> TOOL_END -> REASONING_DELTA -> TEXT_DELTA */
@@ -52,7 +52,7 @@ In `model_backend_stream`, else-branch (turn >= 1), before the TEXT_DELTA event:
 
 (The `ev_log_t` already stores `text` via `data/len` copy — verify field name when editing; it captures TEXT_DELTA text today, same path works for reasoning.)
 
-- [ ] **Step 3: Assert reasoning attached to final session message**
+- [x] **Step 3: Assert reasoning attached to final session message**
 
 After the sequence asserts:
 
@@ -63,7 +63,7 @@ After the sequence asserts:
     assert(strcmp(aegis_message_reasoning(last_msg), "thinking hard") == 0);
 ```
 
-- [ ] **Step 4: Build + run to verify failure**
+- [x] **Step 4: Build + run to verify failure**
 
 Run: `cmake --build build -j 2>&1 | grep -E "error|warning" | head; ctest --test-dir build -R unit_agent_events --output-on-failure 2>&1 | tail -8`
 Expected: compile error — `AEGIS_AGENT_EVENT_REASONING_DELTA` undeclared.
@@ -73,15 +73,15 @@ Expected: compile error — `AEGIS_AGENT_EVENT_REASONING_DELTA` undeclared.
 **Files:**
 - Modify: `include/aegis/agent/loop.h:30-34` (enum), `src/agent/loop.c:172-190` (accum struct), `:449-494` (stream_cb), `:560-570` (assembly), `:190-200` (destroy)
 
-- [ ] **Step 1: Add enum value** in `loop.h` after `AEGIS_AGENT_EVENT_TOOL_END`:
+- [x] **Step 1: Add enum value** in `loop.h` after `AEGIS_AGENT_EVENT_TOOL_END`:
 
 ```c
     AEGIS_AGENT_EVENT_REASONING_DELTA = 3, /**< data/len: borrowed reasoning fragment */
 ```
 
-- [ ] **Step 2: Add reasoning buffer to `stream_accum_t`** (`char* reasoning; size_t rlen; size_t rcap;`) and free it in `stream_accum_destroy`.
+- [x] **Step 2: Add reasoning buffer to `stream_accum_t`** (`char* reasoning; size_t rlen; size_t rcap;`) and free it in `stream_accum_destroy`.
 
-- [ ] **Step 3: Factor a shared append helper and use it for text and reasoning** (above `stream_cb`):
+- [x] **Step 3: Factor a shared append helper and use it for text and reasoning** (above `stream_cb`):
 
 ```c
 static int accum_append(char** buf, size_t* len, size_t* cap, const char* data, size_t n)
@@ -116,7 +116,7 @@ Refactor the existing TEXT_DELTA accumulation block in `stream_cb` to call it (b
     }
 ```
 
-- [ ] **Step 4: Attach reasoning at assembly** — right after the `aegis_message_set_content(am, ...)` success block (~line 566), before tool-call attachment:
+- [x] **Step 4: Attach reasoning at assembly** — right after the `aegis_message_set_content(am, ...)` success block (~line 566), before tool-call attachment:
 
 ```c
         if (acc.reasoning && aegis_message_set_reasoning(am, acc.reasoning) != AEGIS_OK) {
@@ -127,12 +127,12 @@ Refactor the existing TEXT_DELTA accumulation block in `stream_cb` to call it (b
         }
 ```
 
-- [ ] **Step 5: Build + run to verify pass**
+- [x] **Step 5: Build + run to verify pass**
 
 Run: `cmake --build build -j 2>&1 | grep -E "error|warning" | head; ctest --test-dir build -R unit_agent_events --output-on-failure 2>&1 | tail -3`
 Expected: PASS.
 
-- [ ] **Step 6: Commit Chunk 1**
+- [x] **Step 6: Commit Chunk 1**
 
 ```bash
 git add include/aegis/agent/loop.h src/agent/loop.c tests/unit/test_agent_events.c
@@ -148,7 +148,7 @@ git commit -m "feat: forward reasoning deltas as agent events and store on messa
 **Files:**
 - Modify: `tests/system/test_openai_sse_e2e.c` (fixture body switch, events collector, main)
 
-- [ ] **Step 1: Extend `fixture_t` with `int reasoning_field;` (0=none, 1=reasoning_content, 2=reasoning) and extend the body builder:**
+- [x] **Step 1: Extend `fixture_t` with `int reasoning_field;` (0=none, 1=reasoning_content, 2=reasoning) and extend the body builder:**
 
 ```c
     } else if (fixture->reasoning_field == 1) {
@@ -163,11 +163,11 @@ git commit -m "feat: forward reasoning deltas as agent events and store on messa
     }
 ```
 
-- [ ] **Step 2: Extend `events_t` + `collect_event`** with `char reasoning[128]; size_t reasoning_len; int reasoning_deltas;` handling `AEGIS_MODEL_STREAM_REASONING_DELTA` (same memcpy pattern as text).
+- [x] **Step 2: Extend `events_t` + `collect_event`** with `char reasoning[128]; size_t reasoning_len; int reasoning_deltas;` handling `AEGIS_MODEL_STREAM_REASONING_DELTA` (same memcpy pattern as text).
 
-- [ ] **Step 3: Two scenarios in `main()`** (clone the multi-chunk fixture pattern): assert `reasoning_deltas == 2 && strcmp(reasoning, "thinking") == 0` for field 1, `reasoning_deltas == 1 && strcmp(reasoning, "why") == 0` for field 2, and text still arrives.
+- [x] **Step 3: Two scenarios in `main()`** (clone the multi-chunk fixture pattern): assert `reasoning_deltas == 2 && strcmp(reasoning, "thinking") == 0` for field 1, `reasoning_deltas == 1 && strcmp(reasoning, "why") == 0` for field 2, and text still arrives.
 
-- [ ] **Step 4: Verify failure**
+- [x] **Step 4: Verify failure**
 
 Run: `cmake --build build -j 2>&1 | grep error | head; ctest --test-dir build -R system_openai_sse_e2e --output-on-failure 2>&1 | tail -6`
 Expected: assertion failure (`reasoning_deltas == 0`).
@@ -177,7 +177,7 @@ Expected: assertion failure (`reasoning_deltas == 0`).
 **Files:**
 - Modify: `providers/llm/openai/structured_openai.c` (`emit_record`, after the content block ~line 274)
 
-- [ ] **Step 1: Add reasoning detection after the content-delta block.** Check the long key first so `"reasoning"` never matches inside `"reasoning_content"`:
+- [x] **Step 1: Add reasoning detection after the content-delta block.** Check the long key first so `"reasoning"` never matches inside `"reasoning_content"`:
 
 ```c
     const char* rkey = strstr(json, "\"reasoning_content\"");
@@ -197,7 +197,7 @@ Simpler correct form (avoid double strstr confusion):
 
 Caveat: `json_string_after(json, "\"reasoning\"")` could still match the prefix inside `"reasoning_content"` **only if** the long key exists but `json_string_after` on it failed (e.g. value is `null`). That would then try to read `"reasoning_content"`'s value as the short key — same position, same failure (returns NULL). Verify this reasoning in code and add a comment.
 
-- [ ] **Step 2: Emit the event** (mirror the content block):
+- [x] **Step 2: Emit the event** (mirror the content block):
 
 ```c
     if (rcontent) {
@@ -213,12 +213,12 @@ Caveat: `json_string_after(json, "\"reasoning\"")` could still match the prefix 
 
 Note: emit reasoning **before** text within the same record if both appear — ordering matches token flow.
 
-- [ ] **Step 3: Verify pass + full suite**
+- [x] **Step 3: Verify pass + full suite**
 
 Run: `cmake --build build -j 2>&1 | grep error | head; ctest --test-dir build 2>&1 | tail -2`
 Expected: 100% pass.
 
-- [ ] **Step 4: Commit Chunk 2**
+- [x] **Step 4: Commit Chunk 2**
 
 ```bash
 git add providers/llm/openai/structured_openai.c tests/system/test_openai_sse_e2e.c
@@ -234,7 +234,7 @@ git commit -m "feat: parse reasoning_content/reasoning SSE fields into reasoning
 **Files:**
 - Modify: `src/model/model.c:185-210` (mock stream)
 
-- [ ] **Step 1: Before the text-chunk loop**, emit two reasoning chunks (cancellation-checked like the text loop):
+- [x] **Step 1: Before the text-chunk loop**, emit two reasoning chunks (cancellation-checked like the text loop):
 
 ```c
     static const char* rparts[] = {"thinking ", "about it..."};
@@ -247,16 +247,16 @@ git commit -m "feat: parse reasoning_content/reasoning SSE fields into reasoning
     }
 ```
 
-- [ ] **Step 2: Run affected suites** (mock is used by many tests): `ctest --test-dir build 2>&1 | tail -2`. If a test asserts exact byte streams from mock, update it to tolerate/expect reasoning chunks (investigate before changing — most use `assert_contains`).
+- [x] **Step 2: Run affected suites** (mock is used by many tests): `ctest --test-dir build 2>&1 | tail -2`. If a test asserts exact byte streams from mock, update it to tolerate/expect reasoning chunks (investigate before changing — most use `assert_contains`).
 
 ### Task 6: CLI dim-italic presentation
 
 **Files:**
 - Modify: `apps/aegis/cli_interactive.c:24-28` (ctx struct), `:44-92` (cli_event_cb)
 
-- [ ] **Step 1: Add `bool reasoning_open;`** to `cli_stream_ctx_t`.
+- [x] **Step 1: Add `bool reasoning_open;`** to `cli_stream_ctx_t`.
 
-- [ ] **Step 2: In `cli_event_cb`** add the case and block-closing logic:
+- [x] **Step 2: In `cli_event_cb`** add the case and block-closing logic:
 
 ```c
     case AEGIS_AGENT_EVENT_REASONING_DELTA:
@@ -284,9 +284,9 @@ In `AEGIS_AGENT_EVENT_TEXT_DELTA` and `AEGIS_AGENT_EVENT_TOOL_START` cases, **be
 
 Reasoning must NOT set `text_emitted` (dedup untouched).
 
-- [ ] **Step 3: Extend `tests/integration/test_cli.c`** streaming case: assert output contains `"\033[2m"` (reasoning styled) and final message still printed exactly once. Mock now emits reasoning automatically.
+- [x] **Step 3: Extend `tests/integration/test_cli.c`** streaming case: assert output contains `"\033[2m"` (reasoning styled) and final message still printed exactly once. Mock now emits reasoning automatically.
 
-- [ ] **Step 4: Verify + commit Chunk 3**
+- [x] **Step 4: Verify + commit Chunk 3**
 
 Run: `cmake --build build -j 2>&1 | grep error | head; ctest --test-dir build 2>&1 | tail -2`
 
@@ -304,16 +304,16 @@ git commit -m "feat: mock emits reasoning; CLI streams it dim-italic"
 **Files:**
 - Modify: `tests/unit/test_session.c` (add a roundtrip case near existing message roundtrip test)
 
-- [ ] **Step 1: Add test**: create session + assistant message with content + `aegis_message_set_reasoning(m, "deep thoughts")`, save, load into a second session, assert loaded message has identical reasoning. Also assert a session saved **without** reasoning loads with NULL reasoning (backward compat).
+- [x] **Step 1: Add test**: create session + assistant message with content + `aegis_message_set_reasoning(m, "deep thoughts")`, save, load into a second session, assert loaded message has identical reasoning. Also assert a session saved **without** reasoning loads with NULL reasoning (backward compat).
 
-- [ ] **Step 2: Verify failure**: `ctest --test-dir build -R unit_session --output-on-failure 2>&1 | tail -6`
+- [x] **Step 2: Verify failure**: `ctest --test-dir build -R unit_session --output-on-failure 2>&1 | tail -6`
 
 ### Task 8: Implement JSONL save/load of reasoning
 
 **Files:**
 - Modify: `src/session/session.c:257-261` (save), `:426-470` (load)
 
-- [ ] **Step 1: Save** — after `json_escape(f, content)`:
+- [x] **Step 1: Save** — after `json_escape(f, content)`:
 
 ```c
         const char* reasoning = aegis_message_reasoning(m);
@@ -326,13 +326,13 @@ git commit -m "feat: mock emits reasoning; CLI streams it dim-italic"
 
 (replacing the current unconditional `fputs("\"}\n", f);`)
 
-- [ ] **Step 2: Load** — mirror the content parser: extract `"reasoning":"` value with the same unescape loop, then `aegis_message_set_reasoning(m, reasoning)` after message creation (only when the key was present). Read lines 440-470 first and reuse the exact escape-handling pattern used for content.
+- [x] **Step 2: Load** — mirror the content parser: extract `"reasoning":"` value with the same unescape loop, then `aegis_message_set_reasoning(m, reasoning)` after message creation (only when the key was present). Read lines 440-470 first and reuse the exact escape-handling pattern used for content.
 
-- [ ] **Step 3: Verify + full suite**
+- [x] **Step 3: Verify + full suite**
 
 Run: `cmake --build build -j 2>&1 | grep error | head; ctest --test-dir build 2>&1 | tail -2`
 
-- [ ] **Step 4: Commit Chunk 4**
+- [x] **Step 4: Commit Chunk 4**
 
 ```bash
 git add src/session/session.c tests/unit/test_session.c
@@ -345,7 +345,7 @@ git commit -m "feat: persist message reasoning in session JSONL"
 
 ### Task 9: Verification + docs
 
-- [ ] **Step 1: Full ctest (normal build)**: `ctest --test-dir build 2>&1 | tail -2` — expect 100%.
-- [ ] **Step 2: ASan build + ctest**: `cmake -S . -B build-asan > /dev/null 2>&1 && cmake --build build-asan -j 2>&1 | grep error | head; ctest --test-dir build-asan 2>&1 | grep -E "passed|Failed"` — expect 100%, zero leaks.
-- [ ] **Step 3: Live smoke** (optional but recommended): rerun `/tmp/aegis_live/runtest3.sh` against the mock SSE server — verify dim reasoning block appears before text, `/stream off` suppresses it, session JSONL contains `"reasoning":"..."`.
-- [ ] **Step 4: Commit any stragglers** (e.g. integration test tweaks discovered in Task 9).
+- [x] **Step 1: Full ctest (normal build)**: `ctest --test-dir build 2>&1 | tail -2` — expect 100%.
+- [x] **Step 2: ASan build + ctest**: `cmake -S . -B build-asan > /dev/null 2>&1 && cmake --build build-asan -j 2>&1 | grep error | head; ctest --test-dir build-asan 2>&1 | grep -E "passed|Failed"` — expect 100%, zero leaks.
+- [x] **Step 3: Live smoke** (optional but recommended): rerun `/tmp/aegis_live/runtest3.sh` against the mock SSE server — verify dim reasoning block appears before text, `/stream off` suppresses it, session JSONL contains `"reasoning":"..."`.
+- [x] **Step 4: Commit any stragglers** (e.g. integration test tweaks discovered in Task 9).

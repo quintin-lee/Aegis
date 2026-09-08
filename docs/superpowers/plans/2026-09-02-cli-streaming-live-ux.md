@@ -37,7 +37,7 @@
 - Create: `tests/unit/test_agent_events.c`
 - Modify: `cmake/AegisTests.cmake`
 
-- [ ] **Step 1: 写测试**（fixture 模式照抄 `tests/system/test_coding_loop.c`：注册 read 探针工具 + 2 轮 fixture 后端：第 0 轮发 TOOL_CALL start/delta/end，第 1 轮发 text delta "done"）
+- [x] **Step 1: 写测试**（fixture 模式照抄 `tests/system/test_coding_loop.c`：注册 read 探针工具 + 2 轮 fixture 后端：第 0 轮发 TOOL_CALL start/delta/end，第 1 轮发 text delta "done"）
 
 ```c
 #define _POSIX_C_SOURCE 200809L
@@ -104,15 +104,15 @@ int main(void)
 }
 ```
 
-- [ ] **Step 2: CMake 注册** `aegis_add_test(unit_agent_events tests/unit/test_agent_events.c)` + ASan 属性列表追加
-- [ ] **Step 3: 验证失败**：`cmake --build build -j` → 编译失败（枚举不存在）
+- [x] **Step 2: CMake 注册** `aegis_add_test(unit_agent_events tests/unit/test_agent_events.c)` + ASan 属性列表追加
+- [x] **Step 3: 验证失败**：`cmake --build build -j` → 编译失败（枚举不存在）
 
 ### Task 2: 实现 loop 事件回调
 
 **Files:**
 - Modify: `include/aegis/agent/loop.h`、`src/agent/loop.c`
 
-- [ ] **Step 1: loop.h 增加声明**
+- [x] **Step 1: loop.h 增加声明**
 
 ```c
 typedef enum aegis_agent_event_type {
@@ -135,7 +135,7 @@ typedef void (*aegis_agent_event_fn)(const aegis_agent_event_t* ev, void* user);
 
 config 增加 `aegis_agent_event_fn on_event; void* event_user;`；新增 `aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* loop, aegis_agent_event_fn fn, void* user);`
 
-- [ ] **Step 2: loop.c 实现**
+- [x] **Step 2: loop.c 实现**
 
 - struct 加 `aegis_agent_event_fn on_event; void* event_user;`
 - create：从 cfg 拷贝（在加锁之前，无并发问题）
@@ -144,13 +144,13 @@ config 增加 `aegis_agent_event_fn on_event; void* event_user;`；新增 `aegis
 - 工具执行点：`aegis_tool_execute` 前发 TOOL_START（tool_name/cid）；执行后、append tool message 后发 TOOL_END（status=st；成功且字符串结果时 data=result 内容, len=strlen）
 - `aegis_agent_loop_set_event_callback`：加锁写指针字段（与 set_state 同一锁保护），返回 OK；NULL loop 返回 INVALID
 
-- [ ] **Step 3: 验证通过**
+- [x] **Step 3: 验证通过**
 
 Run: `cmake --build build -j && ctest --test-dir build -R unit_agent_events --output-on-failure`
 Expected: ALL_AGENT_EVENT_TESTS PASSED
 
-- [ ] **Step 4: 回归**：`ctest --test-dir build -R "system_coding_loop|system_openai" --output-on-failure` 全过
-- [ ] **Step 5: Commit**
+- [x] **Step 4: 回归**：`ctest --test-dir build -R "system_coding_loop|system_openai" --output-on-failure` 全过
+- [x] **Step 5: Commit**
 
 ```bash
 git add include/aegis/agent/loop.h src/agent/loop.c tests/unit/test_agent_events.c cmake/AegisTests.cmake
@@ -166,9 +166,9 @@ git commit -m "feat(agent): add observer event callback to agent loop"
 **Files:**
 - Modify: `tests/unit/test_coding_agent.c`、`include/aegis/coding/coding_agent.h`、`src/coding/coding_agent.c`
 
-- [ ] **Step 1: test_coding_agent.c 追加用例**：注册 ev_cb 记录事件 → `set_event_callback(agent, ev_cb, &log)` → run → 断言 log 非空且首事件为 TEXT_DELTA 或 TOOL_START → `set_event_callback(agent, NULL, NULL)` 后再 run 不再记录
+- [x] **Step 1: test_coding_agent.c 追加用例**：注册 ev_cb 记录事件 → `set_event_callback(agent, ev_cb, &log)` → run → 断言 log 非空且首事件为 TEXT_DELTA 或 TOOL_START → `set_event_callback(agent, NULL, NULL)` 后再 run 不再记录
 
-- [ ] **Step 2: coding_agent.h 声明**
+- [x] **Step 2: coding_agent.h 声明**
 
 ```c
 aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* agent,
@@ -176,9 +176,9 @@ aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* agent
                                                      void*                 user);
 ```
 
-- [ ] **Step 3: coding_agent.c 实现**：struct 加 `aegis_agent_event_fn ev_fn; void* ev_user;`；`set_event_callback` 校验后先存字段再调 `aegis_agent_loop_set_event_callback(a->loop, fn, user)`；`replace_session` 与 `set_model` 建 loop 的 config 中带 `on_event=a->ev_fn, event_user=a->ev_user`；create 建 loop 同样带入（初始 NULL）
+- [x] **Step 3: coding_agent.c 实现**：struct 加 `aegis_agent_event_fn ev_fn; void* ev_user;`；`set_event_callback` 校验后先存字段再调 `aegis_agent_loop_set_event_callback(a->loop, fn, user)`；`replace_session` 与 `set_model` 建 loop 的 config 中带 `on_event=a->ev_fn, event_user=a->ev_user`；create 建 loop 同样带入（初始 NULL）
 
-- [ ] **Step 4: 验证 + Commit**
+- [x] **Step 4: 验证 + Commit**
 
 Run: `ctest --test-dir build -R unit_coding_agent --output-on-failure` → PASS
 
@@ -196,7 +196,7 @@ git commit -m "feat(coding): expose agent event callback registration"
 **Files:**
 - Modify: `apps/aegis/cli_interactive.c`
 
-- [ ] **Step 1: 回调上下文与打印函数**（文件内 static）
+- [x] **Step 1: 回调上下文与打印函数**（文件内 static）
 
 ```c
 typedef struct cli_stream_ctx {
@@ -251,24 +251,24 @@ static void cli_event_cb(const aegis_agent_event_t* ev, void* user)
 }
 ```
 
-- [ ] **Step 2: cmd_interactive 接线**：`static cli_stream_ctx_t stream_ctx = {.enabled = true, ...}`（函数内 static 或文件级；每次 run 前 reset `text_emitted=false`）；`aegis_coding_agent_set_event_callback(agent, cli_event_cb, &stream_ctx)` 在 agent 创建成功后调用
-- [ ] **Step 3: /stream 开关**：`/stream` 切换布尔并打印 `stream on/off`
-- [ ] **Step 4: 去重**：`aegis_coding_agent_run` 返回 OK 时：
+- [x] **Step 2: cmd_interactive 接线**：`static cli_stream_ctx_t stream_ctx = {.enabled = true, ...}`（函数内 static 或文件级；每次 run 前 reset `text_emitted=false`）；`aegis_coding_agent_set_event_callback(agent, cli_event_cb, &stream_ctx)` 在 agent 创建成功后调用
+- [x] **Step 3: /stream 开关**：`/stream` 切换布尔并打印 `stream on/off`
+- [x] **Step 4: 去重**：`aegis_coding_agent_run` 返回 OK 时：
 
 ```c
 if (!stream_ctx.text_emitted && !json_mode) { /* 现有 last-message 打印路径 */ }
 /* json_mode 永远走现有路径 */
 ```
 
-- [ ] **Step 5: /help 加 /stream**
-- [ ] **Step 6: 编译验证**：`cmake --build build -j` 0 error
+- [x] **Step 5: /help 加 /stream**
+- [x] **Step 6: 编译验证**：`cmake --build build -j` 0 error
 
 ### Task 5: CLI 集成测试
 
 **Files:**
 - Modify: `tests/integration/test_cli.c`
 
-- [ ] **Step 1: test_interactive_commands 追加**
+- [x] **Step 1: test_interactive_commands 追加**
 
 ```c
 /* mock 模型下 prompt 会得到回复文本 */
@@ -281,10 +281,10 @@ run: "/stream off\nhello again\n/quit\n"
 
 断言要点：`strstr(out,"mock stream for:")` 首次出现位置 == 最后一次出现位置（唯一性）；`/stream` 命令回显 on/off。
 
-- [ ] **Step 2: 运行**
+- [x] **Step 2: 运行**
 
 Run: `ctest --test-dir build -R integration_cli --output-on-failure` → PASS
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/aegis/cli_interactive.c tests/integration/test_cli.c
@@ -297,15 +297,15 @@ git commit -m "feat(cli): stream tokens and tool events live in interactive mode
 
 ### Task 6: 回归与消毒
 
-- [ ] **Step 1: 全量测试** `ctest --test-dir build --output-on-failure` → 全过（61+）
-- [ ] **Step 2: ASan** `ctest --test-dir build-asan --output-on-failure` → 全过 0 泄漏
-- [ ] **Step 3: 确认 git status 无计划外文件；无关脏文件不提交**
+- [x] **Step 1: 全量测试** `ctest --test-dir build --output-on-failure` → 全过（61+）
+- [x] **Step 2: ASan** `ctest --test-dir build-asan --output-on-failure` → 全过 0 泄漏
+- [x] **Step 3: 确认 git status 无计划外文件；无关脏文件不提交**
 
 ---
 
 ## 验收标准
 
-- [ ] 交互模式逐 token 实时显示文本；工具调用显示 `● name` 与 `✓/✗` 结果行
-- [ ] 同一回复文本不重复输出；JSON 与 /print 模式不变
-- [ ] 回调 NULL / /stream off 时行为与现状一致
-- [ ] 全量 ctest + ASan 通过，0 编译警告
+- [x] 交互模式逐 token 实时显示文本；工具调用显示 `● name` 与 `✓/✗` 结果行
+- [x] 同一回复文本不重复输出；JSON 与 /print 模式不变
+- [x] 回调 NULL / /stream off 时行为与现状一致
+- [x] 全量 ctest + ASan 通过，0 编译警告
