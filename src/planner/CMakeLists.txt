@@ -2,7 +2,6 @@
 add_library(aegis_planner
     plan.c planner.c
     ${PROJECT_SOURCE_DIR}/src/strategy/strategy_registry.c
-    ${PROJECT_SOURCE_DIR}/src/strategy/autonomous_strategy.c
     ${PROJECT_SOURCE_DIR}/strategies/plan_execute/plan_execute.c
 )
 target_include_directories(aegis_planner PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>

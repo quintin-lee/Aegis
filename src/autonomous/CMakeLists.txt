@@ -2,6 +2,7 @@
 add_library(aegis_autonomous
     autonomous_state.c
     autonomous_agent.c
+    ${PROJECT_SOURCE_DIR}/src/strategy/autonomous_strategy.c
     memory_mock.c
     state_machine.c lifecycle.c checkpoint.c recovery.c
     planning.c execution.c evaluation.c reflection.c replanning.c loop.c
