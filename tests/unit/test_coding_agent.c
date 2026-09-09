@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/coding_agent.h"
+#include "aegis/message/message.h"
 #include "aegis/session/session.h"
 #include "aegis/tool/tool.h"
 #include "aegis/agent/loop.h"
@@ -92,6 +93,27 @@ int main(void)
     assert(aegis_coding_agent_set_event_callback(NULL, NULL, NULL) == AEGIS_ERR_INVALID);
 
     aegis_coding_agent_destroy(agent);
+
+    {
+        aegis_coding_agent_config_t c2 = {0};
+        c2.project_root                = ".";
+        c2.model                       = "mock";
+        aegis_coding_agent_t* ca       = NULL;
+        expect_ok(aegis_coding_agent_create(&c2, &ca), "create compact agent");
+        aegis_session_t* ss = aegis_coding_agent_session(ca);
+        assert(ss != NULL);
+        for (int i = 0; i < 130; i++) {
+            aegis_message_t* m = NULL;
+            assert(aegis_message_create(AEGIS_MESSAGE_USER, &m) == AEGIS_OK);
+            assert(aegis_message_set_content(m, "filler") == AEGIS_OK);
+            assert(aegis_session_append_message(ss, m) == AEGIS_OK);
+            aegis_message_destroy(m);
+        }
+        expect_ok(aegis_coding_agent_run(ca, "go"), "run with oversized session");
+        assert(aegis_session_message_count(ss) <= 129);
+        aegis_coding_agent_destroy(ca);
+        printf("session_compact PASS\n");
+    }
 
     /* Event observer pass-through: register -> run -> observe -> clear */
     aegis_coding_agent_t* agent2 = NULL;

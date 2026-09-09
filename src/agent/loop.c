@@ -219,7 +219,7 @@ static aegis_status_t build_context_messages(aegis_agent_loop_t* l, aegis_messag
         }
     }
     size_t n     = aegis_session_message_count(l->session);
-    size_t first = n > 128 ? n - 128 : 0;
+    size_t first = n > AEGIS_LOOP_CONTEXT_WINDOW ? n - AEGIS_LOOP_CONTEXT_WINDOW : 0;
     for (size_t i = first; i < n; ++i) {
         if (l->token && aegis_cancellation_token_is_cancelled(l->token)) {
             aegis_message_list_destroy(list);

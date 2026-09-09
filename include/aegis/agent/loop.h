@@ -3,6 +3,8 @@
 
 #include "aegis/agent/state.h"
 #include "aegis/agent/strategy.h"
+
+#define AEGIS_LOOP_CONTEXT_WINDOW 128
 #include "aegis/session/session.h"
 #include "aegis/message/usage.h"
 #include "aegis/model/model.h"

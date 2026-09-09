@@ -281,7 +281,11 @@ aegis_status_t aegis_coding_agent_run(aegis_coding_agent_t* a, const char* user_
     }
     a->token = tok;
     aegis_agent_loop_set_token(a->loop, tok);
-    return aegis_agent_loop_run(a->loop, user_input);
+    st = aegis_agent_loop_run(a->loop, user_input);
+    if (aegis_agent_loop_context_dropped(a->loop) > 0) {
+        (void)aegis_session_compact(a->session, AEGIS_LOOP_CONTEXT_WINDOW);
+    }
+    return st;
 }
 
 aegis_status_t aegis_coding_agent_interrupt(const aegis_coding_agent_t* a)
