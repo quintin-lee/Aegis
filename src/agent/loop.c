@@ -103,6 +103,11 @@ aegis_agent_loop_state_t aegis_agent_loop_state(const aegis_agent_loop_t* l)
     return s;
 }
 
+aegis_session_t* aegis_agent_loop_session(const aegis_agent_loop_t* loop)
+{
+    return loop ? loop->session : NULL;
+}
+
 aegis_status_t aegis_agent_loop_cancel(aegis_agent_loop_t* l)
 {
     if (!l) {

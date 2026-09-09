@@ -82,6 +82,11 @@ void           aegis_agent_loop_destroy(aegis_agent_loop_t* loop);
 
 aegis_agent_loop_state_t aegis_agent_loop_state(const aegis_agent_loop_t* loop);
 
+/** Borrowed session handle (NULL when loop is NULL). The session pointer is
+ *  fixed at create time so no lock is taken; the caller must ensure no
+ *  concurrent mutation while using it. */
+aegis_session_t* aegis_agent_loop_session(const aegis_agent_loop_t* loop);
+
 aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* loop, const char* user_input);
 aegis_status_t aegis_agent_loop_run(aegis_agent_loop_t* loop, const char* user_input);
 
