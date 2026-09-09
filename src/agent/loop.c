@@ -1,6 +1,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent/loop.h"
 #include "aegis/agent/state.h"
+#include "aegis/agent/strategy.h"
 #include "aegis/message/message.h"
 #include "aegis/context/context.h"
 #include <stdlib.h>
@@ -23,6 +24,8 @@ struct aegis_agent_loop {
     void*                       event_user;
     aegis_tool_approval_fn      tool_approval;
     void*                       approval_user;
+    const aegis_agent_strategy_def_t* strategy; /**< Borrowed, NULL = reactive flow. */
+    uint32_t max_strategy_turns; /**< Cap on strategy-continued turns. */
     aegis_usage_t               last_usage;  /**< usage of the most recent completed turn */
     aegis_usage_t               total_usage; /**< lifetime usage across all turns       */
     pthread_mutex_t             lock;
@@ -41,6 +44,9 @@ aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
     if (!cfg || !out || !cfg->session || !cfg->model) {
         return AEGIS_ERR_INVALID;
     }
+    if (cfg->strategy && cfg->strategy->abi_version != AEGIS_AGENT_STRATEGY_ABI_VERSION) {
+        return AEGIS_ERR_INVALID;
+    }
     aegis_agent_loop_t* l = (aegis_agent_loop_t*)calloc(1, sizeof(*l));
     if (!l) {
         return AEGIS_ERR_NOMEM;
@@ -53,11 +59,22 @@ aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
     l->event_user    = cfg->event_user;
     l->tool_approval = cfg->tool_approval;
     l->approval_user = cfg->approval_user;
+    l->strategy      = cfg->strategy;
+    l->max_strategy_turns = cfg->max_strategy_turns ? cfg->max_strategy_turns : 10;
     l->state         = AEGIS_AGENT_LOOP_IDLE;
     if (cfg->system_prompt) {
         l->system_prompt = strdup(cfg->system_prompt);
     }
     pthread_mutex_init(&l->lock, NULL);
+    if (l->strategy && l->strategy->init) {
+        aegis_status_t irc = l->strategy->init(l->strategy->user);
+        if (irc != AEGIS_OK) {
+            pthread_mutex_destroy(&l->lock);
+            free(l->system_prompt);
+            free(l);
+            return irc;
+        }
+    }
     *out = l;
     return AEGIS_OK;
 }
@@ -66,6 +83,9 @@ void aegis_agent_loop_destroy(aegis_agent_loop_t* l)
 {
     if (!l) {
         return;
+    }
+    if (l->strategy && l->strategy->shutdown) {
+        l->strategy->shutdown(l->strategy->user);
     }
     free(l->system_prompt);
     pthread_mutex_destroy(&l->lock);
@@ -560,6 +580,41 @@ static aegis_status_t stream_cb(const aegis_model_stream_event_t* ev, void* user
     return AEGIS_OK;
 }
 
+/* ── Strategy hooks (all optional, invoked without the loop lock) ─────────── */
+
+static aegis_status_t strat_before_turn(aegis_agent_loop_t* l)
+{
+    if (!l->strategy || !l->strategy->before_turn) {
+        return AEGIS_OK;
+    }
+    return l->strategy->before_turn(l->strategy->user, l);
+}
+
+static aegis_status_t strat_after_model(aegis_agent_loop_t* l)
+{
+    if (!l->strategy || !l->strategy->after_model) {
+        return AEGIS_OK;
+    }
+    return l->strategy->after_model(l->strategy->user, l);
+}
+
+static aegis_status_t strat_after_tool(aegis_agent_loop_t* l)
+{
+    if (!l->strategy || !l->strategy->after_tool) {
+        return AEGIS_OK;
+    }
+    return l->strategy->after_tool(l->strategy->user, l);
+}
+
+static aegis_status_t strat_should_continue(aegis_agent_loop_t* l, int* out)
+{
+    if (!l->strategy || !l->strategy->should_continue) {
+        *out = 0;
+        return AEGIS_OK;
+    }
+    return l->strategy->should_continue(l->strategy->user, out);
+}
+
 aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user_input)
 {
     if (!l || !user_input) {
@@ -586,6 +641,16 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
     pthread_mutex_lock(&l->lock);
     l->last_usage = (aegis_usage_t){0};
     pthread_mutex_unlock(&l->lock);
+
+    {
+        aegis_status_t sst = strat_before_turn(l);
+        if (sst != AEGIS_OK) {
+            set_state(l, sst == AEGIS_ERR_CANCELLED ? AEGIS_AGENT_LOOP_CANCELLED
+                                                    : AEGIS_AGENT_LOOP_FAILED);
+            return sst;
+        }
+    }
+    unsigned strategy_turns = 0;
 
     for (unsigned turn = 0; turn < 16; ++turn) {
         if (l->token && aegis_cancellation_token_is_cancelled(l->token)) {
@@ -710,7 +775,28 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
             return st;
         }
 
+        st = strat_after_model(l);
+        if (st != AEGIS_OK) {
+            aegis_message_destroy(am);
+            set_state(l, st == AEGIS_ERR_CANCELLED ? AEGIS_AGENT_LOOP_CANCELLED
+                                                   : AEGIS_AGENT_LOOP_FAILED);
+            return st;
+        }
+
         if (tc == 0) {
+            int cont = 0;
+            st       = strat_should_continue(l, &cont);
+            if (st != AEGIS_OK) {
+                aegis_message_destroy(am);
+                set_state(l, st == AEGIS_ERR_CANCELLED ? AEGIS_AGENT_LOOP_CANCELLED
+                                                       : AEGIS_AGENT_LOOP_FAILED);
+                return st;
+            }
+            if (cont && strategy_turns < l->max_strategy_turns) {
+                strategy_turns++;
+                aegis_message_destroy(am);
+                continue;
+            }
             aegis_message_destroy(am);
             set_state(l, AEGIS_AGENT_LOOP_COMPLETED);
             return AEGIS_OK;
@@ -803,6 +889,13 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
             if (st != AEGIS_OK) {
                 aegis_message_destroy(am);
                 set_state(l, AEGIS_AGENT_LOOP_FAILED);
+                return st;
+            }
+            st = strat_after_tool(l);
+            if (st != AEGIS_OK) {
+                aegis_message_destroy(am);
+                set_state(l, st == AEGIS_ERR_CANCELLED ? AEGIS_AGENT_LOOP_CANCELLED
+                                                       : AEGIS_AGENT_LOOP_FAILED);
                 return st;
             }
             if (l->token && aegis_cancellation_token_is_cancelled(l->token)) {

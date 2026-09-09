@@ -2,6 +2,7 @@
 #define AEGIS_AGENT_LOOP_H
 
 #include "aegis/agent/state.h"
+#include "aegis/agent/strategy.h"
 #include "aegis/session/session.h"
 #include "aegis/message/usage.h"
 #include "aegis/model/model.h"
@@ -71,6 +72,8 @@ typedef struct aegis_agent_loop_config {
     void*                       event_user;     // borrowed, passed to on_event
     aegis_tool_approval_fn      tool_approval;  // optional gate, NULL = allow all
     void*                       approval_user;  // borrowed, passed to tool_approval
+    const aegis_agent_strategy_def_t* strategy; // borrowed, NULL = reactive coding flow
+    uint32_t max_strategy_turns; // cap on strategy-continued turns, 0 = default 10
 } aegis_agent_loop_config_t;
 
 aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
