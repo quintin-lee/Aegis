@@ -830,7 +830,7 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
             if (!json_parse_args(raw_args ? raw_args : "{}", &args)) {
                 aegis_message_destroy(am);
                 set_state(l, AEGIS_AGENT_LOOP_FAILED);
-                return AEGIS_ERR_INVALID;
+                return AEGIS_ERR_TOOL_VALIDATION;
             }
             if (l->on_event) {
                 aegis_agent_event_t ev = {

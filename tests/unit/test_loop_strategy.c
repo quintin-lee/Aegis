@@ -2,6 +2,8 @@
 #include "aegis/agent/loop.h"
 #include "aegis/model/model.h"
 #include "aegis/session/session.h"
+#include "aegis/status.h"
+#include "aegis/tool/tool.h"
 
 #include <assert.h>
 #include <stdio.h>
@@ -169,6 +171,50 @@ static void make_def(strat_rec_t* r, aegis_agent_strategy_def_t* def)
     def->user            = r;
 }
 
+static aegis_status_t badargs_backend_stream(void* user, const aegis_model_request_t* req,
+                                               const aegis_cancellation_token_t* tok,
+                                               aegis_model_stream_callback_fn cb, void* cbuser)
+{
+    const char* bad = "not-json{{{";
+    (void)user;
+    (void)req;
+    (void)tok;
+    aegis_model_stream_event_t start = {
+        .type = AEGIS_MODEL_STREAM_TOOL_CALL_START, .index = 0, .tool_name = "read",
+        .call_id = "call-9",
+    };
+    aegis_model_stream_event_t delta = {
+        .type = AEGIS_MODEL_STREAM_TOOL_CALL_DELTA, .data = bad, .len = strlen(bad), .index = 0,
+        .tool_name = "read", .call_id = "call-9",
+    };
+    aegis_model_stream_event_t end = {
+        .type = AEGIS_MODEL_STREAM_TOOL_CALL_END, .index = 0, .tool_name = "read",
+        .call_id = "call-9",
+    };
+    if (cb(&start, cbuser) != AEGIS_OK) {
+        return AEGIS_ERR_INTERNAL;
+    }
+    if (cb(&delta, cbuser) != AEGIS_OK) {
+        return AEGIS_ERR_INTERNAL;
+    }
+    if (cb(&end, cbuser) != AEGIS_OK) {
+        return AEGIS_ERR_INTERNAL;
+    }
+    aegis_model_stream_event_t done = {.type = AEGIS_MODEL_STREAM_END};
+    return cb(&done, cbuser);
+}
+
+static aegis_status_t dummy_execute(void* user, const aegis_tool_args_t* args,
+                                    const aegis_cancellation_token_t* token,
+                                    aegis_tool_result_t*              out)
+{
+    (void)user;
+    (void)args;
+    (void)token;
+    (void)out;
+    return AEGIS_OK;
+}
+
 int main(void)
 {
     /* ABI mismatch is rejected at create. */
@@ -230,6 +276,48 @@ int main(void)
         assert(r.after_model == 0);
         ctx_destroy(&c);
         printf("hook_abort PASS\n");
+    }
+
+    {
+        aegis_session_t* session = NULL;
+        assert(aegis_session_create(".", &session) == AEGIS_OK);
+        aegis_tool_registry_t* tools = NULL;
+        assert(aegis_tool_registry_create(&tools) == AEGIS_OK);
+        static const aegis_tool_param_spec_t params[] = {
+            {.name = "path", .type = AEGIS_TOOL_VAL_STRING, .required = true},
+        };
+        aegis_tool_def_t tdef = {
+            .name     = "read",
+            .schema   = {.params = params, .param_count = 1},
+            .execute  = dummy_execute,
+        };
+        assert(aegis_tool_registry_register(tools, &tdef) == AEGIS_OK);
+        static aegis_model_backend_t bad_backend = {
+            .user         = NULL,
+            .complete     = NULL,
+            .stream       = badargs_backend_stream,
+            .capabilities = AEGIS_MODEL_CAP_TEXT | AEGIS_MODEL_CAP_TOOL_CALLING |
+                            AEGIS_MODEL_CAP_STREAMING,
+        };
+        aegis_model_client_t* model = NULL;
+        assert(aegis_model_client_create_with_backend("fixture-badargs", &bad_backend, &model) ==
+               AEGIS_OK);
+        aegis_agent_loop_t*       loop = NULL;
+        aegis_agent_loop_config_t cfg  = {
+               .session = session,
+               .model   = model,
+               .tools   = tools,
+        };
+        assert(aegis_agent_loop_create(&cfg, &loop) == AEGIS_OK);
+        assert(aegis_agent_loop_run_turn(loop, "hi") == AEGIS_ERR_TOOL_VALIDATION);
+        assert(strcmp(aegis_status_str(AEGIS_ERR_TOOL_VALIDATION), "tool_validation") == 0);
+        assert(strcmp(aegis_status_str(AEGIS_ERR_CONTEXT_OVERFLOW), "context_overflow") == 0);
+        assert(strcmp(aegis_status_str(AEGIS_ERR_MODEL_RATE_LIMIT), "model_rate_limit") == 0);
+        aegis_agent_loop_destroy(loop);
+        aegis_model_client_destroy(model);
+        aegis_tool_registry_destroy(tools);
+        aegis_session_destroy(session);
+        printf("tool_validation PASS\n");
     }
 
     printf("ALL_LOOP_STRATEGY_TESTS PASSED\n");

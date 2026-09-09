@@ -37,6 +37,9 @@ typedef enum aegis_status {
     AEGIS_ERR_TOOL           = -10, /**< Error originating from a tool execution.          */
     AEGIS_ERR_MAX_ITERATIONS = -11, /**< Max planning iterations reached.                  */
     AEGIS_ERR_INVALID_STATE  = -12, /**< Invalid autonomous state transition.              */
+    AEGIS_ERR_CONTEXT_OVERFLOW = -13, /**< Context exceeds budget; compact and retry.       */
+    AEGIS_ERR_TOOL_VALIDATION = -14, /**< Tool arguments failed schema validation.          */
+    AEGIS_ERR_MODEL_RATE_LIMIT = -15, /**< Model provider rate limited; back off and retry. */
 } aegis_status_t;
 /* ── Opaque handles ───────────────────────────────────────────────────────── */
 

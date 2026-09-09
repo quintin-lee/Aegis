@@ -36,6 +36,12 @@ const char* aegis_status_str(aegis_status_t status)
         return "max_iterations";
     case AEGIS_ERR_INVALID_STATE:
         return "invalid_state";
+    case AEGIS_ERR_CONTEXT_OVERFLOW:
+        return "context_overflow";
+    case AEGIS_ERR_TOOL_VALIDATION:
+        return "tool_validation";
+    case AEGIS_ERR_MODEL_RATE_LIMIT:
+        return "model_rate_limit";
     default:
         return "unknown";
     }
