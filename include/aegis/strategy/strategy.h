@@ -19,6 +19,12 @@
  * @c abi_version that must match AEGIS_STRATEGY_ABI_VERSION at
  * registration time; mismatched definitions are rejected.
  *
+ * This is NOT the agent-loop strategy ABI (agent/strategy.h), which plugs
+ * lifecycle hooks (before_turn/after_tool/should_continue) into the
+ * reactive loop. The two ABIs are intentionally separate: plan-level
+ * strategies never see the loop, and loop-level strategies never produce
+ * plans directly.
+ *
  * Ownership: definition strings are borrowed and must outlive the
  * registration; the registry shallow-copies the def. Produced plans are
  * transferred to the caller.
