@@ -7,6 +7,11 @@
  * public APIs only (include/aegis headers). It never accesses src/internal.
  * Supports: failure-driven replan, task-level + round-level cancellation,
  * per-task timeout, checkpoint double-write and restore.
+ *
+ * NOTE: new code should prefer the reactive agent loop (agent/loop.h) with
+ * AutonomousStrategy (strategy/autonomous_strategy.h); the `aegis run`
+ * command has moved to that path. This orchestrator is retained for
+ * compatibility with existing callers and tests.
  */
 #ifndef AEGIS_AUTONOMOUS_AGENT_H
 #define AEGIS_AUTONOMOUS_AGENT_H

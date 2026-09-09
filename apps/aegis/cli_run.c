@@ -4,6 +4,7 @@
  */
 #define _POSIX_C_SOURCE 200809L
 #include "cli_helpers.h"
+#include "aegis/coding/coding_agent.h"
 
 #ifdef AEGIS_OPENAI_PROVIDER
 #include "aegis/provider/openai_llm.h"
@@ -133,87 +134,31 @@ int cmd_run(int argc, char** argv)
     // ensure parent dir for checkpoint
     ensure_parent_dir(cfg.checkpoint_path);
 
-    // delegate to autonomous_agent (no Runtime duplication)
-    aegis_provider_registry_t* reg = NULL;
-    aegis_status_t             rc  = aegis_provider_registry_create(&reg);
-    if (rc != AEGIS_OK) {
-        fprintf(stderr, "error: provider registry create failed: %s\n", aegis_status_str(rc));
-        return 1;
-    }
-
-    // Create and register the selected LLM provider
-    const char*          llm_name = cfg.llm_provider;
-    void*                llm_ctx  = NULL;
-    aegis_provider_def_t llm_def;
-    memset(&llm_def, 0, sizeof(llm_def));
-
-    if (strcmp(llm_name, "llm-openai") == 0) {
-#ifdef AEGIS_OPENAI_PROVIDER
-        openai_llm_ctx_t*      octx = NULL;
-        const aegis_llm_ops_t* ops  = NULL;
-        rc                          = aegis_openai_llm_create(&octx, &ops, &llm_def);
-        if (rc != AEGIS_OK) {
-            fprintf(stderr, "error: openai llm create failed: %s\n", aegis_status_str(rc));
-            aegis_provider_registry_destroy(reg);
-            return 1;
-        }
-        // apply overrides (cli > env > default)
-        aegis_openai_llm_configure(octx, api_key, base_url, model_name);
-        llm_ctx = octx;
-#else
-        fprintf(stderr,
-                "error: llm-openai provider not compiled in (rebuild with "
-                "-DAEGIS_OPENAI_PROVIDER=ON)\n");
-        aegis_provider_registry_destroy(reg);
-        return 1;
-#endif
-    } else if (strcmp(llm_name, "llm-mock") == 0 || llm_name[0] == '\0') {
-        llm_mock_ctx_t*        mock_ctx = NULL;
-        const aegis_llm_ops_t* ops      = NULL;
-        rc                              = aegis_llm_mock_create(&mock_ctx, &ops, &llm_def);
-        if (rc != AEGIS_OK) {
-            fprintf(stderr, "error: llm mock create failed: %s\n", aegis_status_str(rc));
-            aegis_provider_registry_destroy(reg);
-            return 1;
-        }
-        // provide a default canned DSL so run succeeds without external LLM
-        const char* default_resp =
-            "STEP|-1|computational||step1|do step1\n"
-            "STEP|-1|computational||step2|do step2\n";
-        aegis_llm_mock_set_response(mock_ctx, default_resp);
-        llm_ctx = mock_ctx;
-    } else {
+    if (strcmp(cfg.llm_provider, "llm-mock") != 0 &&
+        strcmp(cfg.llm_provider, "llm-openai") != 0 && cfg.llm_provider[0] != '\0') {
         fprintf(stderr, "error: unknown llm provider '%s' (supported: llm-mock, llm-openai)\n",
-                llm_name);
-        aegis_provider_registry_destroy(reg);
+                cfg.llm_provider);
         return 1;
+    }
+    if (iter_str) {
+        fprintf(stderr, "warning: --max-iterations is ignored by the reactive loop\n");
+    }
+    if (timeout_str) {
+        fprintf(stderr, "warning: --timeout is ignored by the reactive loop\n");
     }
 
-    rc = aegis_provider_register(reg, &llm_def);
+    aegis_coding_agent_config_t acfg;
+    memset(&acfg, 0, sizeof(acfg));
+    acfg.project_root = ".";
+    acfg.model        = model_name;
+    acfg.provider     = cfg.llm_provider;
+    acfg.api_key      = api_key;
+    acfg.base_url     = base_url;
+    acfg.tools        = NULL;
+    aegis_coding_agent_t* ca = NULL;
+    aegis_status_t        rc = aegis_coding_agent_create(&acfg, &ca);
     if (rc != AEGIS_OK) {
-        fprintf(stderr, "error: provider register failed: %s\n", aegis_status_str(rc));
-        if (strcmp(cfg.llm_provider, "llm-openai") == 0) {
-#ifdef AEGIS_OPENAI_PROVIDER
-            aegis_openai_llm_destroy((openai_llm_ctx_t*)llm_ctx, NULL);
-#endif
-        } else {
-            aegis_llm_mock_destroy((llm_mock_ctx_t*)llm_ctx, NULL);
-        }
-        aegis_provider_registry_destroy(reg);
-        return 1;
-    }
-    rc = aegis_provider_init(reg, llm_def.name);
-    if (rc != AEGIS_OK) {
-        fprintf(stderr, "error: provider init failed: %s\n", aegis_status_str(rc));
-        aegis_provider_unregister(reg, llm_def.name);
-        if (strcmp(cfg.llm_provider, "llm-openai") == 0) {
-#ifdef AEGIS_OPENAI_PROVIDER
-            aegis_openai_llm_destroy((openai_llm_ctx_t*)llm_ctx, NULL);
-#endif
-        } else {
-            aegis_llm_mock_destroy((llm_mock_ctx_t*)llm_ctx, NULL);
-        }
-        aegis_provider_registry_destroy(reg);
+        fprintf(stderr, "error: coding agent create failed: %s\n", aegis_status_str(rc));
         return 1;
     }
 
@@ -225,49 +170,17 @@ int cmd_run(int argc, char** argv)
         fclose(pf);
     }
 
-    aegis_autonomous_agent_config_t acfg = {
-        .provider_registry       = reg,
-        .llm_provider_name       = llm_def.name,
-        .checkpoint_path         = cfg.checkpoint_path,
-        .cancel_token            = NULL,
-        .max_iterations          = cfg.max_iterations,
-        .default_task_timeout_ns = cfg.timeout_ms * 1000000ULL,
-    };
-    aegis_autonomous_agent_t* aa = NULL;
-    rc                           = aegis_autonomous_agent_create(&aa, &acfg);
-    if (rc != AEGIS_OK) {
-        fprintf(stderr, "error: autonomous agent create failed: %s\n", aegis_status_str(rc));
-        unlink(PIDFILE);
-        aegis_provider_unregister(reg, llm_def.name);
-        if (strcmp(cfg.llm_provider, "llm-openai") == 0) {
-#ifdef AEGIS_OPENAI_PROVIDER
-            aegis_openai_llm_destroy((openai_llm_ctx_t*)llm_ctx, NULL);
-#endif
-        } else {
-            aegis_llm_mock_destroy((llm_mock_ctx_t*)llm_ctx, NULL);
-        }
-        aegis_provider_registry_destroy(reg);
-        return 1;
-    }
-    aegis_autonomous_result_t result;
-    memset(&result, 0, sizeof(result));
-    rc = aegis_autonomous_agent_run(aa, cfg.goal, &result);
-
-    aegis_autonomous_agent_destroy(aa);
-    aegis_provider_unregister(reg, llm_def.name);
-    if (strcmp(cfg.llm_provider, "llm-openai") == 0) {
-#ifdef AEGIS_OPENAI_PROVIDER
-        aegis_openai_llm_destroy((openai_llm_ctx_t*)llm_ctx, NULL);
-#endif
-    } else {
-        aegis_llm_mock_destroy((llm_mock_ctx_t*)llm_ctx, NULL);
-    }
-    aegis_provider_registry_destroy(reg);
+    rc = aegis_coding_agent_run(ca, cfg.goal);
+    aegis_usage_t total = {0};
+    aegis_usage_t last  = {0};
+    aegis_coding_agent_usage(ca, &last, &total);
+    (void)last;
+    aegis_coding_agent_destroy(ca);
     unlink(PIDFILE);
 
     if (rc == AEGIS_OK) {
-        printf("run ok: tasks=%u iterations=%u status=%s\n", result.tasks_executed,
-               result.iterations, aegis_status_str(result.final_status));
+        printf("run ok: tokens=%llu status=%s\n", (unsigned long long)total.total_tokens,
+               aegis_status_str(rc));
         return 0;
     }
     if (rc == AEGIS_ERR_CANCELLED) {
@@ -278,9 +191,6 @@ int cmd_run(int argc, char** argv)
         fprintf(stderr, "error: run timed out: %s\n", aegis_status_str(rc));
         return 1;
     }
-    UNUSED(model_name);
-    UNUSED(api_key);
-    UNUSED(base_url);
     fprintf(stderr, "error: run failed: %s\n", aegis_status_str(rc));
     return 1;
 }
