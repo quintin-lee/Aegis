@@ -28,6 +28,7 @@ struct aegis_agent_loop {
     uint32_t max_strategy_turns; /**< Cap on strategy-continued turns. */
     aegis_usage_t               last_usage;  /**< usage of the most recent completed turn */
     aegis_usage_t               total_usage; /**< lifetime usage across all turns       */
+    size_t                    last_dropped; /**< session msgs excluded from last context */
     pthread_mutex_t             lock;
 };
 
@@ -108,6 +109,17 @@ aegis_session_t* aegis_agent_loop_session(const aegis_agent_loop_t* loop)
     return loop ? loop->session : NULL;
 }
 
+size_t aegis_agent_loop_context_dropped(const aegis_agent_loop_t* loop)
+{
+    if (!loop) {
+        return 0;
+    }
+    pthread_mutex_lock((pthread_mutex_t*)&loop->lock);
+    size_t n = loop->last_dropped;
+    pthread_mutex_unlock((pthread_mutex_t*)&loop->lock);
+    return n;
+}
+
 aegis_status_t aegis_agent_loop_cancel(aegis_agent_loop_t* l)
 {
     if (!l) {
@@ -176,8 +188,12 @@ aegis_status_t aegis_agent_loop_resume(aegis_agent_loop_t* l)
 // Build a bounded request history while preserving message roles, tool calls,
 // and protocol ordering. Structured messages cannot be represented losslessly
 // by the generic context-section builder.
-static aegis_status_t build_context_messages(aegis_agent_loop_t* l, aegis_message_list_t** out)
+static aegis_status_t build_context_messages(aegis_agent_loop_t* l, aegis_message_list_t** out,
+                                             size_t* out_dropped)
 {
+    if (out_dropped) {
+        *out_dropped = 0;
+    }
     if (!l || !out) {
         return AEGIS_ERR_INVALID;
     }
@@ -218,6 +234,9 @@ static aegis_status_t build_context_messages(aegis_agent_loop_t* l, aegis_messag
             aegis_message_list_destroy(list);
             return st;
         }
+    }
+    if (out_dropped) {
+        *out_dropped = first;
     }
     *out = list;
     return AEGIS_OK;
@@ -644,7 +663,8 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
 
     set_state(l, AEGIS_AGENT_LOOP_RUNNING);
     pthread_mutex_lock(&l->lock);
-    l->last_usage = (aegis_usage_t){0};
+    l->last_usage   = (aegis_usage_t){0};
+    l->last_dropped = 0;
     pthread_mutex_unlock(&l->lock);
 
     {
@@ -666,7 +686,11 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
         // Build context
         set_state(l, AEGIS_AGENT_LOOP_WAITING_MODEL);
         aegis_message_list_t* ctx_msgs = NULL;
-        st                             = build_context_messages(l, &ctx_msgs);
+        size_t                dropped  = 0;
+        st = build_context_messages(l, &ctx_msgs, &dropped);
+        pthread_mutex_lock(&l->lock);
+        l->last_dropped = dropped;
+        pthread_mutex_unlock(&l->lock);
         if (st != AEGIS_OK) {
             set_state(l, AEGIS_AGENT_LOOP_FAILED);
             return st;

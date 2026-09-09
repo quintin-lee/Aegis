@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent/loop.h"
+#include "aegis/message/message.h"
 #include "aegis/model/model.h"
 #include "aegis/session/session.h"
 #include "aegis/status.h"
@@ -318,6 +319,23 @@ int main(void)
         aegis_tool_registry_destroy(tools);
         aegis_session_destroy(session);
         printf("tool_validation PASS\n");
+    }
+
+    {
+        loop_ctx_t c;
+        assert(ctx_create(&c, NULL, 0) == AEGIS_OK);
+        assert(aegis_agent_loop_context_dropped(c.loop) == 0);
+        for (int i = 0; i < 130; i++) {
+            aegis_message_t* m = NULL;
+            assert(aegis_message_create(AEGIS_MESSAGE_USER, &m) == AEGIS_OK);
+            assert(aegis_message_set_content(m, "filler") == AEGIS_OK);
+            assert(aegis_session_append_message(c.session, m) == AEGIS_OK);
+            aegis_message_destroy(m);
+        }
+        assert(aegis_agent_loop_run_turn(c.loop, "go") == AEGIS_OK);
+        assert(aegis_agent_loop_context_dropped(c.loop) == 3);
+        ctx_destroy(&c);
+        printf("context_dropped PASS\n");
     }
 
     printf("ALL_LOOP_STRATEGY_TESTS PASSED\n");

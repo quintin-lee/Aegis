@@ -87,6 +87,10 @@ aegis_agent_loop_state_t aegis_agent_loop_state(const aegis_agent_loop_t* loop);
  *  concurrent mutation while using it. */
 aegis_session_t* aegis_agent_loop_session(const aegis_agent_loop_t* loop);
 
+/** Number of session messages excluded from the most recently built context
+ *  (0 when loop is NULL or no context has been built yet this turn). */
+size_t aegis_agent_loop_context_dropped(const aegis_agent_loop_t* loop);
+
 aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* loop, const char* user_input);
 aegis_status_t aegis_agent_loop_run(aegis_agent_loop_t* loop, const char* user_input);
 
