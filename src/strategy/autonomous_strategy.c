@@ -38,6 +38,7 @@ aegis_status_t aegis_autonomous_strategy_create(const aegis_autonomous_agent_con
     }
     s->def.name            = "autonomous";
     s->def.description     = "Goal→Plan→Graph→Scheduler→Executor→Evaluate→Reflect→Replan";
+    s->def.abi_version     = AEGIS_AGENT_STRATEGY_ABI_VERSION;
     s->def.init            = strat_init;
     s->def.shutdown        = strat_shutdown;
     s->def.before_turn     = NULL;
