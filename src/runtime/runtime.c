@@ -9,20 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define RT_DEFAULT_WORKERS    4
-#define RT_DEFAULT_QUEUE_CAP  256
-#define RT_DEFAULT_TIMEOUT_MS 5000L
-
-aegis_config_t aegis_config_default(void)
-{
-    aegis_config_t c;
-    c.max_workers     = RT_DEFAULT_WORKERS;
-    c.event_queue_cap = RT_DEFAULT_QUEUE_CAP;
-    c.stop_timeout_ms = RT_DEFAULT_TIMEOUT_MS;
-    c.name            = NULL;
-    return c;
-}
-
 aegis_status_t aegis_runtime_create(aegis_runtime_t** out)
 {
     if (!out) {
@@ -34,11 +20,12 @@ aegis_status_t aegis_runtime_create(aegis_runtime_t** out)
         return AEGIS_ERR_NOMEM;
     }
 
-    /* Copy defaults */
-    rt->max_workers     = RT_DEFAULT_WORKERS;
-    rt->event_queue_cap = RT_DEFAULT_QUEUE_CAP;
-    rt->stop_timeout_ms = RT_DEFAULT_TIMEOUT_MS;
-    rt->name            = NULL;
+    /* Copy defaults (single source in config.c) */
+    aegis_config_t d      = aegis_config_default();
+    rt->max_workers       = d.max_workers;
+    rt->event_queue_cap   = d.event_queue_cap;
+    rt->stop_timeout_ms   = d.stop_timeout_ms;
+    rt->name              = NULL;
     rt->state           = AEGIS_RT_CREATED;
     rt->n_workers       = 0;
     rt->worker_threads  = NULL;
