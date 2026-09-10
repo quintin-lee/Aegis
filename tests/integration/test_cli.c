@@ -764,6 +764,9 @@ static void test_init_and_run(void)
     run_cli("status", &ec, out, sizeof(out));
     // assert(ec == 0); // Lenient: ec may be non-zero without default_work
     // assert_contains(out, "custom goal from cli", "status custom goal");
+    if (access(".aegis/session.jsonl", F_OK) == 0) {
+        assert_contains(out, "session", "status shows session");
+    }
 
     // invalid --max-iterations
     run_cli("run --max-iterations 0", &ec, out, sizeof(out));

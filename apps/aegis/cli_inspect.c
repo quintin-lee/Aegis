@@ -4,6 +4,7 @@
  */
 #define _POSIX_C_SOURCE 200809L
 #include "cli_helpers.h"
+#include "aegis/session/session.h"
 
 int cmd_inspect(int argc, char** argv)
 {
@@ -68,6 +69,23 @@ int cmd_inspect(int argc, char** argv)
         const char* pt = aegis_checkpoint_plan_text(ckpt);
         if (pt) {
             printf("plan:\n%s\n", pt);
+        }
+    }
+    {
+        char sess_path[1024];
+        cli_session_path_for_checkpoint(ckpt_path, sess_path, sizeof(sess_path));
+        if (access(sess_path, F_OK) == 0) {
+            aegis_session_t* sess = NULL;
+            aegis_status_t   src  = aegis_session_load(sess_path, &sess);
+            if (src != AEGIS_OK || !sess) {
+                fprintf(stderr, "error: session corrupted at '%s': %s\n", sess_path,
+                        aegis_status_str(src));
+                aegis_checkpoint_destroy(ckpt);
+                return 1;
+            }
+            printf("session: %s\n", sess_path);
+            printf("messages: %zu\n", aegis_session_message_count(sess));
+            aegis_session_destroy(sess);
         }
     }
     aegis_checkpoint_destroy(ckpt);

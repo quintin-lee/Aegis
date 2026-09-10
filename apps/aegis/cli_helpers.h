@@ -55,6 +55,8 @@ int mkdir_p(const char* path);
 
 void ensure_parent_dir(const char* filepath);
 
+void cli_session_path_for_checkpoint(const char* ckpt_path, char* out, size_t out_sz);
+
 void print_usage(FILE* out);
 
 void print_version(void);

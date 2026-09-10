@@ -19,18 +19,8 @@ static void save_session_best_effort(aegis_coding_agent_t* ca, const char* check
     if (!sess) {
         return;
     }
-    char        sess_path[1024];
-    const char* slash = strrchr(checkpoint_path, '/');
-    if (slash) {
-        size_t dirlen = (size_t)(slash - checkpoint_path);
-        if (dirlen > sizeof(sess_path) - 16) {
-            dirlen = sizeof(sess_path) - 16;
-        }
-        memcpy(sess_path, checkpoint_path, dirlen);
-        snprintf(sess_path + dirlen, sizeof(sess_path) - dirlen, "/session.jsonl");
-    } else {
-        snprintf(sess_path, sizeof(sess_path), "session.jsonl");
-    }
+    char sess_path[1024];
+    cli_session_path_for_checkpoint(checkpoint_path, sess_path, sizeof(sess_path));
     ensure_parent_dir(sess_path);
     aegis_status_t src = aegis_session_save(sess, sess_path);
     if (src != AEGIS_OK) {

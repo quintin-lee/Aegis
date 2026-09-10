@@ -150,6 +150,32 @@ void ensure_parent_dir(const char* filepath)
     free(tmp);
 }
 
+void cli_session_path_for_checkpoint(const char* ckpt_path, char* out, size_t out_sz)
+{
+    if (!out || out_sz == 0) {
+        return;
+    }
+    if (out_sz < 16) {
+        snprintf(out, out_sz, "session.jsonl");
+        return;
+    }
+    if (!ckpt_path || ckpt_path[0] == '\0') {
+        snprintf(out, out_sz, "session.jsonl");
+        return;
+    }
+    const char* slash = strrchr(ckpt_path, '/');
+    if (!slash) {
+        snprintf(out, out_sz, "session.jsonl");
+        return;
+    }
+    size_t dirlen = (size_t)(slash - ckpt_path);
+    if (dirlen > out_sz - 16) {
+        dirlen = out_sz - 16;
+    }
+    memcpy(out, ckpt_path, dirlen);
+    snprintf(out + dirlen, out_sz - dirlen, "/session.jsonl");
+}
+
 void print_usage(FILE* out)
 {
     if (!out) {
