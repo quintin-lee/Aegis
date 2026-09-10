@@ -450,6 +450,8 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
      * cancel, not a provider failure. */
     if (token && aegis_cancellation_token_is_cancelled(token)) return AEGIS_ERR_CANCELLED;
     if (cr != CURLE_OK) return AEGIS_ERR_PROVIDER;
+    if (http == 429) return AEGIS_ERR_MODEL_RATE_LIMIT;
+    if (http == 413) return AEGIS_ERR_CONTEXT_OVERFLOW;
     if (http < 200 || http >= 300) return AEGIS_ERR_PROVIDER;
     if (!state.saw_done) return AEGIS_ERR_PROVIDER;
     return AEGIS_OK;
@@ -561,7 +563,11 @@ static aegis_status_t structured_complete(void* user, const aegis_model_request_
     CURLcode cr = curl_easy_perform(curl);
     long http = 0; curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http);
     aegis_status_t status = AEGIS_ERR_PROVIDER;
-    if (cr == CURLE_OK && http >= 200 && http < 300 && response.data) {
+    if (cr == CURLE_OK && http == 429) {
+        status = AEGIS_ERR_MODEL_RATE_LIMIT;
+    } else if (cr == CURLE_OK && http == 413) {
+        status = AEGIS_ERR_CONTEXT_OVERFLOW;
+    } else if (cr == CURLE_OK && http >= 200 && http < 300 && response.data) {
         status = parse_complete_response(response.data, response.len, out);
     }
     free(response.data); curl_slist_free_all(headers); curl_easy_cleanup(curl); free(body);

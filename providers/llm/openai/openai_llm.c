@@ -361,18 +361,25 @@ static aegis_status_t openai_llm_complete(void* ctx_ptr,
 
     if (http_code != 200) {
         fprintf(stderr, "error: OpenAI-compatible endpoint returned HTTP %ld\n", http_code);
+        aegis_status_t http_status = AEGIS_ERR_PROVIDER;
         if (http_code == 401 || http_code == 403) {
             fprintf(stderr, "hint: authentication failed; verify --api-key and provider-specific token format\n");
         } else if (http_code == 404) {
             fprintf(stderr, "hint: verify --base-url includes the API version and that the model endpoint exists\n");
         } else if (http_code == 400) {
             fprintf(stderr, "hint: verify --model and request compatibility with the selected endpoint\n");
+        } else if (http_code == 429) {
+            fprintf(stderr, "hint: rate limited; back off and retry\n");
+            http_status = AEGIS_ERR_MODEL_RATE_LIMIT;
+        } else if (http_code == 413) {
+            fprintf(stderr, "hint: payload too large; compact context and retry\n");
+            http_status = AEGIS_ERR_CONTEXT_OVERFLOW;
         }
         if (wbuf.buf) {
             fprintf(stderr, "response: %.512s\n", wbuf.buf);
         }
         free(wbuf.buf);
-        return AEGIS_ERR_PROVIDER;
+        return http_status;
     }
 
     char* content = pull_content(wbuf.buf, wbuf.len);
