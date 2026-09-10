@@ -10,6 +10,34 @@
 #include "aegis/provider/openai_llm.h"
 #endif
 
+static void save_session_best_effort(aegis_coding_agent_t* ca, const char* checkpoint_path)
+{
+    if (!ca || !checkpoint_path) {
+        return;
+    }
+    aegis_session_t* sess = aegis_coding_agent_session(ca);
+    if (!sess) {
+        return;
+    }
+    char        sess_path[1024];
+    const char* slash = strrchr(checkpoint_path, '/');
+    if (slash) {
+        size_t dirlen = (size_t)(slash - checkpoint_path);
+        if (dirlen > sizeof(sess_path) - 16) {
+            dirlen = sizeof(sess_path) - 16;
+        }
+        memcpy(sess_path, checkpoint_path, dirlen);
+        snprintf(sess_path + dirlen, sizeof(sess_path) - dirlen, "/session.jsonl");
+    } else {
+        snprintf(sess_path, sizeof(sess_path), "session.jsonl");
+    }
+    ensure_parent_dir(sess_path);
+    aegis_status_t src = aegis_session_save(sess, sess_path);
+    if (src != AEGIS_OK) {
+        fprintf(stderr, "warning: session save failed: %s\n", aegis_status_str(src));
+    }
+}
+
 int cmd_run(int argc, char** argv)
 {
     cli_config_t cfg;
@@ -175,6 +203,7 @@ int cmd_run(int argc, char** argv)
     aegis_usage_t last  = {0};
     aegis_coding_agent_usage(ca, &last, &total);
     (void)last;
+    save_session_best_effort(ca, cfg.checkpoint_path);
     aegis_coding_agent_destroy(ca);
     unlink(PIDFILE);
 

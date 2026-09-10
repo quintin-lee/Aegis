@@ -737,6 +737,9 @@ static void test_init_and_run(void)
     // Note: Without default_work, computational tasks fail - verify CLI doesn't crash
     run_cli("run", &ec, out, sizeof(out));
     printf("  run ec=%d\n", ec);
+    if (ec == 0) {
+        assert(access(".aegis/session.jsonl", F_OK) == 0);
+    }
 
     // status - may show no checkpoint since run failed without default_work
     run_cli("status", &ec, out, sizeof(out));
