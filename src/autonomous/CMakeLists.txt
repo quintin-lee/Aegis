@@ -6,7 +6,7 @@ add_library(aegis_autonomous
     memory_mock.c
     state_machine.c lifecycle.c checkpoint.c recovery.c
     planning.c execution.c evaluation.c reflection.c replanning.c loop.c
-    src/shell.c src/status.c
+    src/status.c
 )
 target_include_directories(aegis_autonomous PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>
                                       PRIVATE ${PROJECT_SOURCE_DIR}/src ${PROJECT_SOURCE_DIR}/src/internal ${PROJECT_SOURCE_DIR}/src/autonomous ${PROJECT_SOURCE_DIR}/providers ${PROJECT_SOURCE_DIR}/strategies)
