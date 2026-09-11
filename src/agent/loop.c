@@ -1,3 +1,14 @@
+/**
+ * @file loop.c
+ * @brief Reactive agent loop — the turn pump of the new architecture.
+ *
+ * Each turn: append user message → build context → stream model deltas →
+ * execute tool calls → append results, until a text-only response ends it.
+ * Optional loop-strategy hooks (before_turn/after_model/after_tool/
+ * should_continue) plug policy around the pump; cancellation is
+ * cooperative via token checks between stages. No callbacks run under
+ * the loop lock; per-turn and lifetime token usage is accounted.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent/loop.h"
 #include "aegis/agent/state.h"

@@ -1,3 +1,12 @@
+/**
+ * @file cli_interactive.c
+ * @brief Interactive REPL loop and one-shot print command.
+ *
+ * Owns the slash-command dispatch, per-turn watcher lifecycle, queued-line
+ * drain, usage/token reporting and session save-on-exit. Input, approval
+ * and rendering live in cli_input/cli_gate/cli_render; this file only
+ * orchestrates them around coding-agent runs.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "cli_helpers.h"
 #include "cli_repl.h"

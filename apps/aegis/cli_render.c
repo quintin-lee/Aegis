@@ -1,3 +1,9 @@
+/**
+ * @file cli_render.c
+ * @brief Live terminal rendering: streaming text/reasoning deltas,
+ * per-tool timing lines, banner, and /tools listing. Pure output layer —
+ * no agent, session, or input state touched.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "cli_repl.h"
 #include "aegis/status.h"

@@ -1,3 +1,14 @@
+/**
+ * @file structured_openai.c
+ * @brief OpenAI-compatible structured/streaming model backend (libcurl).
+ *
+ * Two paths share the HTTP layer: SSE streaming reassembled into model
+ * stream events (TEXT/REASONING deltas, TOOL_CALL START/DELTA/END, USAGE,
+ * END/ERROR) and one-shot complete-response parsing. Cancellation is
+ * cooperative via transfer abort and always wins over provider errors.
+ * HTTP 429 maps to MODEL_RATE_LIMIT, 413 to CONTEXT_OVERFLOW; anything
+ * else non-2xx is a generic provider error.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "structured_openai.h"
 #ifdef AEGIS_OPENAI_TEST_API

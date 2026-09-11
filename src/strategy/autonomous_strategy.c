@@ -1,3 +1,14 @@
+/**
+ * @file autonomous_strategy.c
+ * @brief AutonomousStrategy: goal-driven planning as a loop strategy.
+ *
+ * Implements the loop-strategy ABI on top of the autonomous phase
+ * machine (plan → execute → evaluate → reflect → replan). Owns a
+ * private runtime (never touches the agent's run-loop runtime); the
+ * goal is read from the loop session's first user message. after_model
+ * and after_tool are intentionally no-ops: model turns are reactive,
+ * execution stays inside the autonomous executor.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/strategy/autonomous_strategy.h"
 #include "aegis/agent/strategy.h"

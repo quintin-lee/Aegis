@@ -1,3 +1,10 @@
+/**
+ * @file cli_input.c
+ * @brief Interactive stdin plumbing: background reader thread, line queue,
+ * raw terminal mode (Esc-to-interrupt). Lines typed mid-turn are queued,
+ * never lost; an empty line means interrupt. PTY quit works via shutdown
+ * flag since a PTY never delivers EOF while attached.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "cli_repl.h"
 #include <errno.h>

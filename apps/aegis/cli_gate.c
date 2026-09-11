@@ -1,3 +1,9 @@
+/**
+ * @file cli_gate.c
+ * @brief Tool approval gate: y/n/a prompt with always-allow list, plus the
+ * turn watcher that routes mid-turn input to interrupt (empty line, /stop)
+ * or the pending FIFO, and hands answers to a waiting gate via handshake.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "cli_repl.h"
 #include "aegis/coding/coding_agent.h"

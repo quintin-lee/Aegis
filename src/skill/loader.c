@@ -1,3 +1,10 @@
+/**
+ * @file loader.c
+ * @brief Skill directory scan: each subdirectory with SKILL.md becomes
+ * a registry entry via the manifest parser. Missing directories and
+ * skill-less subdirectories are skipped (best-effort, never fatal);
+ * registry-add failures free the skill instead of leaking it.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/skill/loader.h"
 #include "aegis/skill/manifest.h"

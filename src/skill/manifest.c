@@ -1,3 +1,13 @@
+/**
+ * @file manifest.c
+ * @brief On-disk skill manifest parser.
+ *
+ * Layout: directory basename is the skill name; SKILL.md (or lowercase
+ * skill.md) holds the one-line description first, instructions after.
+ * Missing/unreadable manifests report NOT_FOUND so directory scans skip
+ * them; malformed paths report INVALID. Mirrors the historical loader
+ * behavior byte-for-byte, only factored out and validated.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/skill/manifest.h"
 #include "aegis/skill/skill.h"
