@@ -61,48 +61,48 @@ struct aegis_autonomous_agent {
 };
 
 /** Return effective cancellation token (borrowed). */
-aegis_cancellation_token_t* autonomous_get_token(aegis_autonomous_agent_t* aa);
+aegis_cancellation_token_t* aegis_autonomous_get_token(aegis_autonomous_agent_t* aa);
 
 /** State transition with validation, lock, and post-unlock publish. */
-aegis_status_t autonomous_transition(aegis_autonomous_agent_t* aa,
+aegis_status_t aegis_autonomous_transition(aegis_autonomous_agent_t* aa,
                                      aegis_autonomous_state_t  target);
-bool autonomous_transition_allowed(aegis_autonomous_state_t from,
+bool aegis_autonomous_transition_allowed(aegis_autonomous_state_t from,
                                    aegis_autonomous_state_t to);
 
 /* Runtime lifecycle */
-aegis_status_t autonomous_runtime_create(aegis_autonomous_runtime_t** out);
-void           autonomous_runtime_destroy(aegis_autonomous_runtime_t* rt);
-void           autonomous_runtime_reset(aegis_autonomous_runtime_t* rt);
+aegis_status_t aegis_autonomous_runtime_create(aegis_autonomous_runtime_t** out);
+void           aegis_autonomous_runtime_destroy(aegis_autonomous_runtime_t* rt);
+void           aegis_autonomous_runtime_reset(aegis_autonomous_runtime_t* rt);
 
 /* Lifecycle helpers */
-aegis_status_t autonomous_lifecycle_init(aegis_autonomous_agent_t* aa);
-void           autonomous_lifecycle_cleanup(aegis_autonomous_agent_t* aa);
+aegis_status_t aegis_autonomous_lifecycle_init(aegis_autonomous_agent_t* aa);
+void           aegis_autonomous_lifecycle_cleanup(aegis_autonomous_agent_t* aa);
 
 /* Checkpoint helpers */
-void autonomous_checkpoint_save(aegis_autonomous_agent_t* aa,
+void aegis_autonomous_checkpoint_save(aegis_autonomous_agent_t* aa,
                                 const char*               goal,
                                 aegis_plan_t*             plan,
                                 aegis_task_graph_t*       graph);
-aegis_status_t autonomous_checkpoint_restore(aegis_autonomous_agent_t* aa,
+aegis_status_t aegis_autonomous_checkpoint_restore(aegis_autonomous_agent_t* aa,
                                              const char*               path);
 
 /* Core loop */
-aegis_status_t autonomous_loop_run(aegis_autonomous_agent_t* agent,
+aegis_status_t aegis_autonomous_loop_run(aegis_autonomous_agent_t* agent,
                                    aegis_autonomous_runtime_t* runtime,
                                    const char* goal,
                                    aegis_autonomous_result_t* out_result);
 
 /* Submodules */
-aegis_status_t autonomous_plan(aegis_autonomous_agent_t* agent,
+aegis_status_t aegis_autonomous_plan(aegis_autonomous_agent_t* agent,
                                aegis_autonomous_runtime_t* runtime,
                                const char* goal);
-aegis_status_t autonomous_execute(aegis_autonomous_agent_t* agent,
+aegis_status_t aegis_autonomous_execute(aegis_autonomous_agent_t* agent,
                                   aegis_autonomous_runtime_t* runtime);
-aegis_status_t autonomous_evaluate(aegis_autonomous_agent_t* agent,
+aegis_status_t aegis_autonomous_evaluate(aegis_autonomous_agent_t* agent,
                                    aegis_autonomous_runtime_t* runtime);
-aegis_status_t autonomous_reflect(aegis_autonomous_agent_t* agent,
+aegis_status_t aegis_autonomous_reflect(aegis_autonomous_agent_t* agent,
                                   aegis_autonomous_runtime_t* runtime);
-aegis_status_t autonomous_replan(aegis_autonomous_agent_t* agent,
+aegis_status_t aegis_autonomous_replan(aegis_autonomous_agent_t* agent,
                                  aegis_autonomous_runtime_t* runtime);
 
 #ifdef __cplusplus

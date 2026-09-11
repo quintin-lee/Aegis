@@ -45,9 +45,9 @@ struct aegis_plugin {
 
 /* ── Global state ──────────────────────────────────────────────────────────── */
 
-extern aegis_plugin_t* g_plugins[AEGIS_PLUGIN_MAX_PLUGINS];
-extern int             g_n_plugins;
-extern pthread_mutex_t g_plugins_lock;
+extern aegis_plugin_t* aegis_plugins[AEGIS_PLUGIN_MAX_PLUGINS];
+extern int             aegis_n_plugins;
+extern pthread_mutex_t aegis_plugins_lock;
 
 /* ── Internal helpers ──────────────────────────────────────────────────────── */
 

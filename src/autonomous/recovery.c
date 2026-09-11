@@ -3,7 +3,7 @@
 #include "aegis/checkpoint/checkpoint.h"
 #include <string.h>
 
-aegis_status_t autonomous_checkpoint_restore(aegis_autonomous_agent_t* aa, const char* path)
+aegis_status_t aegis_autonomous_checkpoint_restore(aegis_autonomous_agent_t* aa, const char* path)
 {
     if (!aa || !path) {
         return AEGIS_ERR_INVALID;
@@ -76,7 +76,7 @@ aegis_status_t autonomous_checkpoint_restore(aegis_autonomous_agent_t* aa, const
     pthread_mutex_unlock(&aa->lock);
 
     aegis_checkpoint_destroy(ckpt);
-    (void)autonomous_transition(aa, AEGIS_AUTO_RECOVERING);
-    (void)autonomous_transition(aa, AEGIS_AUTO_READY);
+    (void)aegis_autonomous_transition(aa, AEGIS_AUTO_RECOVERING);
+    (void)aegis_autonomous_transition(aa, AEGIS_AUTO_READY);
     return AEGIS_OK;
 }

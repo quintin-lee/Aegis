@@ -28,7 +28,7 @@ static const transition_t k_allowed[] = {
     {AEGIS_AUTO_RECOVERING, AEGIS_AUTO_FAILED},    {AEGIS_AUTO_CANCELLING, AEGIS_AUTO_CANCELLED},
 };
 
-bool autonomous_transition_allowed(aegis_autonomous_state_t from, aegis_autonomous_state_t to)
+bool aegis_autonomous_transition_allowed(aegis_autonomous_state_t from, aegis_autonomous_state_t to)
 {
     for (size_t i = 0; i < sizeof(k_allowed) / sizeof(k_allowed[0]); i++) {
         if (k_allowed[i].from == from && k_allowed[i].to == to) {
@@ -38,7 +38,7 @@ bool autonomous_transition_allowed(aegis_autonomous_state_t from, aegis_autonomo
     return false;
 }
 
-aegis_status_t autonomous_transition(aegis_autonomous_agent_t* aa, aegis_autonomous_state_t target)
+aegis_status_t aegis_autonomous_transition(aegis_autonomous_agent_t* aa, aegis_autonomous_state_t target)
 {
     if (!aa) {
         return AEGIS_ERR_INVALID;
@@ -49,7 +49,7 @@ aegis_status_t autonomous_transition(aegis_autonomous_agent_t* aa, aegis_autonom
         return AEGIS_ERR_INTERNAL;
     }
     aegis_autonomous_state_t current = aa->state;
-    if (!autonomous_transition_allowed(current, target)) {
+    if (!aegis_autonomous_transition_allowed(current, target)) {
         pthread_mutex_unlock(&aa->lock);
         return AEGIS_ERR_INVALID_STATE;
     }

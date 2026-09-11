@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-aegis_cancellation_token_t* autonomous_get_token(aegis_autonomous_agent_t* aa)
+aegis_cancellation_token_t* aegis_autonomous_get_token(aegis_autonomous_agent_t* aa)
 {
     if (!aa) {
         return NULL;
@@ -14,7 +14,7 @@ aegis_cancellation_token_t* autonomous_get_token(aegis_autonomous_agent_t* aa)
     return aa->owned_token;
 }
 
-aegis_status_t autonomous_runtime_create(aegis_autonomous_runtime_t** out)
+aegis_status_t aegis_autonomous_runtime_create(aegis_autonomous_runtime_t** out)
 {
     if (!out) {
         return AEGIS_ERR_INVALID;
@@ -35,7 +35,7 @@ aegis_status_t autonomous_runtime_create(aegis_autonomous_runtime_t** out)
     return AEGIS_OK;
 }
 
-void autonomous_runtime_destroy(aegis_autonomous_runtime_t* rt)
+void aegis_autonomous_runtime_destroy(aegis_autonomous_runtime_t* rt)
 {
     if (!rt) {
         return;
@@ -53,7 +53,7 @@ void autonomous_runtime_destroy(aegis_autonomous_runtime_t* rt)
     free(rt);
 }
 
-void autonomous_runtime_reset(aegis_autonomous_runtime_t* rt)
+void aegis_autonomous_runtime_reset(aegis_autonomous_runtime_t* rt)
 {
     if (!rt) {
         return;
@@ -76,13 +76,13 @@ void autonomous_runtime_reset(aegis_autonomous_runtime_t* rt)
     rt->recovering = false;
 }
 
-aegis_status_t autonomous_lifecycle_init(aegis_autonomous_agent_t* aa)
+aegis_status_t aegis_autonomous_lifecycle_init(aegis_autonomous_agent_t* aa)
 {
     (void)aa;
     return AEGIS_OK;
 }
 
-void autonomous_lifecycle_cleanup(aegis_autonomous_agent_t* aa)
+void aegis_autonomous_lifecycle_cleanup(aegis_autonomous_agent_t* aa)
 {
     (void)aa;
 }

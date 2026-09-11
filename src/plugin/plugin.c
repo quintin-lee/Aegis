@@ -20,9 +20,9 @@
 
 /* ── Global state ──────────────────────────────────────────────────────────── */
 
-aegis_plugin_t* g_plugins[AEGIS_PLUGIN_MAX_PLUGINS];
-int             g_n_plugins    = 0;
-pthread_mutex_t g_plugins_lock = PTHREAD_MUTEX_INITIALIZER;
+aegis_plugin_t* aegis_plugins[AEGIS_PLUGIN_MAX_PLUGINS];
+int             aegis_n_plugins    = 0;
+pthread_mutex_t aegis_plugins_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* ── Validation ────────────────────────────────────────────────────────────── */
 
@@ -50,28 +50,28 @@ aegis_status_t aegis_plugin_validate_manifest(const aegis_plugin_manifest_t* m)
 
 aegis_status_t aegis_plugin_table_add(aegis_plugin_t* p)
 {
-    pthread_mutex_lock(&g_plugins_lock);
-    if (g_n_plugins >= AEGIS_PLUGIN_MAX_PLUGINS) {
-        pthread_mutex_unlock(&g_plugins_lock);
+    pthread_mutex_lock(&aegis_plugins_lock);
+    if (aegis_n_plugins >= AEGIS_PLUGIN_MAX_PLUGINS) {
+        pthread_mutex_unlock(&aegis_plugins_lock);
         return AEGIS_ERR_BUSY;
     }
-    g_plugins[g_n_plugins++] = p;
-    pthread_mutex_unlock(&g_plugins_lock);
+    aegis_plugins[aegis_n_plugins++] = p;
+    pthread_mutex_unlock(&aegis_plugins_lock);
     return AEGIS_OK;
 }
 
 void aegis_plugin_table_remove(aegis_plugin_t* p)
 {
-    pthread_mutex_lock(&g_plugins_lock);
-    for (int i = 0; i < g_n_plugins; i++) {
-        if (g_plugins[i] == p) {
-            g_plugins[i]               = g_plugins[g_n_plugins - 1];
-            g_plugins[g_n_plugins - 1] = NULL;
-            g_n_plugins--;
+    pthread_mutex_lock(&aegis_plugins_lock);
+    for (int i = 0; i < aegis_n_plugins; i++) {
+        if (aegis_plugins[i] == p) {
+            aegis_plugins[i]               = aegis_plugins[aegis_n_plugins - 1];
+            aegis_plugins[aegis_n_plugins - 1] = NULL;
+            aegis_n_plugins--;
             break;
         }
     }
-    pthread_mutex_unlock(&g_plugins_lock);
+    pthread_mutex_unlock(&aegis_plugins_lock);
 }
 
 /* ── Public API ────────────────────────────────────────────────────────────── */
@@ -201,16 +201,16 @@ const char* aegis_plugin_path(const aegis_plugin_t* plugin)
 size_t aegis_plugin_count(void)
 {
     int n;
-    pthread_mutex_lock(&g_plugins_lock);
-    n = g_n_plugins;
-    pthread_mutex_unlock(&g_plugins_lock);
+    pthread_mutex_lock(&aegis_plugins_lock);
+    n = aegis_n_plugins;
+    pthread_mutex_unlock(&aegis_plugins_lock);
     return (size_t)n;
 }
 
 aegis_plugin_t* aegis_plugin_at(size_t idx)
 {
-    pthread_mutex_lock(&g_plugins_lock);
-    aegis_plugin_t* p = (idx < (size_t)g_n_plugins) ? g_plugins[idx] : NULL;
-    pthread_mutex_unlock(&g_plugins_lock);
+    pthread_mutex_lock(&aegis_plugins_lock);
+    aegis_plugin_t* p = (idx < (size_t)aegis_n_plugins) ? aegis_plugins[idx] : NULL;
+    pthread_mutex_unlock(&aegis_plugins_lock);
     return p;
 }

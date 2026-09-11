@@ -25,7 +25,7 @@
 
 static aegis_cancellation_token_t* get_token(aegis_autonomous_agent_t* aa)
 {
-    return autonomous_get_token(aa);
+    return aegis_autonomous_get_token(aa);
 }
 
 aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**             out,
@@ -60,7 +60,7 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
         free(aa);
         return AEGIS_ERR_INTERNAL;
     }
-    if (autonomous_runtime_create(&aa->runtime) != AEGIS_OK) {
+    if (aegis_autonomous_runtime_create(&aa->runtime) != AEGIS_OK) {
         pthread_mutex_destroy(&aa->lock);
         free(aa->llm_name_copy);
         free(aa);
@@ -71,9 +71,9 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
     aa->tasks_executed = 0;
     aa->state          = AEGIS_AUTO_CREATED;
     /* Transition CREATED -> INITIALIZING */
-    aegis_status_t tr = autonomous_transition(aa, AEGIS_AUTO_INITIALIZING);
+    aegis_status_t tr = aegis_autonomous_transition(aa, AEGIS_AUTO_INITIALIZING);
     if (tr != AEGIS_OK) {
-        autonomous_runtime_destroy(aa->runtime);
+        aegis_autonomous_runtime_destroy(aa->runtime);
         pthread_mutex_destroy(&aa->lock);
         free(aa->llm_name_copy);
         free(aa);
@@ -83,14 +83,14 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
     if (!cfg->cancel_token) {
         aegis_status_t rc = aegis_cancellation_token_create(&aa->owned_token);
         if (rc != AEGIS_OK) {
-            autonomous_runtime_destroy(aa->runtime);
+            aegis_autonomous_runtime_destroy(aa->runtime);
             pthread_mutex_destroy(&aa->lock);
             free(aa->llm_name_copy);
             free(aa);
             return rc;
         }
     }
-    aa->runtime->token = autonomous_get_token(aa);
+    aa->runtime->token = aegis_autonomous_get_token(aa);
 
     /* Security must be an explicit gate: if tools are present but no policy
      * is supplied, create an allow-all policy instead of bypassing. */
@@ -101,7 +101,7 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
             if (aa->owned_token) {
                 aegis_cancellation_token_destroy(aa->owned_token);
             }
-            autonomous_runtime_destroy(aa->runtime);
+            aegis_autonomous_runtime_destroy(aa->runtime);
             pthread_mutex_destroy(&aa->lock);
             free(aa->llm_name_copy);
             free(aa);
@@ -140,7 +140,7 @@ aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**         
         goto fail;
     }
 
-    tr = autonomous_transition(aa, AEGIS_AUTO_READY);
+    tr = aegis_autonomous_transition(aa, AEGIS_AUTO_READY);
     if (tr != AEGIS_OK) {
         rc = tr;
         goto fail;
@@ -168,7 +168,7 @@ fail:
         aegis_security_policy_destroy(aa->owned_security_policy);
     }
     if (aa->runtime) {
-        autonomous_runtime_destroy(aa->runtime);
+        aegis_autonomous_runtime_destroy(aa->runtime);
     }
     pthread_mutex_destroy(&aa->lock);
     free(aa->llm_name_copy);
@@ -182,7 +182,7 @@ void aegis_autonomous_agent_destroy(aegis_autonomous_agent_t* aa)
         return;
     }
     if (aa->runtime) {
-        autonomous_runtime_destroy(aa->runtime);
+        aegis_autonomous_runtime_destroy(aa->runtime);
     }
     if (aa->planner) {
         aegis_planner_destroy(aa->planner);
@@ -217,7 +217,7 @@ aegis_status_t aegis_autonomous_agent_cancel(aegis_autonomous_agent_t* aa)
     }
     aegis_cancellation_token_request_cancel(tok);
     /* Best-effort transition to CANCELLING if allowed. */
-    (void)autonomous_transition(aa, AEGIS_AUTO_CANCELLING);
+    (void)aegis_autonomous_transition(aa, AEGIS_AUTO_CANCELLING);
     return AEGIS_OK;
 }
 
@@ -244,7 +244,7 @@ aegis_status_t aegis_autonomous_agent_checkpoint_save(aegis_autonomous_agent_t* 
 
 aegis_status_t aegis_autonomous_agent_restore(aegis_autonomous_agent_t* aa, const char* path)
 {
-    return autonomous_checkpoint_restore(aa, path);
+    return aegis_autonomous_checkpoint_restore(aa, path);
 }
 
 aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const char* goal_text,
@@ -258,9 +258,9 @@ aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const ch
     }
     // Sync runtime goal and token before loop
     strncpy(aa->runtime->goal, goal_text, sizeof(aa->runtime->goal) - 1);
-    aa->runtime->token = autonomous_get_token(aa);
+    aa->runtime->token = aegis_autonomous_get_token(aa);
     // Delegate to loop orchestrator; loop owns iteration/plan/graph ownership
-    aegis_status_t rc = autonomous_loop_run(aa, aa->runtime, goal_text, out_result);
+    aegis_status_t rc = aegis_autonomous_loop_run(aa, aa->runtime, goal_text, out_result);
     // On return, runtime retains plan/graph for inspection until next run or destroy;
     // reset iteration for fresh goal if not recovered — handled inside loop.
     // Ensure scheduler is alive (loop may have left it attached)

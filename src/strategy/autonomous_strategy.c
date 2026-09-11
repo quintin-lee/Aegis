@@ -26,7 +26,7 @@ static aegis_status_t strat_init(void* user)
     if (s->runtime) {
         return AEGIS_OK;
     }
-    return autonomous_runtime_create(&s->runtime);
+    return aegis_autonomous_runtime_create(&s->runtime);
 }
 
 static aegis_status_t strat_shutdown(void* user)
@@ -36,7 +36,7 @@ static aegis_status_t strat_shutdown(void* user)
         return AEGIS_OK;
     }
     if (s->runtime) {
-        autonomous_runtime_destroy(s->runtime);
+        aegis_autonomous_runtime_destroy(s->runtime);
         s->runtime = NULL;
     }
     return AEGIS_OK;
@@ -72,7 +72,7 @@ static aegis_status_t ensure_ready(aegis_autonomous_agent_t* agent,
     pthread_mutex_unlock(&agent->lock);
     if (cur == AEGIS_AUTO_RECOVERING || cur == AEGIS_AUTO_CREATED ||
         cur == AEGIS_AUTO_INITIALIZING) {
-        (void)autonomous_transition(agent, AEGIS_AUTO_READY);
+        (void)aegis_autonomous_transition(agent, AEGIS_AUTO_READY);
     }
     return AEGIS_OK;
 }
@@ -84,7 +84,7 @@ static aegis_status_t strat_before_turn(void* user, aegis_agent_loop_t* loop)
         return AEGIS_ERR_INVALID;
     }
     if (!s->runtime) {
-        aegis_status_t rc = autonomous_runtime_create(&s->runtime);
+        aegis_status_t rc = aegis_autonomous_runtime_create(&s->runtime);
         if (rc != AEGIS_OK) {
             return rc;
         }
@@ -92,7 +92,7 @@ static aegis_status_t strat_before_turn(void* user, aegis_agent_loop_t* loop)
     if (s->runtime->plan) {
         return AEGIS_OK;
     }
-    aegis_cancellation_token_t* token = autonomous_get_token(s->agent);
+    aegis_cancellation_token_t* token = aegis_autonomous_get_token(s->agent);
     if (token && aegis_cancellation_token_is_cancelled(token)) {
         return AEGIS_ERR_CANCELLED;
     }
@@ -102,13 +102,13 @@ static aegis_status_t strat_before_turn(void* user, aegis_agent_loop_t* loop)
     }
     snprintf(s->runtime->goal, sizeof(s->runtime->goal), "%s", goal);
     ensure_ready(s->agent, s->runtime);
-    (void)autonomous_transition(s->agent, AEGIS_AUTO_PLANNING);
-    aegis_status_t rc = autonomous_plan(s->agent, s->runtime, s->runtime->goal);
+    (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_PLANNING);
+    aegis_status_t rc = aegis_autonomous_plan(s->agent, s->runtime, s->runtime->goal);
     if (rc != AEGIS_OK) {
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
         return rc;
     }
-    (void)autonomous_transition(s->agent, AEGIS_AUTO_SCHEDULING);
+    (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_SCHEDULING);
     return AEGIS_OK;
 }
 
@@ -133,14 +133,14 @@ static aegis_status_t strat_should_continue(void* user, int* out_continue)
         return AEGIS_ERR_INVALID;
     }
     *out_continue = 0;
-    aegis_cancellation_token_t* token = autonomous_get_token(s->agent);
+    aegis_cancellation_token_t* token = aegis_autonomous_get_token(s->agent);
     if (token && aegis_cancellation_token_is_cancelled(token)) {
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_CANCELLING);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_CANCELLING);
         return AEGIS_ERR_CANCELLED;
     }
     uint32_t max_iter = s->agent->cfg.max_iterations ? s->agent->cfg.max_iterations : 5;
     if (s->runtime->iteration >= max_iter) {
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
         return AEGIS_ERR_MAX_ITERATIONS;
     }
     pthread_mutex_lock(&s->agent->lock);
@@ -149,50 +149,50 @@ static aegis_status_t strat_should_continue(void* user, int* out_continue)
     pthread_mutex_unlock(&s->agent->lock);
 
     const char* goal = s->runtime->goal;
-    aegis_status_t rc = autonomous_execute(s->agent, s->runtime);
+    aegis_status_t rc = aegis_autonomous_execute(s->agent, s->runtime);
     if (rc != AEGIS_OK) {
-        (void)autonomous_transition(
+        (void)aegis_autonomous_transition(
             s->agent, rc == AEGIS_ERR_CANCELLED ? AEGIS_AUTO_CANCELLING : AEGIS_AUTO_FAILED);
-        autonomous_checkpoint_save(s->agent, goal, s->runtime->plan, s->runtime->graph);
+        aegis_autonomous_checkpoint_save(s->agent, goal, s->runtime->plan, s->runtime->graph);
         return rc;
     }
-    autonomous_checkpoint_save(s->agent, goal, s->runtime->plan, s->runtime->graph);
+    aegis_autonomous_checkpoint_save(s->agent, goal, s->runtime->plan, s->runtime->graph);
 
-    (void)autonomous_transition(s->agent, AEGIS_AUTO_EVALUATING);
-    rc = autonomous_evaluate(s->agent, s->runtime);
+    (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_EVALUATING);
+    rc = aegis_autonomous_evaluate(s->agent, s->runtime);
     if (rc == AEGIS_ERR_CANCELLED) {
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_CANCELLING);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_CANCELLING);
         return rc;
     }
     if (rc != AEGIS_OK) {
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
         return rc;
     }
     if (s->runtime->last_critique.result == AEGIS_CRITIQUE_SUCCESS) {
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_COMPLETED);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_COMPLETED);
         return AEGIS_OK;
     }
     if (s->runtime->last_critique.result == AEGIS_CRITIQUE_REPLAN_REQUIRED ||
         s->runtime->last_critique.result == AEGIS_CRITIQUE_PARTIAL ||
         s->runtime->last_critique.result == AEGIS_CRITIQUE_FAILURE) {
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_REFLECTING);
-        rc = autonomous_reflect(s->agent, s->runtime);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_REFLECTING);
+        rc = aegis_autonomous_reflect(s->agent, s->runtime);
         if (rc != AEGIS_OK) {
-            (void)autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
+            (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
             return rc;
         }
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_REPLANNING);
-        rc = autonomous_replan(s->agent, s->runtime);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_REPLANNING);
+        rc = aegis_autonomous_replan(s->agent, s->runtime);
         if (rc != AEGIS_OK) {
-            (void)autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
+            (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
             return rc;
         }
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_PLANNING);
-        (void)autonomous_transition(s->agent, AEGIS_AUTO_SCHEDULING);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_PLANNING);
+        (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_SCHEDULING);
         *out_continue = 1;
         return AEGIS_OK;
     }
-    (void)autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
+    (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_FAILED);
     return AEGIS_ERR_INTERNAL;
 }
 
@@ -211,7 +211,7 @@ aegis_status_t aegis_autonomous_strategy_create(const aegis_autonomous_agent_con
         free(s);
         return st;
     }
-    st = autonomous_runtime_create(&s->runtime);
+    st = aegis_autonomous_runtime_create(&s->runtime);
     if (st != AEGIS_OK) {
         aegis_autonomous_agent_destroy(s->agent);
         free(s);
@@ -237,7 +237,7 @@ void aegis_autonomous_strategy_destroy(aegis_autonomous_strategy_t* s)
         return;
     }
     if (s->runtime) {
-        autonomous_runtime_destroy(s->runtime);
+        aegis_autonomous_runtime_destroy(s->runtime);
     }
     if (s->agent) {
         aegis_autonomous_agent_destroy(s->agent);

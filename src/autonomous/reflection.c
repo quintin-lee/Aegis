@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-aegis_status_t autonomous_reflect(aegis_autonomous_agent_t*   agent,
+aegis_status_t aegis_autonomous_reflect(aegis_autonomous_agent_t*   agent,
                                   aegis_autonomous_runtime_t* runtime)
 {
     if (!agent || !runtime || !runtime->graph) {

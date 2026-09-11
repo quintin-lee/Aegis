@@ -2,7 +2,7 @@
 #include "autonomous_agent_internal.h"
 #include <string.h>
 
-aegis_status_t autonomous_evaluate(aegis_autonomous_agent_t*   agent,
+aegis_status_t aegis_autonomous_evaluate(aegis_autonomous_agent_t*   agent,
                                    aegis_autonomous_runtime_t* runtime)
 {
     if (!agent || !runtime) {
@@ -12,7 +12,7 @@ aegis_status_t autonomous_evaluate(aegis_autonomous_agent_t*   agent,
         return AEGIS_ERR_INVALID;
     }
 
-    aegis_cancellation_token_t* token = autonomous_get_token(agent);
+    aegis_cancellation_token_t* token = aegis_autonomous_get_token(agent);
     if (token && aegis_cancellation_token_is_cancelled(token)) {
         return AEGIS_ERR_CANCELLED;
     }

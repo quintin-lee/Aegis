@@ -21,7 +21,7 @@ static aegis_status_t autonomous_default_work(aegis_task_t*                     
     return aegis_task_set_output(task, description, strlen(description));
 }
 
-aegis_status_t autonomous_execute(aegis_autonomous_agent_t*   agent,
+aegis_status_t aegis_autonomous_execute(aegis_autonomous_agent_t*   agent,
                                   aegis_autonomous_runtime_t* runtime)
 {
     if (!agent || !runtime) {
@@ -34,7 +34,7 @@ aegis_status_t autonomous_execute(aegis_autonomous_agent_t*   agent,
         return AEGIS_ERR_INVALID;
     }
 
-    aegis_cancellation_token_t* token = autonomous_get_token(agent);
+    aegis_cancellation_token_t* token = aegis_autonomous_get_token(agent);
     if (token && aegis_cancellation_token_is_cancelled(token)) {
         return AEGIS_ERR_CANCELLED;
     }
@@ -135,9 +135,9 @@ aegis_status_t autonomous_execute(aegis_autonomous_agent_t*   agent,
         agent->tasks_executed = (uint32_t)runtime->tasks_executed;
 
         // checkpoint per task: EXECUTING -> CHECKPOINTING -> EXECUTING
-        (void)autonomous_transition(agent, AEGIS_AUTO_CHECKPOINTING);
-        autonomous_checkpoint_save(agent, runtime->goal, runtime->plan, runtime->graph);
-        (void)autonomous_transition(agent, AEGIS_AUTO_EXECUTING);
+        (void)aegis_autonomous_transition(agent, AEGIS_AUTO_CHECKPOINTING);
+        aegis_autonomous_checkpoint_save(agent, runtime->goal, runtime->plan, runtime->graph);
+        (void)aegis_autonomous_transition(agent, AEGIS_AUTO_EXECUTING);
 
         if (eres.outcome == AEGIS_EXEC_TIMED_OUT) {
             return AEGIS_ERR_TIMEOUT;
