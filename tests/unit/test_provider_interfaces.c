@@ -43,7 +43,7 @@ static aegis_status_t mock_llm_complete(void* ctx, const aegis_llm_request_t* re
     return AEGIS_OK;
 }
 
-static const aegis_llm_ops_t k_mock_llm_ops = {NULL, mock_llm_complete};
+static const aegis_llm_ops_t k_mock_llm_ops = {NULL, mock_llm_complete, NULL};
 
 static aegis_status_t failing_llm_complete(void* ctx, const aegis_llm_request_t* req,
                                            const aegis_cancellation_token_t* token,
@@ -237,7 +237,7 @@ static aegis_provider_registry_t* make_reg_with_mocks(mock_llm_state_t* llm_st, 
     d.name = "fail-llm";
     d.kind = AEGIS_PROVIDER_LLM;
     /* Non-const: def.user is a plain void* (borrowed, registry never writes). */
-    static aegis_llm_ops_t fail_ops = {NULL, failing_llm_complete};
+    static aegis_llm_ops_t fail_ops = {NULL, failing_llm_complete, NULL};
     d.user                          = &fail_ops;
     assert(aegis_provider_register(reg, &d) == AEGIS_OK);
 

@@ -206,10 +206,18 @@ if(AEGIS_BUILD_TESTS)
     target_link_libraries(unit_provider_embedding PRIVATE aegis_provider GTest::gtest_main)
     aegis_set_warnings(unit_provider_embedding)
     add_test(NAME unit_provider_embedding COMMAND unit_provider_embedding)
+    add_executable(unit_provider_interfaces tests/unit/test_provider_interfaces.c)
+    target_link_libraries(unit_provider_interfaces PRIVATE aegis_provider aegis_storage)
+    aegis_set_warnings(unit_provider_interfaces)
+    add_test(NAME unit_provider_interfaces COMMAND unit_provider_interfaces)
     add_executable(unit_planner_llm tests/unit/test_planner_llm.c)
     target_link_libraries(unit_planner_llm PRIVATE aegis_planner aegis_provider aegis_task aegis_critic GTest::gtest_main)
     aegis_set_warnings(unit_planner_llm)
     add_test(NAME unit_planner_llm COMMAND unit_planner_llm)
+    add_executable(unit_planner tests/unit/test_planner.c)
+    target_link_libraries(unit_planner PRIVATE aegis_planner aegis_executor aegis_task aegis_critic)
+    aegis_set_warnings(unit_planner)
+    add_test(NAME unit_planner COMMAND unit_planner)
     add_executable(system_autonomous tests/system/test_autonomous_closed_loop.c)
     target_link_libraries(system_autonomous PRIVATE aegis_autonomous aegis_provider GTest::gtest_main pthread)
     aegis_set_warnings(system_autonomous)
@@ -261,7 +269,7 @@ if(AEGIS_BUILD_TESTS)
             unit_task_concurrent unit_scheduler_concurrent unit_executor unit_executor_concurrent unit_tool
             unit_tool_executor unit_tool_concurrent unit_discovery_tools unit_coding_agent unit_provider unit_context unit_message unit_session
             unit_storage unit_memory unit_skill_loader unit_checkpoint unit_log unit_metrics unit_trace unit_plugin unit_security
-            unit_provider_llm unit_provider_storage unit_provider_embedding unit_planner_llm system_autonomous system_autonomous_strategy unit_autonomous_tool
+            unit_provider_llm unit_provider_storage unit_provider_embedding unit_provider_interfaces unit_planner_llm unit_strategy unit_planner system_autonomous system_autonomous_strategy unit_autonomous_tool
             system_recovery_e2e system_tool_e2e system_security_e2e system_cancellation_e2e system_failure_e2e
             stress_agent_loop system_coding_loop
             PROPERTIES ENVIRONMENT "LD_PRELOAD=;ASAN_OPTIONS=verify_asan_link_order=0")
