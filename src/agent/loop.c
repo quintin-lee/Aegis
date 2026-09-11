@@ -2,6 +2,7 @@
 #include "aegis/agent/loop.h"
 #include "aegis/agent/state.h"
 #include "aegis/agent/strategy.h"
+#include "aegis/common/error.h"
 #include "aegis/message/message.h"
 #include "aegis/context/context.h"
 #include <stdlib.h>
@@ -852,6 +853,12 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
             aegis_tool_args_t* args     = NULL;
             const char*        raw_args = aegis_tool_call_arguments(call);
             if (!json_parse_args(raw_args ? raw_args : "{}", &args)) {
+                aegis_error_t* detail = NULL;
+                if (aegis_error_new(&detail, AEGIS_ERROR_FORMAT,
+                                    "tool '%s' got malformed arguments", name) ==
+                    AEGIS_ERROR_NONE) {
+                    aegis_error_set_last(detail);
+                }
                 aegis_message_destroy(am);
                 set_state(l, AEGIS_AGENT_LOOP_FAILED);
                 return AEGIS_ERR_TOOL_VALIDATION;

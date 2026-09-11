@@ -29,7 +29,7 @@ aegis_err_t aegis_error_new(aegis_error_t** out, aegis_err_t code, const char* f
     }
     aegis_error_t* err = calloc(1, sizeof(*err));
     if (!err) {
-        return AEGIS_ERR_NOMEM;
+        return AEGIS_ERROR_NOMEM;
     }
     err->code  = code;
     err->cause = NULL;
@@ -42,7 +42,7 @@ aegis_err_t aegis_error_new(aegis_error_t** out, aegis_err_t code, const char* f
         err->msg[0] = '\0';
     }
     *out = err;
-    return AEGIS_ERR_NONE;
+    return AEGIS_ERROR_NONE;
 }
 
 aegis_err_t aegis_error_new_cause(aegis_error_t** out, aegis_err_t code, const aegis_error_t* cause,
@@ -53,7 +53,7 @@ aegis_err_t aegis_error_new_cause(aegis_error_t** out, aegis_err_t code, const a
     }
     aegis_error_t* err = calloc(1, sizeof(*err));
     if (!err) {
-        return AEGIS_ERR_NOMEM;
+        return AEGIS_ERROR_NOMEM;
     }
     err->code  = code;
     err->cause = cause;
@@ -66,21 +66,21 @@ aegis_err_t aegis_error_new_cause(aegis_error_t** out, aegis_err_t code, const a
         err->msg[0] = '\0';
     }
     *out = err;
-    return AEGIS_ERR_NONE;
+    return AEGIS_ERROR_NONE;
 }
 
 aegis_err_t aegis_error_clone(const aegis_error_t* src, aegis_error_t** out)
 {
     if (!src || !out) {
-        return AEGIS_ERR_INVALID;
+        return AEGIS_ERROR_INVALID;
     }
     aegis_error_t* copy = calloc(1, sizeof(*copy));
     if (!copy) {
-        return AEGIS_ERR_NOMEM;
+        return AEGIS_ERROR_NOMEM;
     }
     *copy = *src;
     *out  = copy;
-    return AEGIS_ERR_NONE;
+    return AEGIS_ERROR_NONE;
 }
 
 void aegis_error_destroy(aegis_error_t* err)
@@ -90,7 +90,7 @@ void aegis_error_destroy(aegis_error_t* err)
 
 aegis_err_t aegis_error_code(const aegis_error_t* err)
 {
-    return err ? err->code : AEGIS_ERR_NONE;
+    return err ? err->code : AEGIS_ERROR_NONE;
 }
 
 const char* aegis_error_message(const aegis_error_t* err)
@@ -101,6 +101,19 @@ const char* aegis_error_message(const aegis_error_t* err)
 const aegis_error_t* aegis_error_cause(const aegis_error_t* err)
 {
     return err ? err->cause : NULL;
+}
+
+static _Thread_local aegis_error_t* tls_last_error = NULL;
+
+void aegis_error_set_last(aegis_error_t* err)
+{
+    aegis_error_destroy(tls_last_error);
+    tls_last_error = err;
+}
+
+const aegis_error_t* aegis_error_last(void)
+{
+    return tls_last_error;
 }
 
 int aegis_error_chain_snprintf(char* buf, size_t maxlen, const aegis_error_t* err)

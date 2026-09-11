@@ -1,5 +1,6 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent/loop.h"
+#include "aegis/common/error.h"
 #include "aegis/message/message.h"
 #include "aegis/model/model.h"
 #include "aegis/session/session.h"
@@ -314,6 +315,12 @@ int main(void)
         assert(strcmp(aegis_status_str(AEGIS_ERR_TOOL_VALIDATION), "tool_validation") == 0);
         assert(strcmp(aegis_status_str(AEGIS_ERR_CONTEXT_OVERFLOW), "context_overflow") == 0);
         assert(strcmp(aegis_status_str(AEGIS_ERR_MODEL_RATE_LIMIT), "model_rate_limit") == 0);
+        const aegis_error_t* detail = aegis_error_last();
+        assert(detail != NULL);
+        assert(aegis_error_code(detail) == AEGIS_ERROR_FORMAT);
+        assert(strstr(aegis_error_message(detail), "read") != NULL);
+        aegis_error_set_last(NULL);
+        assert(aegis_error_last() == NULL);
         aegis_agent_loop_destroy(loop);
         aegis_model_client_destroy(model);
         aegis_tool_registry_destroy(tools);

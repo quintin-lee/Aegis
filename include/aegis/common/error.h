@@ -37,21 +37,21 @@ typedef struct aegis_error aegis_error_t;
  * format, overflow, empty) that do not appear in the core status enum.
  */
 typedef enum aegis_err {
-    AEGIS_ERR_NONE      = 0,   /**< No error.                               */
-    AEGIS_ERR_UNKNOWN   = -1,  /**< Unknown / unclassified error.             */
-    AEGIS_ERR_NOMEM     = -2,  /**< Out of memory.                            */
-    AEGIS_ERR_INVALID   = -3,  /**< Invalid argument.                         */
-    AEGIS_ERR_NOT_FOUND = -4,  /**< Resource not found.                       */
-    AEGIS_ERR_BUSY      = -5,  /**< Resource is busy.                         */
-    AEGIS_ERR_TIMEOUT   = -6,  /**< Operation timed out.                      */
-    AEGIS_ERR_CANCELLED = -7,  /**< Operation was cancelled.                  */
-    AEGIS_ERR_PERM      = -8,  /**< Permission denied.                        */
-    AEGIS_ERR_PROVIDER  = -9,  /**< Error from an external provider.          */
-    AEGIS_ERR_TOOL      = -10, /**< Error from a tool execution.              */
-    AEGIS_ERR_IO        = -11, /**< I/O error (read / write / network).       */
-    AEGIS_ERR_FORMAT    = -12, /**< Malformed input format.                   */
-    AEGIS_ERR_OVERFLOW  = -13, /**< Value exceeded representable range.       */
-    AEGIS_ERR_EMPTY     = -14, /**< Operation on an empty collection.         */
+    AEGIS_ERROR_NONE      = 0,   /**< No error.                               */
+    AEGIS_ERROR_UNKNOWN   = -1,  /**< Unknown / unclassified error.             */
+    AEGIS_ERROR_NOMEM     = -2,  /**< Out of memory.                            */
+    AEGIS_ERROR_INVALID   = -3,  /**< Invalid argument.                         */
+    AEGIS_ERROR_NOT_FOUND = -4,  /**< Resource not found.                       */
+    AEGIS_ERROR_BUSY      = -5,  /**< Resource is busy.                         */
+    AEGIS_ERROR_TIMEOUT   = -6,  /**< Operation timed out.                      */
+    AEGIS_ERROR_CANCELLED = -7,  /**< Operation was cancelled.                  */
+    AEGIS_ERROR_PERM      = -8,  /**< Permission denied.                        */
+    AEGIS_ERROR_PROVIDER  = -9,  /**< Error from an external provider.          */
+    AEGIS_ERROR_TOOL      = -10, /**< Error from a tool execution.              */
+    AEGIS_ERROR_IO        = -11, /**< I/O error (read / write / network).       */
+    AEGIS_ERROR_FORMAT    = -12, /**< Malformed input format.                   */
+    AEGIS_ERROR_OVERFLOW  = -13, /**< Value exceeded representable range.       */
+    AEGIS_ERROR_EMPTY     = -14, /**< Operation on an empty collection.         */
 } aegis_err_t;
 
 /**
@@ -61,7 +61,7 @@ typedef enum aegis_err {
  * @param[in]  code      Error code.
  * @param[in]  fmt       printf-style format string (no trailing newline).
  * @param[in]  ...       Format arguments corresponding to @p fmt.
- * @return AEGIS_OK (0) on success, AEGIS_ERR_NOMEM on allocation failure.
+ * @return AEGIS_OK (0) on success, AEGIS_ERROR_NOMEM on allocation failure.
  */
 aegis_err_t aegis_error_new(aegis_error_t** out, aegis_err_t code, const char* fmt, ...);
 
@@ -84,9 +84,9 @@ aegis_err_t aegis_error_new_cause(aegis_error_t** out, aegis_err_t code, const a
 /**
  * @brief Deep-copy an error including its cause chain.
  *
- * @param[in]  src  Error to clone (borrowed; may be NULL — returns AEGIS_ERR_INVALID).
+ * @param[in]  src  Error to clone (borrowed; may be NULL — returns AEGIS_ERROR_INVALID).
  * @param[out] out  Receives the cloned error. Ownership: transferred.
- * @return AEGIS_OK on success, AEGIS_ERR_NOMEM on allocation failure.
+ * @return AEGIS_OK on success, AEGIS_ERROR_NOMEM on allocation failure.
  */
 aegis_err_t aegis_error_clone(const aegis_error_t* src, aegis_error_t** out);
 
@@ -105,7 +105,7 @@ void aegis_error_destroy(aegis_error_t* err);
 /**
  * @brief Get the error code.
  *
- * @param err Error handle (borrowed; may be NULL → returns AEGIS_ERR_NONE).
+ * @param err Error handle (borrowed; may be NULL → returns AEGIS_ERROR_NONE).
  * @return Error code.
  */
 aegis_err_t aegis_error_code(const aegis_error_t* err);
@@ -141,6 +141,27 @@ const aegis_error_t* aegis_error_cause(const aegis_error_t* err);
  *         or a negative value if @p buf is NULL or maxlen is 0.
  */
 int aegis_error_chain_snprintf(char* buf, size_t maxlen, const aegis_error_t* err);
+
+/**
+ * @brief Publish an error as the calling thread's last-error detail.
+ *
+ * Takes ownership of @p err (may be NULL to clear); the previously stored
+ * error, if any, is destroyed. Status-code APIs that cannot change
+ * signature use this to attach detail: on failure they return the status
+ * and publish a detail object here. The stored error is valid until the
+ * next set on the same thread; each thread has an independent slot.
+ *
+ * @param err Detail to store (ownership: consumed; NULL clears the slot).
+ */
+void aegis_error_set_last(aegis_error_t* err);
+
+/**
+ * @brief Read the calling thread's last-error detail.
+ *
+ * @return Borrowed pointer (valid until the next set on this thread),
+ *         or NULL when no detail was published.
+ */
+const aegis_error_t* aegis_error_last(void);
 
 #ifdef __cplusplus
 }

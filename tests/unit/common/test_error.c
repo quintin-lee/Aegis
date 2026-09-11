@@ -8,8 +8,8 @@ int main(void)
 {
     /* Create simple error */
     aegis_error_t* e1 = NULL;
-    assert(aegis_error_new(&e1, AEGIS_ERR_NOMEM, "out of memory") == AEGIS_ERR_NONE);
-    assert(aegis_error_code(e1) == AEGIS_ERR_NOMEM);
+    assert(aegis_error_new(&e1, AEGIS_ERROR_NOMEM, "out of memory") == AEGIS_ERROR_NONE);
+    assert(aegis_error_code(e1) == AEGIS_ERROR_NOMEM);
     assert(strstr(aegis_error_message(e1), "out of memory") != NULL);
     assert(aegis_error_cause(e1) == NULL);
     aegis_error_destroy(e1);
@@ -17,9 +17,9 @@ int main(void)
     /* Create error with cause chain */
     aegis_error_t* cause = NULL;
     aegis_error_t* err   = NULL;
-    assert(aegis_error_new(&cause, AEGIS_ERR_IO, "read failed") == AEGIS_ERR_NONE);
-    assert(aegis_error_new_cause(&err, AEGIS_ERR_PROVIDER, cause, "upstream: %s",
-                                 aegis_error_message(cause)) == AEGIS_ERR_NONE);
+    assert(aegis_error_new(&cause, AEGIS_ERROR_IO, "read failed") == AEGIS_ERROR_NONE);
+    assert(aegis_error_new_cause(&err, AEGIS_ERROR_PROVIDER, cause, "upstream: %s",
+                                 aegis_error_message(cause)) == AEGIS_ERROR_NONE);
     assert(aegis_error_cause(err) == cause);
     char buf[512];
     int  n = aegis_error_chain_snprintf(buf, sizeof(buf), err);
@@ -30,8 +30,8 @@ int main(void)
 
     /* Clone */
     aegis_error_t* clone = NULL;
-    assert(aegis_error_new(&e1, AEGIS_ERR_TIMEOUT, "timed out") == AEGIS_ERR_NONE);
-    assert(aegis_error_clone(e1, &clone) == AEGIS_ERR_NONE);
+    assert(aegis_error_new(&e1, AEGIS_ERROR_TIMEOUT, "timed out") == AEGIS_ERROR_NONE);
+    assert(aegis_error_clone(e1, &clone) == AEGIS_ERROR_NONE);
     assert(aegis_error_code(clone) == aegis_error_code(e1));
     aegis_error_destroy(e1);
     aegis_error_destroy(clone);
@@ -47,7 +47,7 @@ int main(void)
 
     /* Result Err */
     aegis_error_t* err2 = NULL;
-    aegis_error_new(&err2, AEGIS_ERR_INVALID, "bad arg");
+    aegis_error_new(&err2, AEGIS_ERROR_INVALID, "bad arg");
     aegis_result_t* r2 = aegis_result_create_err(err2);
     assert(r2 != NULL);
     assert(aegis_result_is_err(r2));
@@ -58,7 +58,7 @@ int main(void)
     aegis_result_destroy(r2);
 
     /* Result from format */
-    aegis_result_t* r3 = aegis_result_create_errf(AEGIS_ERR_BUSY, "retry later");
+    aegis_result_t* r3 = aegis_result_create_errf(AEGIS_ERROR_BUSY, "retry later");
     assert(r3 != NULL);
     assert(aegis_result_is_err(r3));
     aegis_result_destroy(r3);
