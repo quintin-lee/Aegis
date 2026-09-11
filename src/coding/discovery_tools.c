@@ -1,3 +1,8 @@
+/**
+ * @file discovery_tools.c
+ * @brief Read-only discovery tools (list/glob/grep) with size limits,
+ * binary detection, symlink policy and truncated output caps.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/discovery_tools.h"
 #include "path_safety.h"

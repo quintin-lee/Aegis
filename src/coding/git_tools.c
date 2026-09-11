@@ -1,3 +1,9 @@
+/**
+ * @file git_tools.c
+ * @brief Git tools (status/diff/commit/log/branch) executed via
+ * fork/exec with piped output capture, timeout kill and cooperative
+ * cancellation.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/git_tools.h"
 #include "path_safety.h"

@@ -1,3 +1,10 @@
+/**
+ * @file coding_agent.c
+ * @brief Pi-like coding agent implementation: owns session, agent loop,
+ * model client, tool registry and skill set. Entry points for create/
+ * destroy/run/interrupt plus model hot-switch and session replacement;
+ * mock model by default, OpenAI backend when configured.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/coding_agent.h"
 #include "aegis/coding/coding_tools.h"

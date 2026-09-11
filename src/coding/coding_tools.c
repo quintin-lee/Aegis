@@ -1,3 +1,9 @@
+/**
+ * @file coding_tools.c
+ * @brief Builtin read/write/edit/bash tool implementations with
+ * path-safety gating, plus aggregation of the discovery and git tool
+ * families. File mutations serialize through the mutation queue.
+ */
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/coding_tools.h"

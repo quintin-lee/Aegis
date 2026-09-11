@@ -1,3 +1,9 @@
+/**
+ * @file mutations.c
+ * @brief Per-path file-mutation queue serializing write→edit→edit
+ * sequences so concurrent tool calls cannot interleave on one path.
+ * Mutex-guarded; entries are lightweight path locks, not content.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/mutations.h"
 #include <stdlib.h>
