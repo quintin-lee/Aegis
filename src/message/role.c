@@ -1,3 +1,8 @@
+/**
+ * @file role.c
+ * @brief Message-role enum to wire string ("system"/"user"/"assistant"/
+ * "tool"/"event"/"summary"); unknown values map to "unknown".
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/message/role.h"
 

@@ -1,3 +1,11 @@
+/**
+ * @file memory.c
+ * @brief Generic in-process memory store plus shared item helpers.
+ *
+ * Vector-backed item storage with cloned-string ownership; backs the
+ * typed working/episodic/semantic/procedural stores together with the
+ * item clone/free helpers. Individual stores are NOT thread-safe.
+ */
 
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/memory/memory.h"

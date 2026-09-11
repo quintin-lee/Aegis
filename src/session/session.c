@@ -1,3 +1,9 @@
+/**
+ * @file session.c
+ * @brief Session: conversation record backing the reactive loop. Owns the
+ * message list; persists as append-only JSONL, supports fork/branch and
+ * tail-preserving compaction. Timestamps are wall-clock milliseconds.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/session/session.h"
 #include "aegis/common/uuid.h"

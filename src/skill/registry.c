@@ -1,3 +1,8 @@
+/**
+ * @file registry.c
+ * @brief Vector-backed ordered skill registry. Add transfers ownership;
+ * get returns borrowed pointers; destroy frees all entries. Not thread-safe.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/skill/registry.h"
 #include "aegis/common/vector.h"

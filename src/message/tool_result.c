@@ -1,3 +1,9 @@
+/**
+ * @file tool_result.c
+ * @brief Message-layer tool result: owned call-id/content/error strings
+ * (NULL clears on set), stored status defaulting to OK, partial-delivery
+ * flag, and deep-copy clone. Destroys safely on NULL.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/message/tool_result.h"
 #include <stdlib.h>

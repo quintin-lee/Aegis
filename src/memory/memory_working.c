@@ -1,3 +1,8 @@
+/**
+ * @file memory_working.c
+ * @brief Working memory: capacity-capped store evicting lowest-priority
+ * items on overflow, with top-N highest-priority retrieval.
+ */
 /* ── Working memory ────────────────────────────────────────────────────────── */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/memory/memory.h"

@@ -1,3 +1,8 @@
+/**
+ * @file memory_episodic.c
+ * @brief Episodic memory: append-only event records with time-range
+ * retrieval. Items are owned copies; ranges are half-open [start, end).
+ */
 /* ── Episodic memory ───────────────────────────────────────────────────────── */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/memory/memory.h"

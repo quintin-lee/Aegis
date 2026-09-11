@@ -1,3 +1,8 @@
+/**
+ * @file memory_semantic.c
+ * @brief Semantic memory: id-keyed knowledge facts with insert-or-replace
+ * put semantics and borrowed-pointer lookup.
+ */
 /* ── Semantic memory ───────────────────────────────────────────────────────── */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/memory/memory.h"

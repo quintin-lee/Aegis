@@ -1,3 +1,9 @@
+/**
+ * @file message.c
+ * @brief Message + message-list implementation: heap-owned strings,
+ * deep-copy clone/append, NULL-tolerant accessors. Internal layout is
+ * private; all access goes through the message.h API.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/message/message.h"
 #include "aegis/common/uuid.h"

@@ -1,3 +1,10 @@
+/**
+ * @file model.c
+ * @brief Model client lifecycle plus complete/stream dispatch: backend
+ * callbacks when installed, deterministic mock fallback otherwise
+ * (canned text derived from the last user message). Backend struct is
+ * copied at creation; destroy and capabilities are NULL-safe.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/model/model.h"
 #include "aegis/message/message.h"

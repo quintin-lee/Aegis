@@ -1,3 +1,8 @@
+/**
+ * @file response.c
+ * @brief Model response container: owned assistant message plus raw
+ * provider payload. Create/destroy only; parsing lives in providers.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/model/response.h"
 #include <stdlib.h>

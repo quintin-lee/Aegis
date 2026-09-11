@@ -1,3 +1,7 @@
+/**
+ * @file stream.c
+ * @brief Stream event-type to wire string; unknown values map to "UNKNOWN".
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/model/stream.h"
 

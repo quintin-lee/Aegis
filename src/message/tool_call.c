@@ -1,3 +1,8 @@
+/**
+ * @file tool_call.c
+ * @brief Tool-call model: id, tool name and JSON arguments with owned
+ * heap strings, deep-copy clone and NULL-tolerant accessors.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/message/tool_call.h"
 #include <stdlib.h>

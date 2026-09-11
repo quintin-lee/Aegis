@@ -1,3 +1,8 @@
+/**
+ * @file skill.c
+ * @brief Skill value object: heap-owned name/description/instructions/path
+ * with copying create and NULL-safe destroy.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/skill/skill.h"
 #include <stdlib.h>
