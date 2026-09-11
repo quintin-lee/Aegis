@@ -13,6 +13,9 @@ extern "C" {
 /**
  * @file stream.h
  * @brief Streaming model events — provider ↔ agent loop decoupling.
+ *
+ * A turn is a sequence of TEXT/REASONING deltas and TOOL_CALL START/DELTA/END
+ * groups, terminated by END (or ERROR). USAGE may appear near the end.
  */
 
 typedef enum aegis_model_stream_event_type {
@@ -35,9 +38,11 @@ typedef struct aegis_model_stream_event {
     const char*                     call_id;   /**< For TOOL_CALL_* */
 } aegis_model_stream_event_t;
 
+/** Per-event callback; return non-OK to abort the stream. Payloads are borrowed. */
 typedef aegis_status_t (*aegis_model_stream_callback_fn)(const aegis_model_stream_event_t* event,
                                                          void*                             user);
 
+/** Event type name for logs; "UNKNOWN" for out-of-range values. */
 const char* aegis_model_stream_event_type_str(aegis_model_stream_event_type_t t);
 
 #ifdef __cplusplus
