@@ -47,7 +47,8 @@ static aegis_status_t canned_llm_complete(void* ctx, const aegis_llm_request_t* 
 }
 
 /* Non-const: def.user is a plain void* (borrowed, registry never writes). */
-static aegis_llm_ops_t s_canned_ops = {NULL, canned_llm_complete};
+static int             s_canned_context = 0;
+static aegis_llm_ops_t s_canned_ops = {&s_canned_context, canned_llm_complete, NULL};
 
 static aegis_provider_registry_t* make_provider_reg(void)
 {
