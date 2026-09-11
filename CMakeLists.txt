@@ -78,7 +78,7 @@ endif()
  include(cmake/AegisLibraries.cmake)
 # ── Executables ──────────────────────────────────────────────────────────
 add_executable(aegis_shell src/autonomous/src/shell.c)
-target_link_libraries(aegis_shell PRIVATE aegis_core)
+target_link_libraries(aegis_shell PRIVATE aegis_agent aegis_autonomous)
 aegis_set_warnings(aegis_shell)
 
 add_executable(aegis
@@ -91,7 +91,7 @@ add_executable(aegis
     apps/aegis/cli_inspect.c
     apps/aegis/cli_interactive.c
 )
-target_link_libraries(aegis PRIVATE aegis_core pthread)
+target_link_libraries(aegis PRIVATE aegis_coding aegis_session aegis_checkpoint aegis_message aegis_tool pthread)
 target_compile_definitions(aegis PRIVATE AEGIS_VERSION_STRING="${AEGIS_VERSION_STRING}")
 if(AEGIS_OPENAI_PROVIDER)
     target_link_libraries(aegis PRIVATE aegis_llm_openai)
