@@ -1,4 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
+/**
+ * @file test_discovery_tools.c
+ * @brief Unit tests for list/glob/grep discovery tools.
+ */
 #include "aegis/coding/discovery_tools.h"
 #include "aegis/common/cancellation/cancellation.h"
 #include <assert.h>

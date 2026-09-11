@@ -1,3 +1,7 @@
+/**
+ * @file test_queue.c
+ * @brief Unit tests for the FIFO queue module.
+ */
 #include "aegis/common/queue.h"
 #include <assert.h>
 #include <stdlib.h>

@@ -1,3 +1,9 @@
+/**
+ * @file test_loop_strategy.c
+ * @brief Unit tests for loop-strategy hooks: ordering, abort propagation,
+ * should_continue cap, ABI rejection, tool-validation errors with last-error
+ * detail, and context-truncation reporting.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent/loop.h"
 #include "aegis/common/error.h"

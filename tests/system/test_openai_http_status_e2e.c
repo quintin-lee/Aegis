@@ -1,3 +1,8 @@
+/**
+ * @file test_openai_http_status_e2e.c
+ * @brief E2E HTTP status mapping: mock server answers 429 then 413;
+ * the loop surfaces MODEL_RATE_LIMIT and CONTEXT_OVERFLOW.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "structured_openai.h"
 #include "aegis/agent/loop.h"

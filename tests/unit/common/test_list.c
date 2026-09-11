@@ -1,3 +1,7 @@
+/**
+ * @file test_list.c
+ * @brief Unit tests for the intrusive doubly-linked list module.
+ */
 #include "aegis/common/list.h"
 #include <assert.h>
 #include <stdlib.h>

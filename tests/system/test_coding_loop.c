@@ -1,3 +1,7 @@
+/**
+ * @file test_coding_loop.c
+ * @brief E2E reactive loop driving model turns with tool execution.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent/loop.h"
 #include "aegis/message/message.h"

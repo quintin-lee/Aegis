@@ -1,4 +1,9 @@
 #define _POSIX_C_SOURCE 200809L
+/**
+ * @file test_error.c
+ * @brief Unit tests for structured errors, result codes and the
+ * thread-local last-error bridge.
+ */
 #include "aegis/common/error.h"
 #include "aegis/common/result.h"
 #include <assert.h>

@@ -1,4 +1,9 @@
 #define _POSIX_C_SOURCE 200809L
+/**
+ * @file test_coding_agent.c
+ * @brief Unit tests for the coding agent: runs, model hot-switch,
+ * interrupts, session handling and auto-compaction.
+ */
 #include "aegis/coding/coding_agent.h"
 #include "aegis/message/message.h"
 #include "aegis/session/session.h"

@@ -1,3 +1,7 @@
+/**
+ * @file test_autonomous_cancellation_e2e.c
+ * @brief E2E autonomous cancellation: run cancel and token paths.
+ */
 #define _POSIX_C_SOURCE 200809L
 #define _DEFAULT_SOURCE
 #include "aegis/autonomous_agent.h"

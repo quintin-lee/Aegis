@@ -1,4 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
+/**
+ * @file test_git_tools.c
+ * @brief Unit tests for git status/diff/commit/log/branch tools.
+ */
 #include "aegis/coding/git_tools.h"
 #include "aegis/tool/tool.h"
 #include <assert.h>

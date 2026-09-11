@@ -1,3 +1,7 @@
+/**
+ * @file test_atomic.c
+ * @brief Unit tests for lock-free atomics and thread primitives.
+ */
 #include "aegis/common/atomic.h"
 #include "aegis/common/thread.h"
 #include <assert.h>

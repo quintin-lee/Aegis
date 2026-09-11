@@ -1,3 +1,7 @@
+/**
+ * @file test_buffer.c
+ * @brief Unit tests for the byte buffer module.
+ */
 #include "aegis/common/buffer.h"
 #include <assert.h>
 #include <string.h>

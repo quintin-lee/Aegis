@@ -1,3 +1,8 @@
+/**
+ * @file test_openai_sse_e2e.c
+ * @brief E2E SSE stream reassembly (deltas, tool calls, usage, END)
+ * against a mock OpenAI server.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "structured_openai.h"
 #include "aegis/message/message.h"

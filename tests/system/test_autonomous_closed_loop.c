@@ -1,3 +1,8 @@
+/**
+ * @file test_autonomous_closed_loop.c
+ * @brief E2E autonomous closed loop: happy path, retry/replan, timeout and
+ * recovery scenarios against a mock LLM provider.
+ */
 #include "aegis/autonomous_agent.h"
 #include "aegis/provider/provider_llm_mock.h"
 #include "aegis/provider/provider.h"

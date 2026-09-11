@@ -1,3 +1,8 @@
+/**
+ * @file test_skill_loader.c
+ * @brief Unit tests for skill directory loading and manifest parsing/
+ * validation against fixture skill trees.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/skill/loader.h"
 #include "aegis/skill/manifest.h"

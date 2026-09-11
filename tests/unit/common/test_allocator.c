@@ -1,3 +1,7 @@
+/**
+ * @file test_allocator.c
+ * @brief Unit tests for the pluggable allocator (default + tracking).
+ */
 #include "aegis/common/allocator.h"
 #include <assert.h>
 #include <string.h>

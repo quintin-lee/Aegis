@@ -1,3 +1,7 @@
+/**
+ * @file test_autonomous_security_e2e.c
+ * @brief E2E security policy gates over autonomous tool execution.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/autonomous_agent.h"
 #include "aegis/provider/provider.h"

@@ -1,3 +1,7 @@
+/**
+ * @file test_vector.c
+ * @brief Unit tests for the dynamic array (vector) module.
+ */
 #include "aegis/common/vector.h"
 #include <assert.h>
 #include <math.h>

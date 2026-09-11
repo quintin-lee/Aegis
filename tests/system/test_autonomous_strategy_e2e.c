@@ -1,3 +1,8 @@
+/**
+ * @file test_autonomous_strategy_e2e.c
+ * @brief E2E AutonomousStrategy inside the reactive loop: goal flows from
+ * the loop session through plan, execute and critic to completion.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/strategy/autonomous_strategy.h"
 #include "aegis/autonomous_agent.h"

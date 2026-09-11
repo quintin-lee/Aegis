@@ -1,4 +1,8 @@
 #define _POSIX_C_SOURCE 200809L
+/**
+ * @file test_session.c
+ * @brief Unit tests for session lifecycle, persistence, fork and compact.
+ */
 #include "aegis/session/session.h"
 #include "aegis/message/message.h"
 #include <assert.h>

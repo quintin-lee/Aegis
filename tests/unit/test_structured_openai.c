@@ -1,6 +1,10 @@
 #define _POSIX_C_SOURCE 200809L
 #include "structured_openai.h"
 #include "structured_openai_test.h"
+/**
+ * @file test_structured_openai.c
+ * @brief Unit tests for structured OpenAI response parsing (no network).
+ */
 #include "aegis/model/model.h"
 #include "aegis/message/message.h"
 #include <assert.h>

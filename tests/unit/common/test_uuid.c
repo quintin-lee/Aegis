@@ -1,3 +1,7 @@
+/**
+ * @file test_uuid.c
+ * @brief Unit tests for UUID generation and formatting.
+ */
 #include "aegis/common/uuid.h"
 #include <assert.h>
 #include <string.h>

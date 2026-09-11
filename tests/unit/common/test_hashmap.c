@@ -1,3 +1,7 @@
+/**
+ * @file test_hashmap.c
+ * @brief Unit tests for the open-addressing hashmap module.
+ */
 #include "aegis/common/hashmap.h"
 #include <assert.h>
 #include <string.h>

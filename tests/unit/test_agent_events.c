@@ -1,4 +1,9 @@
 #define _POSIX_C_SOURCE 200809L
+/**
+ * @file test_agent_events.c
+ * @brief Unit tests for agent-loop observer events, approval gates and
+ * tool-call round trips through fixture backends.
+ */
 #include "aegis/agent/loop.h"
 #include "aegis/message/message.h"
 #include "aegis/model/model.h"

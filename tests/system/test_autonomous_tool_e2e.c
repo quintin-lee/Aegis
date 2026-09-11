@@ -1,3 +1,7 @@
+/**
+ * @file test_autonomous_tool_e2e.c
+ * @brief E2E autonomous tool execution success paths with a mock tool.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/autonomous_agent.h"
 #include "aegis/provider/provider.h"
@@ -7,7 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
 static const aegis_tool_schema_t k_no_schema = {NULL, 0};
 static aegis_status_t ok_tool(void* u, const aegis_tool_args_t* a,
                               const aegis_cancellation_token_t* t, aegis_tool_result_t* o)

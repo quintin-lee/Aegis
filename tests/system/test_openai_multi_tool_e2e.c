@@ -1,3 +1,7 @@
+/**
+ * @file test_openai_multi_tool_e2e.c
+ * @brief E2E multi-tool-call turn against a mock OpenAI SSE server.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "structured_openai.h"
 #include "aegis/message/message.h"

@@ -1,3 +1,7 @@
+/**
+ * @file test_mutex.c
+ * @brief Unit tests for mutexes and thread lifecycle primitives.
+ */
 #include "aegis/common/thread.h"
 #include "aegis/common/mutex.h"
 #include <assert.h>

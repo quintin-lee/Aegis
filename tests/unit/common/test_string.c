@@ -1,3 +1,7 @@
+/**
+ * @file test_string.c
+ * @brief Unit tests for the string-builder utility module.
+ */
 #include "aegis/common/string.h"
 #include <assert.h>
 #include <string.h>

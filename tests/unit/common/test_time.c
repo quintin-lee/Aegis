@@ -1,3 +1,7 @@
+/**
+ * @file test_time.c
+ * @brief Unit tests for wall-clock and monotonic time helpers.
+ */
 #include "aegis/common/time.h"
 #include <assert.h>
 

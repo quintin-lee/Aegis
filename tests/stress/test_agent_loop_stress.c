@@ -1,3 +1,7 @@
+/**
+ * @file test_agent_loop_stress.c
+ * @brief Stress coverage for the agent loop under sustained load.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent/loop.h"
 #include "aegis/session/session.h"

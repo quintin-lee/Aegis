@@ -1,3 +1,8 @@
+/**
+ * @file test_autonomous_failure_e2e.c
+ * @brief E2E failure propagation: a failing tool surfaces errors without
+ * hanging the autonomous loop.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/autonomous_agent.h"
 #include "aegis/provider/provider.h"
