@@ -59,6 +59,7 @@ if(AEGIS_BUILD_TESTS)
     aegis_add_test(unit_session            tests/unit/test_session.c)
     aegis_add_test(unit_storage            tests/unit/test_storage.c)
     aegis_add_test(unit_memory             tests/unit/test_memory.c)
+    aegis_add_test(unit_skill_loader      tests/unit/test_skill_loader.c)
     aegis_add_test(unit_checkpoint         tests/unit/test_checkpoint.c)
     aegis_add_test(unit_log                tests/unit/test_log.c)
     aegis_add_test(unit_metrics            tests/unit/test_metrics.c)
@@ -104,7 +105,7 @@ if(AEGIS_BUILD_TESTS)
             unit_agent unit_agent_events unit_loop_strategy unit_agent_concurrent unit_event_bus unit_task unit_task_graph unit_task_race_regression
             unit_task_concurrent unit_scheduler_concurrent unit_executor unit_executor_concurrent unit_tool
             unit_tool_executor unit_tool_concurrent unit_discovery_tools unit_coding_agent unit_provider unit_context unit_message unit_session
-            unit_storage unit_memory unit_checkpoint unit_log unit_metrics unit_trace unit_plugin unit_security
+            unit_storage unit_memory unit_skill_loader unit_checkpoint unit_log unit_metrics unit_trace unit_plugin unit_security
             unit_provider_llm unit_provider_storage unit_provider_embedding unit_planner_llm system_autonomous system_autonomous_strategy unit_autonomous_tool
             system_recovery_e2e system_tool_e2e system_security_e2e system_cancellation_e2e system_failure_e2e
             stress_agent_loop system_coding_loop
