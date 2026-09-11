@@ -19,7 +19,10 @@ extern const aegis_tool_def_t aegis_coding_tool_write;
 extern const aegis_tool_def_t aegis_coding_tool_edit;
 extern const aegis_tool_def_t aegis_coding_tool_bash;
 
-// Helper to register all coding tools into a registry
+/**
+ * Register all builtin coding tools (read/write/edit/bash, discovery, git)
+ * into @p reg; file mutations serialize through @p mq. Both borrowed.
+ */
 aegis_status_t aegis_coding_tools_register_all(aegis_tool_registry_t*  reg,
                                                aegis_mutation_queue_t* mq);
 

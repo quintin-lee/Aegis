@@ -19,6 +19,7 @@ typedef struct aegis_skill {
     char* path;
 } aegis_skill_t;
 
+/** Create a skill (copies name/desc/instructions). Name and out required. */
 aegis_status_t aegis_skill_create(const char* name, const char* desc, const char* instructions,
                                   aegis_skill_t** out);
 void           aegis_skill_destroy(aegis_skill_t* skill);

@@ -78,6 +78,11 @@ typedef struct aegis_agent_loop_config {
     uint32_t max_strategy_turns; // cap on strategy-continued turns, 0 = default 10
 } aegis_agent_loop_config_t;
 
+/**
+ * Create a loop over borrowed session/model/tools. Validates the config
+ * (including strategy ABI on mismatch) and runs strategy init; any failure
+ * rolls back with nothing allocated. Ownership of the loop is transferred.
+ */
 aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
                                        aegis_agent_loop_t**             out);
 void           aegis_agent_loop_destroy(aegis_agent_loop_t* loop);

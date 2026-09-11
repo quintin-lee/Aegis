@@ -8,6 +8,7 @@
 /* Forward declarations to avoid executor dependency */
 typedef struct aegis_executor aegis_executor_t;
 typedef struct aegis_task     aegis_task_t;
+/** Unit of task work run by the executor; @p user is passthrough context. */
 typedef aegis_status_t (*aegis_work_fn)(aegis_task_t* task, const aegis_cancellation_token_t* token,
                                         void* user);
 #include <stdbool.h>
