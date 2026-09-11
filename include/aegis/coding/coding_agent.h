@@ -14,6 +14,9 @@ extern "C" {
 /**
  * @file coding_agent.h
  * @brief Pi-like Coding Agent — project-aware, tool-rich, session-backed.
+ *
+ * Composes session + agent loop + model client + tool registry. The agent
+ * owns its session and loop; callers drive it one turn at a time via run().
  */
 
 typedef struct aegis_coding_agent aegis_coding_agent_t;
@@ -27,13 +30,25 @@ typedef struct aegis_coding_agent_config {
     aegis_tool_registry_t* tools;  // borrowed, if NULL creates default coding tools
 } aegis_coding_agent_config_t;
 
+/**
+ * Create an agent: own session under project_root, model client per
+ * provider/model (mock when unconfigured), default coding tools when
+ * tools is NULL. Ownership of the agent is transferred.
+ */
 aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
                                          aegis_coding_agent_t**             out);
+/** Destroy agent with its session, loop and owned tools. Safe with NULL. */
 void           aegis_coding_agent_destroy(aegis_coding_agent_t* agent);
 
+/** Borrowed session handle; NULL when agent is NULL. */
 aegis_session_t* aegis_coding_agent_session(aegis_coding_agent_t* agent);
+/**
+ * Replace the session (ownership transferred; previous session destroyed,
+ * loop rebuilt around the new one). NULL agent/session → INVALID.
+ */
 aegis_status_t   aegis_coding_agent_replace_session(aegis_coding_agent_t* agent,
                                                     aegis_session_t*      session);
+/** Run one turn on @p user_input. NULL agent/input → INVALID. */
 aegis_status_t   aegis_coding_agent_run(aegis_coding_agent_t* agent, const char* user_input);
 
 /**
