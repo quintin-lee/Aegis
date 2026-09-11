@@ -12,15 +12,35 @@
 #include <stdio.h>
 #include <stdatomic.h>
 
-/* Global task ID counter — atomic to avoid data races when tasks are
- * created concurrently from multiple threads. */
+/**
+ * @brief Global task ID counter (starts at 1; 0 is reserved as "no task").
+ *
+ * Atomic so tasks created concurrently from multiple threads never collide.
+ */
 static _Atomic uint32_t g_next_task_id = 1;
 
+/**
+ * @brief Allocate the next unique task ID.
+ *
+ * @return Fresh ID (monotonically increasing; wraps only after 4G tasks).
+ */
 static uint32_t next_task_id(void)
 {
     return atomic_fetch_add(&g_next_task_id, 1);
 }
 
+/**
+ * @brief Create a task with a unique ID, PENDING state, and default settings.
+ *
+ * Name/description are truncated to fit their fixed buffers (always NUL-
+ * terminated). The retry policy is zeroed, timeout is 0 (none), and no
+ * input/output data is attached.
+ *
+ * @param[out] out Receives the handle (ownership: transferred).
+ * @param name Non-empty task name (borrowed; copied).
+ * @param desc Optional description (borrowed; may be NULL).
+ * @return AEGIS_OK, AEGIS_ERR_INVALID on empty name, AEGIS_ERR_NOMEM on failure.
+ */
 aegis_status_t aegis_task_create(aegis_task_t** out, const char* name, const char* desc)
 {
     AEGIS_CHECK_OUT(out);
@@ -68,6 +88,13 @@ aegis_status_t aegis_task_create(aegis_task_t** out, const char* name, const cha
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a task plus its input/output buffers and lock.
+ *
+ * Safe to call with NULL (no-op).
+ *
+ * @param task Handle to destroy (ownership: consumed).
+ */
 void aegis_task_destroy(aegis_task_t* task)
 {
     if (!task) {
@@ -79,11 +106,23 @@ void aegis_task_destroy(aegis_task_t* task)
     free(task);
 }
 
+/**
+ * @brief Return the unique task ID (0 for NULL input).
+ *
+ * @param task Handle (borrowed).
+ * @return Task ID.
+ */
 uint32_t aegis_task_id(const aegis_task_t* task)
 {
     return task ? task->id : 0;
 }
 
+/**
+ * @brief Borrow the task name (NULL for NULL input).
+ *
+ * @param task Handle (borrowed).
+ * @return Borrowed name string, owned by the task.
+ */
 const char* aegis_task_name(const aegis_task_t* task)
 {
     if (!task) {
@@ -92,6 +131,12 @@ const char* aegis_task_name(const aegis_task_t* task)
     return task->name;
 }
 
+/**
+ * @brief Borrow the description (NULL when empty or NULL input).
+ *
+ * @param task Handle (borrowed).
+ * @return Borrowed description, or NULL.
+ */
 const char* aegis_task_description(const aegis_task_t* task)
 {
     if (!task) {
@@ -100,11 +145,23 @@ const char* aegis_task_description(const aegis_task_t* task)
     return task->description[0] ? task->description : NULL;
 }
 
+/**
+ * @brief Read the task type (CUSTOM for NULL input).
+ *
+ * @param task Handle (borrowed).
+ * @return Task type tag.
+ */
 aegis_task_type_t aegis_task_type(const aegis_task_t* task)
 {
     return task ? task->type : AEGIS_TASK_TYPE_CUSTOM;
 }
 
+/**
+ * @brief Set the task type (thread-safe; no-op for NULL input).
+ *
+ * @param task Handle (borrowed).
+ * @param type New type tag.
+ */
 void aegis_task_set_type(aegis_task_t* task, aegis_task_type_t type)
 {
     if (!task) {
@@ -115,6 +172,12 @@ void aegis_task_set_type(aegis_task_t* task, aegis_task_type_t type)
     aegis_mutex_unlock(task->lock);
 }
 
+/**
+ * @brief Read the scheduling priority under the task lock (0 for NULL).
+ *
+ * @param task Handle (borrowed).
+ * @return Priority value.
+ */
 int aegis_task_priority(const aegis_task_t* task)
 {
     if (!task) {
@@ -126,6 +189,12 @@ int aegis_task_priority(const aegis_task_t* task)
     return p;
 }
 
+/**
+ * @brief Set the scheduling priority (thread-safe; no-op for NULL input).
+ *
+ * @param task Handle (borrowed).
+ * @param priority New priority value.
+ */
 void aegis_task_set_priority(aegis_task_t* task, int priority)
 {
     if (!task) {
@@ -136,6 +205,12 @@ void aegis_task_set_priority(aegis_task_t* task, int priority)
     aegis_mutex_unlock(task->lock);
 }
 
+/**
+ * @brief Read the lifecycle state under the task lock (PENDING for NULL).
+ *
+ * @param task Handle (borrowed).
+ * @return Current state.
+ */
 aegis_task_state_t aegis_task_state(const aegis_task_t* task)
 {
     if (!task) {
@@ -147,6 +222,15 @@ aegis_task_state_t aegis_task_state(const aegis_task_t* task)
     return s;
 }
 
+/**
+ * @brief Borrow the failure message (NULL when empty or NULL input).
+ *
+ * The returned pointer is owned by the task and valid only until the
+ * next aegis_task_set_error call; it must not be freed.
+ *
+ * @param task Handle (borrowed).
+ * @return Borrowed message, or NULL.
+ */
 const char* aegis_task_error(const aegis_task_t* task)
 {
     if (!task) {
@@ -158,6 +242,17 @@ const char* aegis_task_error(const aegis_task_t* task)
     return e;
 }
 
+/**
+ * @brief Replace the input payload with a copy of @p data (thread-safe).
+ *
+ * Reallocates the input buffer to exactly @p size bytes; a zero size frees
+ * the buffer. Rejected when @p size exceeds AEGIS_TASK_DATA_MAX.
+ *
+ * @param task Handle (borrowed).
+ * @param data Bytes to copy (borrowed; NULL with size 0 clears).
+ * @param size Bytes to store.
+ * @return AEGIS_OK, AEGIS_ERR_INVALID on NULL task / oversize, AEGIS_ERR_NOMEM on failure.
+ */
 aegis_status_t aegis_task_set_input(aegis_task_t* task, const void* data, size_t size)
 {
     if (!task) {
@@ -182,6 +277,15 @@ aegis_status_t aegis_task_set_input(aegis_task_t* task, const void* data, size_t
     return AEGIS_OK;
 }
 
+/**
+ * @brief Borrow the input payload and report its size (thread-safe).
+ *
+ * The pointer stays owned by the task; a later set_input may invalidate it.
+ *
+ * @param task Handle (borrowed).
+ * @param[out] out_size Receives the payload size (0 for NULL task; may be NULL).
+ * @return Borrowed input bytes, or NULL when empty / NULL task.
+ */
 const void* aegis_task_input(const aegis_task_t* task, size_t* out_size)
 {
     if (!task) {
@@ -199,6 +303,17 @@ const void* aegis_task_input(const aegis_task_t* task, size_t* out_size)
     return d;
 }
 
+/**
+ * @brief Replace the output payload with a copy of @p data (thread-safe).
+ *
+ * Same reallocation semantics as aegis_task_set_input; limited to
+ * AEGIS_TASK_DATA_MAX bytes.
+ *
+ * @param task Handle (borrowed).
+ * @param data Bytes to copy (borrowed; NULL with size 0 clears).
+ * @param size Bytes to store.
+ * @return AEGIS_OK, AEGIS_ERR_INVALID on NULL task / oversize, AEGIS_ERR_NOMEM on failure.
+ */
 aegis_status_t aegis_task_set_output(aegis_task_t* task, const void* data, size_t size)
 {
     if (!task) {
@@ -223,6 +338,13 @@ aegis_status_t aegis_task_set_output(aegis_task_t* task, const void* data, size_
     return AEGIS_OK;
 }
 
+/**
+ * @brief Borrow the output payload and report its size (thread-safe).
+ *
+ * @param task Handle (borrowed).
+ * @param[out] out_size Receives the payload size (0 for NULL task; may be NULL).
+ * @return Borrowed output bytes, or NULL when empty / NULL task.
+ */
 const void* aegis_task_output(const aegis_task_t* task, size_t* out_size)
 {
     if (!task) {
@@ -240,6 +362,12 @@ const void* aegis_task_output(const aegis_task_t* task, size_t* out_size)
     return d;
 }
 
+/**
+ * @brief Snapshot the retry policy by value (thread-safe; zeroed for NULL).
+ *
+ * @param task Handle (borrowed).
+ * @return Copy of the retry policy.
+ */
 aegis_task_retry_policy_t aegis_task_retry_policy(const aegis_task_t* task)
 {
     if (!task) {
@@ -252,6 +380,12 @@ aegis_task_retry_policy_t aegis_task_retry_policy(const aegis_task_t* task)
     return p;
 }
 
+/**
+ * @brief Replace the retry policy (thread-safe; no-op for NULL input).
+ *
+ * @param task   Handle (borrowed).
+ * @param policy New policy (copied by value).
+ */
 void aegis_task_set_retry_policy(aegis_task_t* task, aegis_task_retry_policy_t policy)
 {
     if (!task) {
@@ -262,6 +396,12 @@ void aegis_task_set_retry_policy(aegis_task_t* task, aegis_task_retry_policy_t p
     aegis_mutex_unlock(task->lock);
 }
 
+/**
+ * @brief Read the timeout in milliseconds (0 = none; 0 for NULL input).
+ *
+ * @param task Handle (borrowed).
+ * @return Timeout in ms.
+ */
 long aegis_task_timeout_ms(const aegis_task_t* task)
 {
     if (!task) {
@@ -273,6 +413,12 @@ long aegis_task_timeout_ms(const aegis_task_t* task)
     return t;
 }
 
+/**
+ * @brief Set the timeout in milliseconds (0 = none; no-op for NULL input).
+ *
+ * @param task       Handle (borrowed).
+ * @param timeout_ms New timeout in ms.
+ */
 void aegis_task_set_timeout_ms(aegis_task_t* task, long timeout_ms)
 {
     if (!task) {
@@ -283,6 +429,18 @@ void aegis_task_set_timeout_ms(aegis_task_t* task, long timeout_ms)
     aegis_mutex_unlock(task->lock);
 }
 
+/**
+ * @brief Insert, update, or remove a metadata entry (thread-safe).
+ *
+ * An existing key is updated in place; a NULL @p value removes the entry
+ * (shifting the tail). New keys append until AEGIS_TASK_METADATA_MAX.
+ * Keys/values are truncated to fit their fixed buffers.
+ *
+ * @param task  Handle (borrowed).
+ * @param key   Entry key (borrowed; must be non-NULL).
+ * @param value New value (borrowed; NULL removes the entry).
+ * @return AEGIS_OK, AEGIS_ERR_INVALID on NULL task/key, AEGIS_ERR_BUSY when full.
+ */
 aegis_status_t aegis_task_set_metadata(aegis_task_t* task, const char* key, const char* value)
 {
     if (!task || !key) {
@@ -333,6 +491,16 @@ aegis_status_t aegis_task_set_metadata(aegis_task_t* task, const char* key, cons
     return AEGIS_OK;
 }
 
+/**
+ * @brief Borrow a metadata value by key (thread-safe; NULL on miss/empty).
+ *
+ * The pointer is owned by the task and valid only until the entry is
+ * modified or removed.
+ *
+ * @param task Handle (borrowed).
+ * @param key  Entry key (borrowed).
+ * @return Borrowed value, or NULL.
+ */
 const char* aegis_task_get_metadata(const aegis_task_t* task, const char* key)
 {
     if (!task || !key) {
@@ -351,6 +519,14 @@ const char* aegis_task_get_metadata(const aegis_task_t* task, const char* key)
     return NULL;
 }
 
+/**
+ * @brief Remove a metadata entry (no-op when missing; NULL args rejected).
+ *
+ * Thin wrapper over aegis_task_set_metadata(task, key, NULL).
+ *
+ * @param task Handle (borrowed).
+ * @param key  Entry key (borrowed).
+ */
 void aegis_task_remove_metadata(aegis_task_t* task, const char* key)
 {
     if (!task || !key) {
@@ -359,6 +535,15 @@ void aegis_task_remove_metadata(aegis_task_t* task, const char* key)
     aegis_task_set_metadata(task, key, NULL);
 }
 
+/**
+ * @brief Force the lifecycle state (thread-safe; no-op for NULL input).
+ *
+ * Unlike aegis_task_try_begin_execution this performs no transition check —
+ * it is the low-level primitive used by executors and tests.
+ *
+ * @param task  Handle (borrowed).
+ * @param state New state.
+ */
 void aegis_task_set_state(aegis_task_t* task, aegis_task_state_t state)
 {
     if (!task) {
@@ -369,11 +554,28 @@ void aegis_task_set_state(aegis_task_t* task, aegis_task_state_t state)
     aegis_mutex_unlock(task->lock);
 }
 
+/**
+ * @brief Test-only alias for aegis_task_set_state.
+ *
+ * Exists so unit tests can force states without linking executor internals.
+ *
+ * @param task  Handle (borrowed).
+ * @param state New state.
+ */
 void aegis_task_set_state_for_test(aegis_task_t* task, aegis_task_state_t state)
 {
     aegis_task_set_state(task, state);
 }
 
+/**
+ * @brief Atomically claim a task for execution (PENDING/READY → RUNNING).
+ *
+ * The check-and-set runs under the task lock, so concurrent executors race
+ * safely and exactly one wins. Tasks in any other state are left untouched.
+ *
+ * @param task Handle (borrowed).
+ * @return true when the transition happened (caller owns execution), false otherwise.
+ */
 bool aegis_task_try_begin_execution(aegis_task_t* task)
 {
     if (!task) {
@@ -388,6 +590,14 @@ bool aegis_task_try_begin_execution(aegis_task_t* task)
     return submittable;
 }
 
+/**
+ * @brief Record (or clear, with NULL) the failure message (thread-safe).
+ *
+ * The message is truncated to fit the fixed buffer (always NUL-terminated).
+ *
+ * @param task    Handle (borrowed).
+ * @param message Message to store (borrowed; NULL clears).
+ */
 void aegis_task_set_error(aegis_task_t* task, const char* message)
 {
     if (!task) {

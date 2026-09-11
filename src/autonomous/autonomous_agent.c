@@ -30,11 +30,38 @@
 #include <time.h>
 #include <unistd.h>
 
+/**
+ * @brief Resolve the effective cancellation token for this agent.
+ *
+ * Thin wrapper over aegis_autonomous_get_token() kept local so the public
+ * entry points below share one call site.
+ *
+ * @param[in] aa  Agent instance; must be non-NULL.
+ *
+ * @return Borrowed token pointer, or NULL when the agent carries none.
+ */
 static aegis_cancellation_token_t* get_token(aegis_autonomous_agent_t* aa)
 {
     return aegis_autonomous_get_token(aa);
 }
 
+/**
+ * @brief Create an autonomous agent and its planner/scheduler/executor/critic.
+ *
+ * Copies the caller config (strdup'ing the LLM provider name and defaulting
+ * max_iterations to 5), creates the runtime, an owned cancellation token when
+ * the config carries none, an allow-all security policy when tools exist but
+ * no policy was supplied, then the four submodules. Leaves the agent in READY
+ * via CREATED -> INITIALIZING -> READY; any failure unwinds everything built.
+ *
+ * @param[out] out  Receives the new agent on success; untouched on failure.
+ * @param[in]  cfg  Agent config; requires provider_registry + llm_provider_name.
+ *
+ * @return AEGIS_OK on success; AEGIS_ERR_INVALID/NOMEM/INTERNAL otherwise.
+ *
+ * Ownership: caller owns *out and must call
+ * aegis_autonomous_agent_destroy(). Thread-safe: create-only, no sharing yet.
+ */
 aegis_status_t aegis_autonomous_agent_create(aegis_autonomous_agent_t**             out,
                                              const aegis_autonomous_agent_config_t* cfg)
 {
@@ -183,6 +210,15 @@ fail:
     return rc;
 }
 
+/**
+ * @brief Destroy an autonomous agent and everything it owns.
+ *
+ * Tears down runtime, planner, scheduler, executor, critic, the owned
+ * cancellation token and owned security policy, then the lock and the agent.
+ * NULL is a no-op. The caller must guarantee no run is in flight.
+ *
+ * @param[in] aa  Agent to destroy; NULL is accepted.
+ */
 void aegis_autonomous_agent_destroy(aegis_autonomous_agent_t* aa)
 {
     if (!aa) {
@@ -213,6 +249,19 @@ void aegis_autonomous_agent_destroy(aegis_autonomous_agent_t* aa)
     free(aa->llm_name_copy);
     free(aa);
 }
+/**
+ * @brief Request cancellation of an in-flight autonomous run.
+ *
+ * Signals the effective cancellation token and best-effort transitions the
+ * state machine to CANCELLING when that edge is allowed (ignored otherwise).
+ * Non-blocking: the running loop observes the token and winds down.
+ *
+ * @param[in] aa  Agent whose run should stop; must be non-NULL with a token.
+ *
+ * @return AEGIS_OK on success; AEGIS_ERR_INVALID when aa/token is missing.
+ *
+ * Thread-safe: token request + transition are internally synchronized.
+ */
 aegis_status_t aegis_autonomous_agent_cancel(aegis_autonomous_agent_t* aa)
 {
     if (!aa) {
@@ -228,6 +277,18 @@ aegis_status_t aegis_autonomous_agent_cancel(aegis_autonomous_agent_t* aa)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Persist a checkpoint snapshot for this agent to a file.
+ *
+ * Resolves the destination as the explicit path, else the config's
+ * checkpoint_path (INVALID when neither exists), then writes a checkpoint
+ * populated from the current runtime state, honouring the agent token.
+ *
+ * @param[in] aa    Agent to snapshot; must be non-NULL.
+ * @param[in] path  Destination file, or NULL to use cfg.checkpoint_path.
+ *
+ * @return AEGIS_OK on success; AEGIS_ERR_INVALID or the write error otherwise.
+ */
 aegis_status_t aegis_autonomous_agent_checkpoint_save(aegis_autonomous_agent_t* aa,
                                                       const char*               path)
 {
@@ -249,11 +310,39 @@ aegis_status_t aegis_autonomous_agent_checkpoint_save(aegis_autonomous_agent_t* 
     return rc;
 }
 
+/**
+ * @brief Restore agent state from a checkpoint file.
+ *
+ * Thin alias over aegis_autonomous_checkpoint_restore(); reloads the saved
+ * plan/graph/iteration state so a later run resumes where it left off.
+ *
+ * @param[in] aa    Agent to restore into; must be non-NULL.
+ * @param[in] path  Checkpoint file previously written by checkpoint_save.
+ *
+ * @return AEGIS_OK on success; AEGIS_ERR_INVALID/NOT_FOUND/IO on failure.
+ */
 aegis_status_t aegis_autonomous_agent_restore(aegis_autonomous_agent_t* aa, const char* path)
 {
     return aegis_autonomous_checkpoint_restore(aa, path);
 }
 
+/**
+ * @brief Run the autonomous plan→execute→evaluate→reflect→replan loop.
+ *
+ * Syncs the runtime goal/token, delegates to aegis_autonomous_loop_run()
+ * (which owns iteration counting and plan/graph retention for post-run
+ * inspection), and recreates the scheduler if the loop left it detached.
+ * Blocks until the goal completes, fails, or cancellation lands.
+ *
+ * @param[in]  aa          Agent in READY (or post-run reusable) state.
+ * @param[in]  goal_text   Non-empty goal description; copied into runtime.
+ * @param[out] out_result  Optional summary; NULL skips the result fill.
+ *
+ * @return AEGIS_OK when the loop reports success; INVALID when inputs or the
+ *         runtime are missing, else the loop's terminal status.
+ *
+ * Thread-safe: serialized against cancel via the agent lock/token.
+ */
 aegis_status_t aegis_autonomous_agent_run(aegis_autonomous_agent_t* aa, const char* goal_text,
                                           aegis_autonomous_result_t* out_result)
 {

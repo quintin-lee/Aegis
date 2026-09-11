@@ -41,6 +41,14 @@ static int64_t deadline_after_ms(long timeout_ms)
     return ns > max_ns ? max_ns : ns;
 }
 
+/**
+ * @brief Test a monotonic deadline against the current time.
+ *
+ * A zero deadline means "no deadline" and never expires.
+ *
+ * @param[in] deadline_ns  Absolute CLOCK_MONOTONIC deadline in nanoseconds, or 0.
+ * @return True if the deadline is set and has passed.
+ */
 static bool deadline_expired_ns(int64_t deadline_ns)
 {
     return deadline_ns != 0 && aegis_mono_now() > deadline_ns;
@@ -62,6 +70,14 @@ static int cond_init_monotonic(pthread_cond_t* cond)
     return rc;
 }
 
+/**
+ * @brief Convert an absolute nanosecond deadline to a timespec.
+ *
+ * For use with CLOCK_MONOTONIC timed waits.
+ *
+ * @param[in] deadline_ns  Absolute deadline in nanoseconds.
+ * @return Equivalent struct timespec.
+ */
 static struct timespec timespec_from_deadline(int64_t deadline_ns)
 {
     struct timespec ts;
@@ -72,6 +88,13 @@ static struct timespec timespec_from_deadline(int64_t deadline_ns)
 
 /* ── Job table helpers (exec->lock held) ──────────────────────────────── */
 
+/**
+ * @brief Find a job by task id. The executor lock must be held.
+ *
+ * @param[in] exec     Executor owning the job table.
+ * @param[in] task_id  Task id to look up.
+ * @return Pointer to the job, or NULL when absent.
+ */
 static aegis_job_t* table_find_locked(const aegis_executor_t* exec, uint32_t task_id)
 {
     for (size_t i = 0; i < exec->table_len; i++) {
@@ -82,6 +105,13 @@ static aegis_job_t* table_find_locked(const aegis_executor_t* exec, uint32_t tas
     return NULL;
 }
 
+/**
+ * @brief Append a job to the table, growing it geometrically. Lock must be held.
+ *
+ * @param[in] exec  Executor owning the job table.
+ * @param[in] job   Job to track (ownership stays with the table slot).
+ * @return AEGIS_OK on success, AEGIS_ERR_NOMEM when growth fails.
+ */
 static aegis_status_t table_add_locked(aegis_executor_t* exec, aegis_job_t* job)
 {
     if (exec->table_len == exec->table_cap) {
@@ -97,6 +127,14 @@ static aegis_status_t table_add_locked(aegis_executor_t* exec, aegis_job_t* job)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Remove a job from the table via swap-with-last. Lock must be held.
+ *
+ * The slot memory itself is not freed; the caller releases it.
+ *
+ * @param[in] exec  Executor owning the job table.
+ * @param[in] job   Job slot to remove; absent job is a no-op.
+ */
 static void table_remove_locked(aegis_executor_t* exec, aegis_job_t* job)
 {
     for (size_t i = 0; i < exec->table_len; i++) {
@@ -109,6 +147,12 @@ static void table_remove_locked(aegis_executor_t* exec, aegis_job_t* job)
 
 /* ── FIFO helpers (exec->lock held) ───────────────────────────────────── */
 
+/**
+ * @brief Enqueue a job at the FIFO tail. The executor lock must be held.
+ *
+ * @param[in] exec  Executor owning the queue.
+ * @param[in] job   Job to enqueue (its link field is overwritten).
+ */
 static void queue_push_locked(aegis_executor_t* exec, aegis_job_t* job)
 {
     job->next = NULL;
@@ -121,6 +165,12 @@ static void queue_push_locked(aegis_executor_t* exec, aegis_job_t* job)
     exec->q_count++;
 }
 
+/**
+ * @brief Dequeue a job from the FIFO head. The executor lock must be held.
+ *
+ * @param[in] exec  Executor owning the queue.
+ * @return The head job with its link cleared, or NULL when empty.
+ */
 static aegis_job_t* queue_pop_locked(aegis_executor_t* exec)
 {
     aegis_job_t* job = exec->q_head;
@@ -260,6 +310,16 @@ static void run_job(aegis_executor_t* exec, aegis_job_t* job)
     }
 }
 
+/**
+ * @brief Worker thread entry: pop jobs and run them until intake closes.
+ *
+ * Waits on work_avail while the queue is empty, retires once intake is
+ * closed and drained, and marks each claimed job RUNNING before running it
+ * with no locks held (see run_job).
+ *
+ * @param[in] arg  The owning executor.
+ * @return Always NULL.
+ */
 static void* worker_main(void* arg)
 {
     aegis_executor_t* exec = arg;
@@ -288,6 +348,24 @@ static void* worker_main(void* arg)
 
 /* ── Public API ───────────────────────────────────────────────────────── */
 
+/**
+ * @brief Create an executor with a worker pool and bounded submission queue.
+ *
+ * Zero/NULL @p cfg selects defaults (AEGIS_EXEC_WORKERS_DEFAULT workers,
+ * AEGIS_EXEC_QUEUE_DEFAULT capacity); worker count is clamped to
+ * AEGIS_EXEC_WORKERS_MAX. Condition variables use CLOCK_MONOTONIC. If any
+ * worker fails to start, intake is closed so already-started workers retire
+ * and the partial pool is joined and released.
+ *
+ * @param[out] out  Receives the new executor; set only on success.
+ * @param[in]  cfg  Optional configuration, may be NULL for defaults.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *         AEGIS_ERR_INTERNAL when the mutex cannot be initialized,
+ *         AEGIS_ERR_NOMEM on allocation/worker-start failure.
+ *
+ * Ownership: the caller owns the returned executor and must release it with
+ * aegis_executor_destroy(). Thread-safe after creation.
+ */
 aegis_status_t aegis_executor_create(aegis_executor_t** out, const aegis_executor_config_t* cfg)
 {
     if (!out) {
@@ -351,6 +429,17 @@ fail_sync:
     return AEGIS_ERR_NOMEM;
 }
 
+/**
+ * @brief Destroy an executor, cancelling and draining all outstanding work.
+ *
+ * Performs a full shutdown first (tripping every outstanding token), joins
+ * and releases all workers, discards results nobody waited for, and tears
+ * down the job table and synchronization primitives. NULL is accepted and
+ * ignored. Workers are fully reclaimable only if submitted work honors its
+ * cancellation token.
+ *
+ * @param[in] exec  Executor to destroy, or NULL.
+ */
 void aegis_executor_destroy(aegis_executor_t* exec)
 {
     if (!exec) {
@@ -380,6 +469,27 @@ void aegis_executor_destroy(aegis_executor_t* exec)
     free(exec);
 }
 
+/**
+ * @brief Submit a task with its work function for asynchronous execution.
+ *
+ * The executor borrows @p task (the caller must keep it alive until the
+ * matching wait or shutdown completes) and atomically claims it from
+ * PENDING/READY into RUNNING, so two executors can never run the same task.
+ * Rejects duplicates by task id, a full queue, closed intake, and
+ * already-running/terminal tasks. The job is allocated before any state
+ * mutation, so rejections leave executor state untouched.
+ *
+ * @param[in] exec  Executor to submit to.
+ * @param[in] task  Task to execute (borrowed, must outlive the job).
+ * @param[in] fn    Work function invoked by a worker with no locks held.
+ * @param[in] user  Opaque pointer forwarded to @p fn.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_CANCELLED when intake is closed,
+ *         AEGIS_ERR_BUSY for duplicate id / full queue / unclaimable task,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ *
+ * Thread-safe: may be called concurrently with other executor operations.
+ */
 aegis_status_t aegis_executor_submit(aegis_executor_t* exec, aegis_task_t* task, aegis_work_fn fn,
                                      void* user)
 {
@@ -438,6 +548,22 @@ aegis_status_t aegis_executor_submit(aegis_executor_t* exec, aegis_task_t* task,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Request cooperative cancellation of a submitted job.
+ *
+ * Trips the job's cancellation token with the USER reason; the worker (or
+ * the pre-attempt check for queued jobs) observes it and finishes the job
+ * as CANCELLED without force-killing any thread. Finished jobs cannot be
+ * cancelled.
+ *
+ * @param[in] exec     Executor owning the job.
+ * @param[in] task_id  Task id given at submit time.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL executor,
+ *         AEGIS_ERR_NOT_FOUND for an unknown id,
+ *         AEGIS_ERR_BUSY when the job already finished.
+ *
+ * Thread-safe.
+ */
 aegis_status_t aegis_executor_cancel(aegis_executor_t* exec, uint32_t task_id)
 {
     if (!exec) {
@@ -459,6 +585,24 @@ aegis_status_t aegis_executor_cancel(aegis_executor_t* exec, uint32_t task_id)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Wait for a job to finish and collect its result.
+ *
+ * The first successful wait removes the job from the table and frees its
+ * slot (single-owner release); a timed-out wait leaves the job intact for a
+ * later wait. A negative @p timeout_ms waits indefinitely; zero polls once.
+ *
+ * @param[in]  exec        Executor owning the job.
+ * @param[in]  task_id     Task id given at submit time.
+ * @param[out] out         Optional receiver for a copy of the result, may be NULL.
+ * @param[in]  timeout_ms  Wait budget in milliseconds, or negative for infinite.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL executor,
+ *         AEGIS_ERR_NOT_FOUND for an unknown id (including after a prior
+ *         successful wait released it), AEGIS_ERR_TIMEOUT when the budget
+ *         expires first.
+ *
+ * Thread-safe.
+ */
 aegis_status_t aegis_executor_wait(aegis_executor_t* exec, uint32_t task_id,
                                    aegis_exec_result_t* out, long timeout_ms)
 {
@@ -506,6 +650,23 @@ aegis_status_t aegis_executor_wait(aegis_executor_t* exec, uint32_t task_id,
     return status;
 }
 
+/**
+ * @brief Close intake, cancel outstanding work, and wait for the drain.
+ *
+ * The first call closes intake and trips every outstanding token with the
+ * SHUTDOWN reason (queued jobs are reaped as CANCELLED without running);
+ * a repeated call after a successful drain is an idempotent no-op, while a
+ * repeat after a TIMEOUT keeps waiting within the new budget. A negative
+ * @p wait_ms waits indefinitely; zero polls once.
+ *
+ * @param[in] exec     Executor to shut down.
+ * @param[in] wait_ms  Drain budget in milliseconds, or negative for infinite.
+ * @return AEGIS_OK when the queue drained and no job is running,
+ *         AEGIS_ERR_INVALID for NULL executor, AEGIS_ERR_TIMEOUT when the
+ *         budget expires (jobs keep running with tokens tripped).
+ *
+ * Thread-safe.
+ */
 aegis_status_t aegis_executor_shutdown(aegis_executor_t* exec, long wait_ms)
 {
     if (!exec) {
@@ -557,6 +718,14 @@ aegis_status_t aegis_executor_shutdown(aegis_executor_t* exec, long wait_ms)
     return status;
 }
 
+/**
+ * @brief Return the number of jobs currently queued (not yet running).
+ *
+ * @param[in] exec  Executor to inspect, or NULL.
+ * @return Queued job count, or 0 for NULL.
+ *
+ * Thread-safe (logical const: locking the mutex mutates no observable value).
+ */
 size_t aegis_executor_pending_count(const aegis_executor_t* exec)
 {
     if (!exec) {
@@ -571,6 +740,14 @@ size_t aegis_executor_pending_count(const aegis_executor_t* exec)
     return n;
 }
 
+/**
+ * @brief Return the number of jobs currently executing on workers.
+ *
+ * @param[in] exec  Executor to inspect, or NULL.
+ * @return Running job count, or 0 for NULL.
+ *
+ * Thread-safe (logical const: locking the mutex mutates no observable value).
+ */
 size_t aegis_executor_running_count(const aegis_executor_t* exec)
 {
     if (!exec) {

@@ -27,6 +27,18 @@ static bool str_eq(const void* a, const void* b, size_t len)
     return strcmp((const char*)a, (const char*)b) == 0;
 }
 
+/**
+ * @brief Create an empty, thread-safe tool registry.
+ *
+ * Stored definitions are shallow copies (the registry owns the copy but
+ * not the strings inside it). Lookup returns a value copy so callers
+ * never hold interior pointers into map storage. There is no unregister
+ * API: stored defs stay address-stable by design.
+ *
+ * @param[out] out Receives the new registry; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *   AEGIS_ERR_NOMEM on allocation/mutex/hashmap failure.
+ */
 aegis_status_t aegis_tool_registry_create(aegis_tool_registry_t** out)
 {
     if (!out) {
@@ -60,6 +72,16 @@ fail:
     return st;
 }
 
+/**
+ * @brief Destroy a tool registry and all owned definition copies.
+ *
+ * The registry lock is held during destruction to ensure any concurrent
+ * lookup completes before the underlying map is torn down. NULL is a
+ * no-op. Stored definition copies are freed; borrowed strings within
+ * them remain the caller's responsibility.
+ *
+ * @param[in] reg Registry to destroy, or NULL.
+ */
 void aegis_tool_registry_destroy(aegis_tool_registry_t* reg)
 {
     if (!reg) {

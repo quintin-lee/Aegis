@@ -9,6 +9,27 @@
 #include "autonomous_agent_internal.h"
 #include <string.h>
 
+/**
+ * @brief Drive the autonomous plan→execute→evaluate→reflect→replan loop.
+ *
+ * Normalizes the start state to READY, plans once when the runtime has no
+ * plan, then iterates up to max_iterations: execute the graph, checkpoint the
+ * outcome, evaluate via the critic; SUCCESS completes, REPLAN/PARTIAL/FAILURE
+ * flows through reflect → replan into the next iteration. Cancellation is
+ * polled each turn, exhaustion without success yields MAX_ITERATIONS, and the
+ * terminal state plus result summary (when requested) are filled on exit.
+ *
+ * @param[in]  agent       Agent owning planner/scheduler/executor/critic.
+ * @param[in]  runtime     Per-run context holding plan/graph/critique state.
+ * @param[in]  goal        Non-NULL goal text driving planning.
+ * @param[out] out_result  Optional run summary; NULL skips the fill.
+ *
+ * @return AEGIS_OK on goal success; CANCELLED/TIMEOUT/MAX_ITERATIONS or the
+ *         failing phase's status otherwise.
+ *
+ * Thread-safe: state reads/writes go through the agent lock; phases run
+ * synchronously on the caller's thread.
+ */
 aegis_status_t aegis_autonomous_loop_run(aegis_autonomous_agent_t*   agent,
                                    aegis_autonomous_runtime_t* runtime, const char* goal,
                                    aegis_autonomous_result_t* out_result)

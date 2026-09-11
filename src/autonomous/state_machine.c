@@ -34,6 +34,17 @@ static const transition_t k_allowed[] = {
     {AEGIS_AUTO_RECOVERING, AEGIS_AUTO_FAILED},    {AEGIS_AUTO_CANCELLING, AEGIS_AUTO_CANCELLED},
 };
 
+/**
+ * @brief Test whether a state-machine edge is permitted by the spec table.
+ *
+ * Linearly scans k_allowed for the (from, to) pair; anything absent — e.g.
+ * skipping phases or leaving a terminal state — is rejected.
+ *
+ * @param[in] from  Current lifecycle state.
+ * @param[in] to    Requested target state.
+ *
+ * @return true when the transition is listed, false otherwise.
+ */
 bool aegis_autonomous_transition_allowed(aegis_autonomous_state_t from, aegis_autonomous_state_t to)
 {
     for (size_t i = 0; i < sizeof(k_allowed) / sizeof(k_allowed[0]); i++) {
@@ -44,6 +55,23 @@ bool aegis_autonomous_transition_allowed(aegis_autonomous_state_t from, aegis_au
     return false;
 }
 
+/**
+ * @brief Advance the agent state machine to a new state.
+ *
+ * Follows lock → validate → update → unlock → publish: the edge is checked
+ * against the spec table under the agent mutex, the state is updated, and
+ * any event notification happens only after the lock is released so no
+ * callback ever runs with aa->lock held.
+ *
+ * @param[in] aa      Agent whose state advances; must be non-NULL.
+ * @param[in] target  Desired state; must be reachable from the current one.
+ *
+ * @return AEGIS_OK on success; AEGIS_ERR_INVALID for NULL,
+ *         AEGIS_ERR_INVALID_STATE for a forbidden edge, AEGIS_ERR_INTERNAL
+ *         when the mutex cannot be locked. Failed calls change nothing.
+ *
+ * Thread-safe: fully serialized by the agent mutex.
+ */
 aegis_status_t aegis_autonomous_transition(aegis_autonomous_agent_t* aa, aegis_autonomous_state_t target)
 {
     if (!aa) {

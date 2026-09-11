@@ -9,6 +9,22 @@
 
 #include "aegis/checkpoint/checkpoint.h"
 
+/**
+ * @brief Best-effort save of the agent snapshot to the configured path.
+ *
+ * No-op when the agent or cfg.checkpoint_path is missing. Otherwise snapshots
+ * iteration/state/sequence under the agent lock (bumping the sequence), then
+ * populates and writes the checkpoint off-lock. All failures are swallowed:
+ * checkpointing must never break the loop it protects.
+ *
+ * @param[in] aa     Agent holding config + runtime; NULL is a no-op.
+ * @param[in] goal   Goal text recorded in the snapshot; may be NULL.
+ * @param[in] plan   Current plan to persist; may be NULL.
+ * @param[in] graph  Current task graph to persist; may be NULL.
+ *
+ * Thread-safe: counter/state snapshot is lock-guarded; the write itself
+ * honours the agent cancellation token.
+ */
 void aegis_autonomous_checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal, aegis_plan_t* plan,
                                 aegis_task_graph_t* graph)
 {

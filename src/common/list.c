@@ -10,18 +10,26 @@
 #include "aegis/common/list.h"
 #include <stdlib.h>
 
+/** Doubly-linked node holding one borrowed item pointer. */
 struct aegis_list_node {
-    void*                   item;
-    struct aegis_list_node* prev;
-    struct aegis_list_node* next;
+    void*                   item; /**< Borrowed item (caller-owned). */
+    struct aegis_list_node* prev; /**< Previous node, NULL at head. */
+    struct aegis_list_node* next; /**< Next node, NULL at tail. */
 };
 
+/** List head/tail anchors plus cached length. */
 struct aegis_list {
-    struct aegis_list_node* head;
-    struct aegis_list_node* tail;
-    size_t                  len;
+    struct aegis_list_node* head; /**< First node, NULL when empty. */
+    struct aegis_list_node* tail; /**< Last node, NULL when empty. */
+    size_t                  len;  /**< Node count. */
 };
 
+/**
+ * @brief Create an empty list.
+ *
+ * @param[out] out Receives the handle (ownership: transferred).
+ * @return 0 on success, -1 on NULL out or allocation failure.
+ */
 int aegis_list_create(aegis_list_t** out)
 {
     if (!out) {
@@ -35,6 +43,13 @@ int aegis_list_create(aegis_list_t** out)
     return 0;
 }
 
+/**
+ * @brief Destroy a list and its nodes (items are borrowed, not freed).
+ *
+ * Safe to call with NULL (no-op).
+ *
+ * @param v List to destroy (ownership: consumed).
+ */
 void aegis_list_destroy(aegis_list_t* v)
 {
     if (!v) {
@@ -49,6 +64,13 @@ void aegis_list_destroy(aegis_list_t* v)
     free(v);
 }
 
+/**
+ * @brief Append an item pointer at the tail (stored borrowed, not copied).
+ *
+ * @param v    List (borrowed).
+ * @param item Item pointer to store (borrowed; caller keeps ownership).
+ * @return 0 on success, -1 on NULL list or allocation failure.
+ */
 int aegis_list_push_back(aegis_list_t* v, const void* item)
 {
     if (!v) {
@@ -71,6 +93,13 @@ int aegis_list_push_back(aegis_list_t* v, const void* item)
     return 0;
 }
 
+/**
+ * @brief Prepend an item pointer at the head (stored borrowed, not copied).
+ *
+ * @param v    List (borrowed).
+ * @param item Item pointer to store (borrowed; caller keeps ownership).
+ * @return 0 on success, -1 on NULL list or allocation failure.
+ */
 int aegis_list_push_front(aegis_list_t* v, const void* item)
 {
     if (!v) {
@@ -93,6 +122,15 @@ int aegis_list_push_front(aegis_list_t* v, const void* item)
     return 0;
 }
 
+/**
+ * @brief Remove the tail node and optionally return its item.
+ *
+ * Only the node is freed; the item itself stays caller-owned.
+ *
+ * @param v   List (borrowed).
+ * @param out Optional destination for the borrowed item pointer (may be NULL).
+ * @return 0 on success, -1 when the list is NULL or empty.
+ */
 int aegis_list_pop_back(aegis_list_t* v, void* out)
 {
     if (!v || !v->tail) {
@@ -113,6 +151,15 @@ int aegis_list_pop_back(aegis_list_t* v, void* out)
     return 0;
 }
 
+/**
+ * @brief Remove the head node and optionally return its item.
+ *
+ * Only the node is freed; the item itself stays caller-owned.
+ *
+ * @param v   List (borrowed).
+ * @param out Optional destination for the borrowed item pointer (may be NULL).
+ * @return 0 on success, -1 when the list is NULL or empty.
+ */
 int aegis_list_pop_front(aegis_list_t* v, void* out)
 {
     if (!v || !v->head) {
@@ -133,6 +180,13 @@ int aegis_list_pop_front(aegis_list_t* v, void* out)
     return 0;
 }
 
+/**
+ * @brief Peek at the head item without removing it.
+ *
+ * @param v   List (borrowed).
+ * @param[out] out Receives the borrowed item pointer (may be NULL to skip).
+ * @return 0 on success, -1 when the list is NULL or empty.
+ */
 int aegis_list_front(const aegis_list_t* v, const void** out)
 {
     if (!v || !v->head) {
@@ -144,6 +198,13 @@ int aegis_list_front(const aegis_list_t* v, const void** out)
     return 0;
 }
 
+/**
+ * @brief Peek at the tail item without removing it.
+ *
+ * @param v   List (borrowed).
+ * @param[out] out Receives the borrowed item pointer (may be NULL to skip).
+ * @return 0 on success, -1 when the list is NULL or empty.
+ */
 int aegis_list_back(const aegis_list_t* v, const void** out)
 {
     if (!v || !v->tail) {
@@ -155,16 +216,38 @@ int aegis_list_back(const aegis_list_t* v, const void** out)
     return 0;
 }
 
+/**
+ * @brief Return the node count (0 for NULL input).
+ *
+ * @param v List (borrowed).
+ * @return Node count.
+ */
 size_t aegis_list_len(const aegis_list_t* v)
 {
     return v ? v->len : 0;
 }
 
+/**
+ * @brief Test whether the list holds no nodes (NULL counts as empty).
+ *
+ * @param v List (borrowed).
+ * @return true when empty or NULL, false otherwise.
+ */
 bool aegis_list_is_empty(const aegis_list_t* v)
 {
     return !v || v->len == 0;
 }
 
+/**
+ * @brief Invoke @p fn on every item from head to tail.
+ *
+ * No-op when the list or callback is NULL. The callback must not mutate
+ * the list structure itself.
+ *
+ * @param v   List (borrowed).
+ * @param fn  Visitor called per borrowed item (borrowed).
+ * @param ctx Opaque argument forwarded to @p fn (borrowed).
+ */
 void aegis_list_for_each(aegis_list_t* v, void (*fn)(void* item, void* ctx), void* ctx)
 {
     if (!v || !fn) {

@@ -1,3 +1,11 @@
+/**
+ * @file memory_helpers.h
+ * @brief Shared inline helpers for the memory subsystem (NOT public API).
+ *
+ * Provides deep-clone, destruction, and priority ordering for
+ * aegis_memory_item_t. All helpers are static inline so every .c file
+ * including this header gets its own copy.
+ */
 #ifndef AEGIS_MEMORY_HELPERS_H
 #define AEGIS_MEMORY_HELPERS_H
 
@@ -6,6 +14,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Deep-clone a memory item including id, content, and metadata.
+ *
+ * Every string is duplicated, so the clone is fully independent of @p src.
+ * On any allocation failure all partial state is released and NULL returned.
+ *
+ * @param src Item to clone (borrowed; NULL yields NULL).
+ * @return Fresh clone (ownership: transferred), or NULL on NULL input / failure.
+ */
 static inline aegis_memory_item_t* clone_item(const aegis_memory_item_t* src)
 {
     if (!src) {
@@ -43,6 +60,14 @@ static inline aegis_memory_item_t* clone_item(const aegis_memory_item_t* src)
     return dst;
 }
 
+/**
+ * @brief Destroy an item and every string it owns. Safe for NULL (no-op).
+ *
+ * Frees id, content, each metadata key/value pair, the key/value arrays,
+ * and the item itself.
+ *
+ * @param item Item to destroy (ownership: consumed).
+ */
 static inline void free_item(aegis_memory_item_t* item)
 {
     if (!item) {
@@ -61,6 +86,16 @@ static inline void free_item(aegis_memory_item_t* item)
     free(item);
 }
 
+/**
+ * @brief qsort comparator: priority descending, then timestamp descending.
+ *
+ * NULL entries sort as equal (return 0) to keep the comparator total
+ * without dereferencing nulls.
+ *
+ * @param a Pointer to the left item pointer.
+ * @param b Pointer to the right item pointer.
+ * @return Negative when @p a sorts first, positive when @p b does, 0 when tied.
+ */
 static inline int cmp_item_by_priority_desc(const void* a, const void* b)
 {
     const aegis_memory_item_t* const* x = (const aegis_memory_item_t* const*)a;

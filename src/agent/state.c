@@ -7,6 +7,12 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent/state.h"
 
+/**
+ * @brief Map a loop state enum to its wire string.
+ *
+ * @param[in] s  State to format; unknown values yield "UNKNOWN".
+ * @return Pointer to a static string; never NULL, must not be freed.
+ */
 const char* aegis_agent_loop_state_str(aegis_agent_loop_state_t s)
 {
     switch (s) {
@@ -35,6 +41,12 @@ const char* aegis_agent_loop_state_str(aegis_agent_loop_state_t s)
     }
 }
 
+/**
+ * @brief Test whether a loop state is terminal (COMPLETED/FAILED/CANCELLED).
+ *
+ * @param[in] s  State to test.
+ * @return Non-zero when terminal, zero otherwise.
+ */
 int aegis_agent_loop_state_is_terminal(aegis_agent_loop_state_t s)
 {
     return s == AEGIS_AGENT_LOOP_COMPLETED || s == AEGIS_AGENT_LOOP_FAILED ||

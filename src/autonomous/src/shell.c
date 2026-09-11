@@ -9,6 +9,17 @@
 #include "aegis/status.h"
 #include <stdio.h>
 
+/**
+ * @brief Smoke-test entry point: create then destroy a demo agent.
+ *
+ * Exercises the public create/destroy path as a quick sanity check; takes no
+ * arguments and is not a production binary.
+ *
+ * @param[in] argc  Unused argument count.
+ * @param[in] argv  Unused argument vector.
+ *
+ * @return 0 when the agent round-trips cleanly, 1 on creation failure.
+ */
 int main(int argc, char** argv)
 {
     (void)argc;

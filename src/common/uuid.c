@@ -16,6 +16,11 @@
 #include <fcntl.h>
 #include <stdbool.h>
 
+/**
+ * @brief Return the all-zero (null) UUID.
+ *
+ * @return Null UUID value.
+ */
 aegis_uuid_t aegis_uuid_null(void)
 {
     aegis_uuid_t u;
@@ -23,6 +28,15 @@ aegis_uuid_t aegis_uuid_null(void)
     return u;
 }
 
+/**
+ * @brief Generate a random UUID v4.
+ *
+ * Reads 16 bytes from /dev/urandom and stamps the version (4) and variant
+ * (RFC 4122) bits. When urandom is unavailable, falls back to a
+ * wall-clock-seeded pseudo-random sequence (NOT cryptographically secure).
+ *
+ * @return New UUID value.
+ */
 aegis_uuid_t aegis_uuid_generate(void)
 {
     aegis_uuid_t u  = aegis_uuid_null();
@@ -45,6 +59,14 @@ aegis_uuid_t aegis_uuid_generate(void)
     return u;
 }
 
+/**
+ * @brief Decode one hex character to its 0–15 value.
+ *
+ * Accepts both upper- and lower-case digits.
+ *
+ * @param c Character to decode.
+ * @return Nibble value, or -1 for non-hex input.
+ */
 static int hex_nibble(char c)
 {
     if (c >= '0' && c <= '9') {
@@ -59,6 +81,17 @@ static int hex_nibble(char c)
     return -1;
 }
 
+/**
+ * @brief Parse hyphenated (36-char, 8-4-4-4-12) or raw-hex (32-char) text.
+ *
+ * Hyphen positions are validated explicitly; non-hex digits reject the
+ * whole input without touching @p out beyond possibly partial writes —
+ * callers must only use @p out on success.
+ *
+ * @param str Source text (borrowed; must be non-NULL).
+ * @param[out] out Receives the UUID on success.
+ * @return true on success, false on NULL args, bad length, or bad digits.
+ */
 bool aegis_uuid_parse(const char* str, aegis_uuid_t* out)
 {
     if (!str || !out) {
@@ -104,6 +137,15 @@ bool aegis_uuid_parse(const char* str, aegis_uuid_t* out)
     return false;
 }
 
+/**
+ * @brief Format a UUID as hyphenated lower-case text (needs 37 bytes).
+ *
+ * No-op unless @p buf holds at least 37 bytes (36 chars + NUL).
+ *
+ * @param u       UUID to format (borrowed).
+ * @param[out] buf Destination buffer.
+ * @param buf_len Buffer size in bytes (must be >= 37).
+ */
 void aegis_uuid_format(const aegis_uuid_t* u, char* buf, size_t buf_len)
 {
     if (!u || !buf || buf_len < 37) {
@@ -115,6 +157,13 @@ void aegis_uuid_format(const aegis_uuid_t* u, char* buf, size_t buf_len)
              b[14], b[15]);
 }
 
+/**
+ * @brief Byte-wise UUID equality (NULL equals only NULL).
+ *
+ * @param a First UUID (borrowed; may be NULL).
+ * @param b Second UUID (borrowed; may be NULL).
+ * @return true when both NULL or bytes identical.
+ */
 bool aegis_uuid_eq(const aegis_uuid_t* a, const aegis_uuid_t* b)
 {
     if (!a || !b) {
@@ -123,6 +172,12 @@ bool aegis_uuid_eq(const aegis_uuid_t* a, const aegis_uuid_t* b)
     return memcmp(a->bytes, b->bytes, sizeof(aegis_uuid_t)) == 0;
 }
 
+/**
+ * @brief Test for the all-zero UUID (NULL counts as null).
+ *
+ * @param u UUID to test (borrowed; may be NULL).
+ * @return true when NULL or all bytes zero.
+ */
 bool aegis_uuid_is_null(const aegis_uuid_t* u)
 {
     if (!u) {

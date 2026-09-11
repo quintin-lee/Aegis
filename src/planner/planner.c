@@ -25,6 +25,21 @@
 /* ── Lifecycle ─────────────────────────────────────────────────────────────── */
 /* struct aegis_planner lives in planner_internal.h (shared with replanner). */
 
+/**
+ * @brief Create a planner bound to a provider registry and LLM provider name.
+ *
+ * The registry is borrowed; the provider name is duplicated. A strategy
+ * registry may be attached later; without one the planner uses the built-in
+ * prompt/parse path.
+ *
+ * @param[out] out  Receives the new planner on success; set only on success.
+ * @param[in]  cfg  Configuration with provider registry and non-empty LLM name.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ *
+ * Ownership: the caller owns the returned planner and must release it with
+ * aegis_planner_destroy().
+ */
 aegis_status_t aegis_planner_create(aegis_planner_t** out, const aegis_planner_config_t* cfg)
 {
     if (!out || !cfg || !cfg->provider_registry || !cfg->llm_provider_name ||
@@ -45,6 +60,13 @@ aegis_status_t aegis_planner_create(aegis_planner_t** out, const aegis_planner_c
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a planner with its duplicated provider/strategy names.
+ *
+ * The borrowed registry is left alone. NULL is accepted and ignored.
+ *
+ * @param[in] planner  Planner to destroy, or NULL.
+ */
 void aegis_planner_destroy(aegis_planner_t* planner)
 {
     if (!planner) {
@@ -68,11 +90,37 @@ static const char k_instructions[] =
     "- <description>: free text\n"
     "Lines starting with # are comments. Output nothing else.\n\n";
 
+/**
+ * @brief Assemble the fixed planning instructions around a body and goal.
+ *
+ * Internal helper behind the public prompt composer.
+ *
+ * @param[in]  body  Caller-supplied section inserted after the instructions.
+ * @param[in]  goal  Goal text appended after @p body.
+ * @param[out] out   Receives the allocated prompt; set only on success.
+ * @return AEGIS_OK on success, or the compose error otherwise.
+ *
+ * Ownership: the caller owns the returned string and must free() it.
+ */
 static aegis_status_t build_prompt(const char* body, const char* goal, char** out)
 {
     return aegis_planner_compose_prompt(body, goal, out);
 }
 
+/**
+ * @brief Compose the LLM planning prompt from instructions, body, and goal.
+ *
+ * Concatenates the fixed STEP-DSL instructions with the caller @p body and
+ * the @p goal, each part back-to-back with a trailing newline.
+ *
+ * @param[in]  body  Middle section (e.g. "GOAL:\n"), must be non-NULL.
+ * @param[in]  goal  Goal text, must be non-NULL.
+ * @param[out] out   Receives the allocated prompt; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ *
+ * Ownership: the caller owns the returned string and must free() it.
+ */
 aegis_status_t aegis_planner_compose_prompt(const char* body, const char* goal, char** out)
 {
     if (!body || !goal || !out) {
@@ -104,6 +152,16 @@ static const struct {
     {"custom", AEGIS_TASK_TYPE_CUSTOM},
 };
 
+/**
+ * @brief Match a DSL type word against the known task-type vocabulary.
+ *
+ * Compares exactly @p len bytes (no NUL-termination required on @p word).
+ *
+ * @param[in]  word  Type word bytes from the DSL field.
+ * @param[in]  len   Length of @p word in bytes.
+ * @param[out] out   Receives the matched task type on success.
+ * @return True on exact match, false for unknown words.
+ */
 static bool parse_type_word(const char* word, size_t len, aegis_task_type_t* out)
 {
     for (size_t i = 0; i < sizeof(k_type_words) / sizeof(k_type_words[0]); i++) {
@@ -151,6 +209,21 @@ static bool parse_int(const char* s, size_t len, int64_t* out)
     return true;
 }
 
+/**
+ * @brief Parse a dependency-id list field into integers.
+ *
+ * Accepts an empty field and the provider sentinels "-" / "-1" as "no
+ * dependencies". Otherwise splits on commas, trims each token, and strictly
+ * parses integers, enforcing AEGIS_PLAN_MAX_DEPS. The input is tokenized in
+ * place with strtok_r.
+ *
+ * @param[in]     field      Mutable field text (modified).
+ * @param[in]     len        Length of @p field in bytes.
+ * @param[out]    deps       Array of at least AEGIS_PLAN_MAX_DEPS entries.
+ * @param[out]    dep_count  Receives the parsed id count.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for malformed integers or
+ *         list overflow.
+ */
 static aegis_status_t parse_dep_list(char* field, size_t len, int64_t* deps, size_t* dep_count)
 {
     trim(&field, &len);
@@ -268,6 +341,20 @@ static aegis_status_t parse_step_line(char* line, aegis_plan_t* plan)
     return rc;
 }
 
+/**
+ * @brief Parse a full multi-line DSL response into plan steps.
+ *
+ * Skips blank lines, '#' comments, and fenced code blocks; non-"STEP|"
+ * lines are ignored while malformed STEP lines fail the attempt. Steps with
+ * id -1 receive automatic ids. At least one step is required; the resulting
+ * plan is validated before acceptance, so anything not fully understood
+ * fails the whole planning attempt.
+ *
+ * @param[in] text  NUL-terminated model response text.
+ * @param[in] plan  Plan receiving the parsed steps (partially filled on error).
+ * @return AEGIS_OK on success, AEGIS_ERR_NOMEM on allocation failure,
+ *         or the parse/validation error otherwise.
+ */
 static aegis_status_t parse_response_into(const char* text, aegis_plan_t* plan)
 {
     const char* cursor = text;
@@ -325,6 +412,27 @@ static aegis_status_t parse_response_into(const char* text, aegis_plan_t* plan)
 
 /* ── Shared generate path (planner + replanner) ───────────────────────────── */
 
+/**
+ * @brief Run one LLM completion and parse its output into a plan.
+ *
+ * Shared generate path used by both planner and replanner: sends @p prompt
+ * to @p provider_name with fixed token/temperature settings, copies the
+ * (non-NUL-terminated) response, builds a goal-named plan, and strictly
+ * parses the DSL into it. Cancellation and provider errors propagate
+ * verbatim; empty model output can never form a plan.
+ *
+ * @param[in]  registry       Provider registry resolving @p provider_name.
+ * @param[in]  provider_name  LLM provider to complete through.
+ * @param[in]  prompt         Fully composed prompt text.
+ * @param[in]  goal           Non-empty goal naming the resulting plan.
+ * @param[in]  token          Optional cancellation token, may be NULL.
+ * @param[out] out            Receives the new plan; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments or empty
+ *         output, or the completion/parse error otherwise.
+ *
+ * Ownership: the caller owns the returned plan and must release it with
+ * aegis_plan_destroy().
+ */
 aegis_status_t aegis_planner_generate(const aegis_provider_registry_t* registry,
                                       const char* provider_name, const char* prompt,
                                       const char* goal, const aegis_cancellation_token_t* token,
@@ -384,6 +492,15 @@ aegis_status_t aegis_planner_generate(const aegis_provider_registry_t* registry,
 
 /* ── Strategy binding ──────────────────────────────────────────────────────── */
 
+/**
+ * @brief Attach a strategy registry for plan dispatch (borrowed).
+ *
+ * The registry must outlive the planner; only the pointer is stored.
+ *
+ * @param[in] planner     Planner to configure.
+ * @param[in] strategies  Strategy registry to borrow.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments.
+ */
 aegis_status_t aegis_planner_attach_strategies(aegis_planner_t*                 planner,
                                                const aegis_strategy_registry_t* strategies)
 {
@@ -394,6 +511,18 @@ aegis_status_t aegis_planner_attach_strategies(aegis_planner_t*                 
     return AEGIS_OK;
 }
 
+/**
+ * @brief Select the strategy used for planning by name (copied).
+ *
+ * A NULL or empty @p name clears the binding back to the built-in
+ * prompt/parse path. Selecting a name without an attached registry is
+ * rejected. Single-threaded builder semantics: a plain pointer swap.
+ *
+ * @param[in] planner  Planner to configure.
+ * @param[in] name     Strategy name to bind, or NULL/empty to clear.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL planner or a name
+ *         without an attached registry, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_planner_use_strategy(aegis_planner_t* planner, const char* name)
 {
     if (!planner) {
@@ -443,6 +572,24 @@ static bool dispatch_via_strategy(const aegis_planner_t* planner, const char* go
 
 /* ── Public plan() ─────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Plan a goal into steps via the bound strategy or the built-in LLM path.
+ *
+ * With a strategy bound, dispatches to strategy->plan() (NOT_FOUND when the
+ * name is unregistered, INVALID when selected without a registry);
+ * otherwise composes the "GOAL:\n" prompt and runs the shared LLM
+ * generate/parse path through the planner's registry and provider.
+ *
+ * @param[in]  planner  Configured planner.
+ * @param[in]  goal     Non-empty goal text.
+ * @param[in]  token    Optional cancellation token, may be NULL.
+ * @param[out] out      Receives the new plan; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments,
+ *         or the strategy/completion/parse error otherwise.
+ *
+ * Ownership: the caller owns the returned plan and must release it with
+ * aegis_plan_destroy().
+ */
 aegis_status_t aegis_planner_plan(const aegis_planner_t* planner, const char* goal,
                                   const aegis_cancellation_token_t* token, aegis_plan_t** out)
 {

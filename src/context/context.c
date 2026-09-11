@@ -29,6 +29,15 @@
 
 /* ── Helpers ───────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Estimate the token count of a text span.
+ *
+ * Uses the rough English heuristic of one token per four characters.
+ *
+ * @param[in] text  Text to measure; NULL yields 0.
+ * @param[in] len   Length of @p text in bytes.
+ * @return Estimated token count, or 0 for NULL/empty input.
+ */
 static size_t estimate_tokens(const char* text, size_t len)
 {
     if (!text || len == 0) {
@@ -38,6 +47,17 @@ static size_t estimate_tokens(const char* text, size_t len)
     return (len + 3) / 4;
 }
 
+/**
+ * @brief Compare two builder sections by priority, descending.
+ *
+ * qsort-style comparator over pointers to section pointers. NULL entries
+ * compare equal. Equal priorities compare equal so that a stable sort
+ * preserves insertion order among them.
+ *
+ * @param[in] a  Pointer to the left section pointer.
+ * @param[in] b  Pointer to the right section pointer.
+ * @return Negative if @p a sorts first, positive if @p b sorts first, 0 if tied.
+ */
 static int cmp_section_by_priority_desc(const void* a, const void* b)
 {
     const aegis_context_item_t* const* x = (const aegis_context_item_t* const*)a;
@@ -57,6 +77,18 @@ static int cmp_section_by_priority_desc(const void* a, const void* b)
 
 /* ── Builder ───────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Create an empty context builder.
+ *
+ * The builder starts with no sections, a zero (unlimited) token budget, and
+ * no compression hook installed.
+ *
+ * @param[out] out  Receives the new builder on success; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_NOMEM on allocation failure.
+ *
+ * Ownership: the caller owns the returned builder and must release it with
+ * aegis_context_builder_destroy().
+ */
 aegis_status_t aegis_context_builder_create(aegis_context_builder_t** out)
 {
     AEGIS_CHECK_OUT(out);
@@ -77,6 +109,14 @@ aegis_status_t aegis_context_builder_create(aegis_context_builder_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a context builder and all sections added to it.
+ *
+ * Releases every section's duplicated content together with the section
+ * vector and the builder itself. NULL is accepted and ignored.
+ *
+ * @param[in] builder  Builder to destroy, or NULL.
+ */
 void aegis_context_builder_destroy(aegis_context_builder_t* builder)
 {
     if (!builder) {
@@ -97,6 +137,22 @@ void aegis_context_builder_destroy(aegis_context_builder_t* builder)
     free(builder);
 }
 
+/**
+ * @brief Append a content section to the builder.
+ *
+ * The content string is duplicated, so the caller retains ownership of
+ * @p content. A zero @p token_estimate requests automatic estimation via
+ * the 1-token-per-4-characters heuristic. NULL, empty, and zero-length
+ * content is rejected.
+ *
+ * @param[in] builder         Builder to extend.
+ * @param[in] content         NUL-terminated section text (copied).
+ * @param[in] source          Provenance tag selecting the message role later.
+ * @param[in] priority        Higher values are packed first under a budget.
+ * @param[in] token_estimate  Precomputed cost, or 0 to auto-estimate.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_context_builder_add_section(aegis_context_builder_t* builder,
                                                  const char* content, aegis_context_source_t source,
                                                  int priority, size_t token_estimate)
@@ -128,6 +184,18 @@ aegis_status_t aegis_context_builder_add_section(aegis_context_builder_t* builde
     return AEGIS_OK;
 }
 
+/**
+ * @brief Install an optional section-compression hook on the builder.
+ *
+ * Sections longer than @p max_uncompressed_chars are passed through
+ * @p compress_fn at build time; a hook returning 0 discards the section.
+ * NULL builder is ignored.
+ *
+ * @param[in] builder                 Builder to configure.
+ * @param[in] compress_fn             Compression callback, or NULL to disable.
+ * @param[in] compress_user           Opaque pointer forwarded to the callback.
+ * @param[in] max_uncompressed_chars  Length threshold triggering compression.
+ */
 void aegis_context_builder_set_compression(aegis_context_builder_t*  builder,
                                            aegis_context_compress_fn compress_fn,
                                            void* compress_user, size_t max_uncompressed_chars)
@@ -140,6 +208,16 @@ void aegis_context_builder_set_compression(aegis_context_builder_t*  builder,
     builder->max_compress_len = max_uncompressed_chars;
 }
 
+/**
+ * @brief Set the token budget applied at build time.
+ *
+ * A budget of 0 means unlimited: every section is included. Otherwise the
+ * build packs sections in priority order until the next section would exceed
+ * the budget. NULL builder is ignored.
+ *
+ * @param[in] builder  Builder to configure.
+ * @param[in] budget   Maximum estimated tokens, or 0 for unlimited.
+ */
 void aegis_context_builder_set_budget(aegis_context_builder_t* builder, size_t budget)
 {
     if (!builder) {
@@ -150,6 +228,24 @@ void aegis_context_builder_set_budget(aegis_context_builder_t* builder, size_t b
 
 /* ── Build ─────────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Assemble the builder's sections into a single prompt string.
+ *
+ * Sections are packed in priority order until the token budget (if any)
+ * would be exceeded; oversized sections pass through the compression hook
+ * when one is installed. The sections are joined with a "\n\n---\n\n"
+ * separator. A pre-cancelled @p token aborts with AEGIS_ERR_CANCELLED.
+ * An empty builder yields an empty (non-NULL) prompt.
+ *
+ * @param[in]  builder  Builder holding the sections to assemble.
+ * @param[in]  token    Optional cancellation token, may be NULL.
+ * @param[out] out      Receives the new context on success; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments,
+ *         AEGIS_ERR_CANCELLED if cancelled, AEGIS_ERR_NOMEM on allocation failure.
+ *
+ * Ownership: the caller owns the returned context and must release it with
+ * aegis_context_destroy().
+ */
 aegis_status_t aegis_context_build(const aegis_context_builder_t*    builder,
                                    const aegis_cancellation_token_t* token, aegis_context_t** out)
 {
@@ -308,6 +404,28 @@ aegis_status_t aegis_context_build(const aegis_context_builder_t*    builder,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Assemble the builder's sections into a chat message list.
+ *
+ * Unlike aegis_context_build(), message order follows the conversation
+ * protocol rather than priority: system/memory/tool-definition sections are
+ * emitted first, then the remaining sections in insertion order. Each section
+ * maps to one message whose role derives from its source tag (observation
+ * sections become tool messages, all other non-system sections become user
+ * messages). Budget enforcement and cancellation checks mirror the prompt
+ * build; a mid-build cancellation destroys the partial list. An empty
+ * builder yields an empty list.
+ *
+ * @param[in]  builder  Builder holding the sections to assemble.
+ * @param[in]  token    Optional cancellation token, may be NULL.
+ * @param[out] out      Receives the new message list on success; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments,
+ *         AEGIS_ERR_CANCELLED if cancelled, AEGIS_ERR_NOMEM on allocation failure
+ *         (or any error propagated from message-list operations).
+ *
+ * Ownership: the caller owns the returned list and must release it with
+ * aegis_message_list_destroy(), even when it is empty.
+ */
 aegis_status_t aegis_context_build_messages(const aegis_context_builder_t*    builder,
                                             const aegis_cancellation_token_t* token,
                                             aegis_message_list_t**            out)
@@ -405,21 +523,48 @@ aegis_status_t aegis_context_build_messages(const aegis_context_builder_t*    bu
     return AEGIS_OK;
 }
 
+/**
+ * @brief Return the estimated token count recorded on a built context.
+ *
+ * @param[in] ctx  Built context, or NULL.
+ * @return The recorded estimate, or 0 for NULL.
+ */
 size_t aegis_context_token_estimate(const aegis_context_t* ctx)
 {
     return ctx ? ctx->token_estimate : 0;
 }
 
+/**
+ * @brief Report whether the context build dropped sections over budget.
+ *
+ * @param[in] ctx  Built context, or NULL.
+ * @return True if sections were omitted due to the token budget, false otherwise
+ *         (NULL yields false).
+ */
 bool aegis_context_is_truncated(const aegis_context_t* ctx)
 {
     return ctx ? ctx->truncated : false;
 }
 
+/**
+ * @brief Borrow the assembled prompt string of a built context.
+ *
+ * @param[in] ctx  Built context, or NULL.
+ * @return Pointer to the NUL-terminated prompt, or "" for NULL.
+ *         The pointer remains valid until the context is destroyed.
+ */
 const char* aegis_context_content(const aegis_context_t* ctx)
 {
     return ctx ? ctx->content : "";
 }
 
+/**
+ * @brief Destroy a built context and its prompt string.
+ *
+ * NULL is accepted and ignored.
+ *
+ * @param[in] ctx  Context to destroy, or NULL.
+ */
 void aegis_context_destroy(aegis_context_t* ctx)
 {
     if (!ctx) {

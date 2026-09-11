@@ -11,6 +11,20 @@
 
 /* ── Lifecycle ─────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Create an empty versioned plan for a goal.
+ *
+ * The goal string is duplicated and the plan starts at version 1 with no
+ * steps. Empty/NULL goals are rejected.
+ *
+ * @param[out] out   Receives the new plan on success; set only on success.
+ * @param[in]  goal  Non-empty goal description (copied).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ *
+ * Ownership: the caller owns the returned plan and must release it with
+ * aegis_plan_destroy().
+ */
 aegis_status_t aegis_plan_create(aegis_plan_t** out, const char* goal)
 {
     if (!out || !goal || goal[0] == '\0') {
@@ -30,6 +44,13 @@ aegis_status_t aegis_plan_create(aegis_plan_t** out, const char* goal)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a plan with all step names, descriptions, tool names, and inputs.
+ *
+ * NULL is accepted and ignored.
+ *
+ * @param[in] plan  Plan to destroy, or NULL.
+ */
 void aegis_plan_destroy(aegis_plan_t* plan)
 {
     if (!plan) {
@@ -48,16 +69,37 @@ void aegis_plan_destroy(aegis_plan_t* plan)
 
 /* ── Accessors ─────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Borrow the plan's goal string.
+ *
+ * @param[in] plan  Plan, or NULL.
+ * @return Pointer to the goal text, or NULL for NULL. Valid until destruction.
+ */
 const char* aegis_plan_goal(const aegis_plan_t* plan)
 {
     return plan ? plan->goal : NULL;
 }
 
+/**
+ * @brief Return the plan's schema version (starts at 1).
+ *
+ * @param[in] plan  Plan, or NULL.
+ * @return Version number, or 0 for NULL.
+ */
 uint32_t aegis_plan_version(const aegis_plan_t* plan)
 {
     return plan ? plan->version : 0u;
 }
 
+/**
+ * @brief Overwrite the plan's schema version stamp.
+ *
+ * Used when migrating or reinterpreting a plan under a newer schema.
+ * NULL plan is ignored.
+ *
+ * @param[in] plan     Plan to stamp.
+ * @param[in] version  New version number.
+ */
 void aegis_plan_set_version(aegis_plan_t* plan, uint32_t version)
 {
     if (plan) {
@@ -65,11 +107,26 @@ void aegis_plan_set_version(aegis_plan_t* plan, uint32_t version)
     }
 }
 
+/**
+ * @brief Return the number of steps currently in the plan.
+ *
+ * @param[in] plan  Plan, or NULL.
+ * @return Step count, or 0 for NULL.
+ */
 size_t aegis_plan_step_count(const aegis_plan_t* plan)
 {
     return plan ? plan->step_count : 0u;
 }
 
+/**
+ * @brief Find a step by its plan-scoped id.
+ *
+ * @param[in] plan  Plan to search, or NULL.
+ * @param[in] id    Step id to look up.
+ * @return Pointer to the step, or NULL when absent or @p plan is NULL.
+ *         The pointer borrows plan storage; valid until the plan is mutated
+ *         (growth may reallocate) or destroyed.
+ */
 const aegis_plan_step_t* aegis_plan_find_step(const aegis_plan_t* plan, int64_t id)
 {
     if (!plan) {
@@ -83,6 +140,13 @@ const aegis_plan_step_t* aegis_plan_find_step(const aegis_plan_t* plan, int64_t 
     return NULL;
 }
 
+/**
+ * @brief Return how many dependencies a step declares.
+ *
+ * @param[in] plan     Plan holding the step, or NULL.
+ * @param[in] step_id  Step id to inspect.
+ * @return Dependency count, or 0 when the step (or plan) is absent.
+ */
 size_t aegis_plan_step_dep_count(const aegis_plan_t* plan, int64_t step_id)
 {
     const aegis_plan_step_t* st = aegis_plan_find_step(plan, step_id);
@@ -91,6 +155,14 @@ size_t aegis_plan_step_dep_count(const aegis_plan_t* plan, int64_t step_id)
 
 /* ── Construction ──────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Compute the smallest non-negative step id not yet used.
+ *
+ * Scans upward from 0 so ids stay dense after removals.
+ *
+ * @param[in] plan  Plan to scan (NULL yields 0 via the public wrapper's lookup miss).
+ * @return Smallest free step id.
+ */
 static int64_t next_free_id(const aegis_plan_t* plan)
 {
     int64_t id = 0;
@@ -100,11 +172,44 @@ static int64_t next_free_id(const aegis_plan_t* plan)
     return id;
 }
 
+/**
+ * @brief Return the smallest non-negative step id not yet used in the plan.
+ *
+ * Convenience wrapper for auto-assigning step ids.
+ *
+ * @param[in] plan  Plan to scan.
+ * @return Smallest free step id.
+ */
 int64_t aegis_plan_next_free_id(const aegis_plan_t* plan)
 {
     return next_free_id(plan);
 }
 
+/**
+ * @brief Append a step to the plan, taking ownership of heap arguments.
+ *
+ * The @p name/@p desc buffers are adopted on success; on ANY failure they
+ * are freed here, so callers must never touch them after the call. The tool
+ * name and input payload are duplicated/copied internally. Dependencies must
+ * reference existing steps (no self-deps or forward references) and stay
+ * within AEGIS_PLAN_MAX_DEPS; the plan itself caps at AEGIS_PLAN_MAX_STEPS.
+ *
+ * @param[in] plan       Plan to extend.
+ * @param[in] id         Caller-chosen step id (uniqueness checked by the caller).
+ * @param[in] name       Heap name string; consumed (owned or freed) always.
+ * @param[in] desc       Heap description string, may be NULL; consumed always.
+ * @param[in] type       Task type carried into materialization.
+ * @param[in] priority   Scheduling priority carried into materialization.
+ * @param[in] timeout_ms Timeout carried into materialization.
+ * @param[in] retry      Retry policy carried into materialization.
+ * @param[in] tool_name  Optional tool name (copied), may be NULL.
+ * @param[in] input      Optional input payload (copied), may be NULL when len is 0.
+ * @param[in] input_len  Input payload length in bytes.
+ * @param[in] deps       Array of @p dep_count existing step ids, may be NULL when 0.
+ * @param[in] dep_count  Number of dependency ids.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments/limits/
+ *         dangling deps, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_planner_add_step_owned(aegis_plan_t* plan, int64_t id, char* name, char* desc,
                                             aegis_task_type_t type, int priority, long timeout_ms,
                                             aegis_task_retry_policy_t retry, const char* tool_name,
@@ -188,6 +293,20 @@ fail_nomem:
     return AEGIS_ERR_NOMEM;
 }
 
+/**
+ * @brief Append a step described by a spec; all strings/payloads are copied.
+ *
+ * Unlike aegis_planner_add_step_owned(), the caller retains ownership of
+ * everything in @p spec. AEGIS_PLAN_STEP_ID_AUTO assigns the smallest free
+ * id; an explicit id colliding with an existing step reports AEGIS_ERR_BUSY.
+ *
+ * @param[in]  plan    Plan to extend.
+ * @param[in]  spec    Step specification (name required, non-empty).
+ * @param[out] out_id  Optional receiver for the assigned step id, may be NULL.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments,
+ *         AEGIS_ERR_BUSY for a duplicate explicit id, AEGIS_ERR_NOMEM on
+ *         allocation failure.
+ */
 aegis_status_t aegis_plan_add_step(aegis_plan_t* plan, const aegis_plan_step_spec_t* spec,
                                    int64_t* out_id)
 {
@@ -227,6 +346,17 @@ aegis_status_t aegis_plan_add_step(aegis_plan_t* plan, const aegis_plan_step_spe
 
 /* ── Validation ────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Validate a plan's structural invariants.
+ *
+ * Checks that the plan is non-empty with all steps named, every dependency
+ * references an existing step exactly once (no self/duplicate/dangling
+ * deps), and the dependency graph is acyclic (iterative three-color DFS).
+ *
+ * @param[in] plan  Plan to validate.
+ * @return AEGIS_OK when valid, AEGIS_ERR_INVALID for any violation,
+ *         AEGIS_ERR_NOMEM when the DFS work buffers cannot be allocated.
+ */
 aegis_status_t aegis_plan_validate(const aegis_plan_t* plan)
 {
     if (!plan || plan->step_count == 0) {
@@ -308,6 +438,22 @@ aegis_status_t aegis_plan_validate(const aegis_plan_t* plan)
 
 /* ── Materialization ───────────────────────────────────────────────────────── */
 
+/**
+ * @brief Materialize a validated plan into an executable task graph.
+ *
+ * Validates first, then creates one task per step (copying type, priority,
+ * timeout, retry policy, tool name as "tool" metadata, and input payload)
+ * and wires the step dependencies as graph edges, with a final graph
+ * validation. Any failure destroys the partial graph, so no half-built
+ * graph ever escapes.
+ *
+ * @param[in]  plan  Plan to materialize (must validate cleanly).
+ * @param[out] out   Receives the new task graph; set only on success.
+ * @return AEGIS_OK on success, or the validation/creation error otherwise.
+ *
+ * Ownership: the caller owns the returned graph and must release it with
+ * aegis_task_graph_destroy().
+ */
 aegis_status_t aegis_plan_materialize(const aegis_plan_t* plan, aegis_task_graph_t** out)
 {
     if (!out) {
@@ -396,6 +542,21 @@ aegis_status_t aegis_plan_materialize(const aegis_plan_t* plan, aegis_task_graph
 
 /* ── Serialization ─────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Serialize a plan to a line-based text form ("PLAN|v" + "STEP|..." lines).
+ *
+ * Each step line records id, type name, comma-separated dependency ids, name,
+ * and description. The buffer is pre-sized with a worst-case upper bound, so
+ * an overflow can only signal an internal accounting bug (AEGIS_ERR_INTERNAL).
+ *
+ * @param[in]  plan     Plan to serialize.
+ * @param[out] out_str  Receives the NUL-terminated text; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments,
+ *         AEGIS_ERR_NOMEM on allocation failure, AEGIS_ERR_INTERNAL on
+ *         buffer-accounting overflow.
+ *
+ * Ownership: the caller owns the returned string and must free() it.
+ */
 aegis_status_t aegis_plan_serialize(const aegis_plan_t* plan, char** out_str)
 {
     if (!plan || !out_str) {

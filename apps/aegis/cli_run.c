@@ -28,6 +28,20 @@ static void save_session_best_effort(aegis_coding_agent_t* ca, const char* check
     }
 }
 
+/**
+ * @brief One-shot run command: load config, create the coding agent, run
+ *        with an optional explicit goal, and save the session at exit.
+ *
+ * Parses --config/--goal/--timeout/--iter/--provider/--model/--api-key/
+ * --base-url flags (precedence: explicit > config-file > defaults). Builds
+ * the agent, drives a single run(), and best-effort persists the session
+ * back to the configured checkpoint path. Returns 0 on success, 1 on
+ * failure.
+ *
+ * @param argc Argument count (from main).
+ * @param argv Argument vector (from main).
+ * @return 0 on success, 1 on failure.
+ */
 int cmd_run(int argc, char** argv)
 {
     cli_config_t cfg;

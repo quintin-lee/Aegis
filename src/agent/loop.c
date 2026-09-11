@@ -51,6 +51,25 @@ static void set_state(aegis_agent_loop_t* l, aegis_agent_loop_state_t ns)
     pthread_mutex_unlock(&l->lock);
 }
 
+/**
+ * @brief Create a reactive agent loop from a config bundle.
+ *
+ * Borrows session/model/tools/token pointers from @p cfg (they must
+ * outlive the loop) and copies the system prompt. When a strategy is
+ * supplied its ABI version must match, and its optional init hook runs
+ * before success.
+ *
+ * @param[in]  cfg  Config with session and model (required); tools, token,
+ *                  callbacks and strategy optional.
+ * @param[out] out  Receives the new loop on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL @p cfg/@p out,
+ *         missing session/model, or a strategy ABI mismatch,
+ *         AEGIS_ERR_NOMEM on allocation failure, or the strategy init
+ *         status when its init hook fails.
+ *
+ * @note Ownership: caller owns the loop; release with
+ *       aegis_agent_loop_destroy(). Thread-safe.
+ */
 aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
                                        aegis_agent_loop_t**             out)
 {
@@ -92,6 +111,14 @@ aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a loop, running the strategy shutdown hook when present.
+ *
+ * Frees the copied system prompt and the loop itself; the borrowed
+ * session/model/tools/token are left untouched. NULL is a no-op.
+ *
+ * @param[in] l  Loop to destroy.
+ */
 void aegis_agent_loop_destroy(aegis_agent_loop_t* l)
 {
     if (!l) {
@@ -105,6 +132,12 @@ void aegis_agent_loop_destroy(aegis_agent_loop_t* l)
     free(l);
 }
 
+/**
+ * @brief Return the loop's current state (lock-protected snapshot).
+ *
+ * @param[in] l  Loop to query; NULL yields AEGIS_AGENT_LOOP_FAILED.
+ * @return Current state. Thread-safe.
+ */
 aegis_agent_loop_state_t aegis_agent_loop_state(const aegis_agent_loop_t* l)
 {
     if (!l) {
@@ -116,11 +149,28 @@ aegis_agent_loop_state_t aegis_agent_loop_state(const aegis_agent_loop_t* l)
     return s;
 }
 
+/**
+ * @brief Return the session borrowed by the loop at creation.
+ *
+ * @param[in] loop  Loop to query; NULL yields NULL.
+ * @return Borrowed session pointer owned by the caller of create; do not
+ *         destroy.
+ */
 aegis_session_t* aegis_agent_loop_session(const aegis_agent_loop_t* loop)
 {
     return loop ? loop->session : NULL;
 }
 
+/**
+ * @brief Return how many session messages were excluded from the last context.
+ *
+ * The context window keeps only the newest AEGIS_LOOP_CONTEXT_WINDOW
+ * messages; this reports how many older ones were dropped (0 when the
+ * whole session fit). NULL loop yields 0.
+ *
+ * @param[in] loop  Loop to query.
+ * @return Dropped-message count. Thread-safe.
+ */
 size_t aegis_agent_loop_context_dropped(const aegis_agent_loop_t* loop)
 {
     if (!loop) {
@@ -132,6 +182,17 @@ size_t aegis_agent_loop_context_dropped(const aegis_agent_loop_t* loop)
     return n;
 }
 
+/**
+ * @brief Request cooperative cancellation of a running turn.
+ *
+ * Signals the loop's cancellation token (when one is attached) so model
+ * streaming and tool execution abort between stages, and moves the loop
+ * to CANCELLING.
+ *
+ * @param[in] l  Loop to cancel.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL loop.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_loop_cancel(aegis_agent_loop_t* l)
 {
     if (!l) {
@@ -144,6 +205,16 @@ aegis_status_t aegis_agent_loop_cancel(aegis_agent_loop_t* l)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Attach (or replace, with NULL to detach) the cancellation token.
+ *
+ * The token is borrowed; the caller must keep it alive while turns run.
+ *
+ * @param[in] l      Loop to configure.
+ * @param[in] token  Token to observe, or NULL to run uninterruptible.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL loop.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_loop_set_token(aegis_agent_loop_t* l, aegis_cancellation_token_t* token)
 {
     if (!l) {
@@ -155,6 +226,18 @@ aegis_status_t aegis_agent_loop_set_token(aegis_agent_loop_t* l, aegis_cancellat
     return AEGIS_OK;
 }
 
+/**
+ * @brief Install the observer callback for text/reasoning/tool events.
+ *
+ * The callback runs synchronously without loop locks and cannot affect
+ * control flow; keep it non-blocking.
+ *
+ * @param[in] l     Loop to configure.
+ * @param[in] fn    Callback, or NULL to detach.
+ * @param[in] user  Opaque value passed through to @p fn.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL loop.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* l, aegis_agent_event_fn fn,
                                                    void* user)
 {
@@ -168,6 +251,18 @@ aegis_status_t aegis_agent_loop_set_event_callback(aegis_agent_loop_t* l, aegis_
     return AEGIS_OK;
 }
 
+/**
+ * @brief Install the per-tool-call approval gate.
+ *
+ * The gate is consulted before each tool execution; a DENY verdict
+ * records a "user denied tool" outcome instead of running the tool.
+ *
+ * @param[in] l     Loop to configure.
+ * @param[in] fn    Approval callback, or NULL to allow every call.
+ * @param[in] user  Opaque value passed through to @p fn.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL loop.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_loop_set_tool_approval(aegis_agent_loop_t* l, aegis_tool_approval_fn fn,
                                                   void* user)
 {
@@ -180,6 +275,13 @@ aegis_status_t aegis_agent_loop_set_tool_approval(aegis_agent_loop_t* l, aegis_t
     pthread_mutex_unlock(&l->lock);
     return AEGIS_OK;
 }
+/**
+ * @brief Mark the loop PAUSED (state flag only).
+ *
+ * @param[in] l  Loop to pause.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL loop.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_loop_pause(aegis_agent_loop_t* l)
 {
     if (!l) {
@@ -188,6 +290,13 @@ aegis_status_t aegis_agent_loop_pause(aegis_agent_loop_t* l)
     set_state(l, AEGIS_AGENT_LOOP_PAUSED);
     return AEGIS_OK;
 }
+/**
+ * @brief Mark the loop RUNNING again after a pause (state flag only).
+ *
+ * @param[in] l  Loop to resume.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL loop.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_loop_resume(aegis_agent_loop_t* l)
 {
     if (!l) {
@@ -651,6 +760,31 @@ static aegis_status_t strat_should_continue(aegis_agent_loop_t* l, int* out)
     return l->strategy->should_continue(l->strategy->user, out);
 }
 
+/**
+ * @brief Run one full reactive turn for a user message.
+ *
+ * Appends @p user_input to the session, then pumps the loop: build a
+ * bounded context (system prompt + newest messages) → stream model
+ * deltas (accumulating text, reasoning, tool calls and usage) → append
+ * the assistant message → run strategy after_model → execute tool calls
+ * (approval gate, then tool run, recording TOOL_START/TOOL_END events)
+ * → run strategy after_tool → repeat until a text-only response lets the
+ * strategy decline continuation (COMPLETED, at most 16 inner turns).
+ *
+ * Cancellation is cooperative: the token is checked between stages, and
+ * an in-stream interrupt preserves the partial assistant message plus an
+ * "[interrupted by user]" marker. Strategy hooks run without the loop
+ * lock; usage accumulates per turn and lifetime.
+ *
+ * @param[in] l           Loop to run (must not be NULL).
+ * @param[in] user_input  User text; appended to the session first.
+ * @return AEGIS_OK when the turn completes, AEGIS_ERR_INVALID for NULL
+ *         arguments, AEGIS_ERR_CANCELLED on cooperative cancellation,
+ *         AEGIS_ERR_TIMEOUT after 16 tool-bearing turns without a
+ *         text-only response, or the first fatal model/session/tool
+ *         error encountered. Thread-safe at the state level; do not run
+ *         two turns on one loop concurrently.
+ */
 aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user_input)
 {
     if (!l || !user_input) {
@@ -958,11 +1092,27 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
     return AEGIS_ERR_TIMEOUT;
 }
 
+/**
+ * @brief Run one turn; alias for aegis_agent_loop_run_turn().
+ *
+ * @param[in] l           Loop to run.
+ * @param[in] user_input  User text starting the turn.
+ * @return Same status codes as aegis_agent_loop_run_turn().
+ */
 aegis_status_t aegis_agent_loop_run(aegis_agent_loop_t* l, const char* user_input)
 {
     return aegis_agent_loop_run_turn(l, user_input);
 }
 
+/**
+ * @brief Copy out the token usage of the most recent completed turn.
+ *
+ * @param[in]  loop  Loop to query.
+ * @param[out] out   Receives the last-turn usage (zeroed when the turn
+ *                   reported none).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_loop_last_usage(const aegis_agent_loop_t* loop, aegis_usage_t* out)
 {
     if (!loop || !out) {
@@ -974,6 +1124,14 @@ aegis_status_t aegis_agent_loop_last_usage(const aegis_agent_loop_t* loop, aegis
     return AEGIS_OK;
 }
 
+/**
+ * @brief Copy out the lifetime token usage accumulated across all turns.
+ *
+ * @param[in]  loop  Loop to query.
+ * @param[out] out   Receives the summed usage.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_loop_usage(const aegis_agent_loop_t* loop, aegis_usage_t* out)
 {
     if (!loop || !out) {

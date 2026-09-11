@@ -47,6 +47,18 @@ static char* gen_id(void)
     return strdup(buf);
 }
 
+/**
+ * @brief Allocate a new message with a fresh UUID, current timestamp and
+ *        the given role.
+ *
+ * All string fields start NULL; the id is always allocated. The caller
+ * owns the returned message and must destroy it with aegis_message_destroy.
+ *
+ * @param[in]  role Message role (system/user/assistant/tool/event/summary).
+ * @param[out] out  Receives the new message; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_create(aegis_message_role_t role, aegis_message_t** out)
 {
     if (!out) {
@@ -67,6 +79,15 @@ aegis_status_t aegis_message_create(aegis_message_role_t role, aegis_message_t**
     return AEGIS_OK;
 }
 
+/**
+ * @brief Free a message and all its owned heap strings and tool-calls.
+ *
+ * NULL is a no-op. Tool-call objects owned by the message are destroyed;
+ * the tool_calls array itself is freed but the individual calls are NOT
+ * freed (they are refcounted elsewhere via their own destroy path).
+ *
+ * @param[in] m Message to destroy, or NULL.
+ */
 void aegis_message_destroy(aegis_message_t* m)
 {
     if (!m) {
@@ -84,6 +105,17 @@ void aegis_message_destroy(aegis_message_t* m)
     free(m);
 }
 
+/**
+ * @brief Deep-copy a message, allocating a fresh UUID but preserving the
+ *        original content, reasoning and parent-id.
+ *
+ * Tool calls are recursively cloned. The caller owns the resulting copy.
+ *
+ * @param[in]  src Message to clone (must be non-NULL).
+ * @param[out] out Receives the new copy; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL src/out,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_clone(const aegis_message_t* src, aegis_message_t** out)
 {
     if (!src || !out) {
@@ -239,6 +271,18 @@ aegis_status_t aegis_message_set_parent_id(aegis_message_t* m, const char* pid)
     return set_str(&m->parent_id, pid);
 }
 
+/**
+ * @brief Add a cloned tool call to an assistant message.
+ *
+ * The call is deep-copied (including its nested JSON arguments) and appended
+ * to the message's owned list. Returns AEGIS_ERR_NOMEM if the list cannot
+ * grow. Not thread-safe.
+ *
+ * @param[in] m    Assistant message to extend.
+ * @param[in] call Tool call to clone and append (owned by caller afterwards).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_add_tool_call(aegis_message_t* m, const aegis_tool_call_t* call)
 {
     if (!m || !call) {

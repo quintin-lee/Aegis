@@ -36,6 +36,20 @@ static void record_failure(struct aegis_reflection* r, const aegis_task_t* task)
     snprintf(r->first_error, sizeof(r->first_error), "%s", err);
 }
 
+/**
+ * @brief Build a reflection from the completed task graph: count outcomes,
+ *        capture the first failure (if any), and synthesize a short
+ *        feedback string for the replanner.
+ *
+ * Ownership of the resulting reflection is transferred to the caller.
+ * The graph is queried only (no mutation). The feedback is always
+ * populated — even on all-success it contains a summary line.
+ *
+ * @param[out] out  Receives the new reflection; untouched on failure.
+ * @param[in]  graph Task graph to summarise (must be non-NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure, else the graph query error.
+ */
 aegis_status_t aegis_reflection_create(aegis_reflection_t** out, const aegis_task_graph_t* graph)
 {
     if (!out || !graph) {
@@ -103,6 +117,11 @@ aegis_status_t aegis_reflection_create(aegis_reflection_t** out, const aegis_tas
     return AEGIS_OK;
 }
 
+/**
+ * @brief Free a reflection. NULL is a no-op.
+ *
+ * @param[in] refl Reflection to destroy, or NULL.
+ */
 void aegis_reflection_destroy(aegis_reflection_t* refl)
 {
     free(refl);

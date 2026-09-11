@@ -17,6 +17,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Create an empty bus guarded by a recursive mutex.
+ *
+ * Recursion allows handlers invoked during publish to re-enter the bus
+ * (e.g. unsubscribe) without deadlock.
+ *
+ * @param[out] out Receives the handle (ownership: transferred).
+ * @return AEGIS_OK on success, AEGIS_ERR_NOMEM on failure.
+ */
 aegis_status_t aegis_event_bus_create(aegis_event_bus_t** out)
 {
     AEGIS_CHECK_OUT(out);
@@ -36,6 +45,13 @@ aegis_status_t aegis_event_bus_create(aegis_event_bus_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a bus and its lock (subscriber contexts are borrowed, not freed).
+ *
+ * Safe to call with NULL (no-op).
+ *
+ * @param bus Handle to destroy (ownership: consumed).
+ */
 void aegis_event_bus_destroy(aegis_event_bus_t* bus)
 {
     if (!bus) {
@@ -45,8 +61,21 @@ void aegis_event_bus_destroy(aegis_event_bus_t* bus)
     free(bus);
 }
 
+/**
+ * @brief Register a handler for @p type (0 = wildcard matching every event).
+ *
+ * Thread-safe. Slots are append-only; unsubscribed entries are lazily
+ * deactivated, so the table fills up to AEGIS_EVENT_BUS_MAX_SUBSCRIBERS
+ * over the bus lifetime.
+ *
+ * @param bus     Bus (borrowed).
+ * @param type    Event type to match (0 = all types).
+ * @param handler Callback (borrowed; must be non-NULL).
+ * @param ctx     Opaque argument forwarded to @p handler (borrowed).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL bus/handler, AEGIS_ERR_BUSY when full.
+ */
 aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus, aegis_event_type_t type,
-                                         aegis_event_handler_fn handler, void* ctx)
+                                          aegis_event_handler_fn handler, void* ctx)
 {
     if (!bus || !handler) {
         return AEGIS_ERR_INVALID;
@@ -69,8 +98,19 @@ aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus, aegis_event_typ
     return AEGIS_OK;
 }
 
+/**
+ * @brief Deactivate the first active subscription matching all three keys.
+ *
+ * Only marks the slot inactive — the entry is reclaimed lazily (never
+ * compacted). No-op for NULL bus/handler or no match.
+ *
+ * @param bus     Bus (borrowed).
+ * @param type    Event type used at subscribe time.
+ * @param handler Handler used at subscribe time.
+ * @param ctx     Context used at subscribe time.
+ */
 void aegis_event_bus_unsubscribe(aegis_event_bus_t* bus, aegis_event_type_t type,
-                                 aegis_event_handler_fn handler, void* ctx)
+                                  aegis_event_handler_fn handler, void* ctx)
 {
     if (!bus || !handler) {
         return;
@@ -89,6 +129,16 @@ void aegis_event_bus_unsubscribe(aegis_event_bus_t* bus, aegis_event_type_t type
     aegis_mutex_unlock(bus->lock);
 }
 
+/**
+ * @brief Synchronously dispatch @p ev to matching handlers in subscription order.
+ *
+ * Snapshots active subscribers under the lock, then invokes callbacks after
+ * releasing it, so a handler may safely (un)subscribe mid-dispatch. Handlers
+ * run on the publisher's thread. No-op for NULL bus/event.
+ *
+ * @param bus Bus (borrowed).
+ * @param ev  Event to deliver (borrowed).
+ */
 void aegis_event_bus_publish(aegis_event_bus_t* bus, const aegis_event_t* ev)
 {
     if (!bus || !ev) {
@@ -116,6 +166,14 @@ void aegis_event_bus_publish(aegis_event_bus_t* bus, const aegis_event_t* ev)
     }
 }
 
+/**
+ * @brief Count currently active subscriptions (0 for NULL input).
+ *
+ * Thread-safe (counted under the bus lock).
+ *
+ * @param bus Bus (borrowed).
+ * @return Active subscription count.
+ */
 size_t aegis_event_bus_subscriber_count(const aegis_event_bus_t* bus)
 {
     if (!bus) {

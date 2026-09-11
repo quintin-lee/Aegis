@@ -5,6 +5,13 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/autonomous_state.h"
 
+/**
+ * @brief Map an autonomous lifecycle state to its canonical name.
+ *
+ * @param[in] state  State value to name; out-of-range values map to "UNKNOWN".
+ *
+ * @return Pointer to a static name string; never NULL, must not be freed.
+ */
 const char* aegis_autonomous_state_str(aegis_autonomous_state_t state)
 {
     switch (state) {

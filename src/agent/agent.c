@@ -52,6 +52,19 @@ static void emit_state_change(aegis_agent_t* agent, aegis_agent_state_t from,
 
 /* ── Lifecycle ─────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Allocate an agent in the CREATED state with its own event bus.
+ *
+ * Copies @p name and initializes the lock, done-flag and event bus.
+ *
+ * @param[out] out   Receives the new agent on success.
+ * @param[in]  name  Agent name; must be non-NULL and non-empty.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL @p out or an
+ *         empty @p name, AEGIS_ERR_NOMEM on allocation failure.
+ *
+ * @note Ownership: caller owns the agent; release with
+ *       aegis_agent_destroy(). Thread-safe.
+ */
 aegis_status_t aegis_agent_create(aegis_agent_t** out, const char* name)
 {
     AEGIS_CHECK_OUT(out);
@@ -103,6 +116,14 @@ aegis_status_t aegis_agent_create(aegis_agent_t** out, const char* name)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy an agent, aborting it first when still active.
+ *
+ * An agent in RUNNING, PAUSED or INITIALIZING is force-moved to ABORTED
+ * and its done-flag is set before teardown. NULL is a no-op.
+ *
+ * @param[in] agent  Agent to destroy.
+ */
 void aegis_agent_destroy(aegis_agent_t* agent)
 {
     if (!agent) {
@@ -128,6 +149,12 @@ void aegis_agent_destroy(aegis_agent_t* agent)
 
 /* ── State access ──────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Return the agent's current state (lock-protected snapshot).
+ *
+ * @param[in] agent  Agent to query; NULL yields AEGIS_AGENT_CREATED.
+ * @return Current state. Thread-safe.
+ */
 aegis_agent_state_t aegis_agent_state(const aegis_agent_t* agent)
 {
     if (!agent) {
@@ -141,6 +168,15 @@ aegis_agent_state_t aegis_agent_state(const aegis_agent_t* agent)
 
 /* ── State transitions ─────────────────────────────────────────────────────── */
 
+/**
+ * @brief Move a CREATED agent to READY (CREATED → INITIALIZING → READY).
+ *
+ * Emits a state-change event for each hop. Idempotent when already READY.
+ *
+ * @param[in] agent  Agent to initialize.
+ * @return AEGIS_OK on success (or already READY), AEGIS_ERR_INVALID for
+ *         a NULL agent or a state other than CREATED/READY. Thread-safe.
+ */
 aegis_status_t aegis_agent_init(aegis_agent_t* agent)
 {
     if (!agent) {
@@ -172,6 +208,14 @@ aegis_status_t aegis_agent_init(aegis_agent_t* agent)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Move a READY agent to RUNNING. Idempotent when already RUNNING.
+ *
+ * @param[in] agent  Agent to start.
+ * @return AEGIS_OK on success (or already RUNNING), AEGIS_ERR_INVALID
+ *         for a NULL agent or a state other than READY/RUNNING.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_start(aegis_agent_t* agent)
 {
     if (!agent) {
@@ -197,6 +241,13 @@ aegis_status_t aegis_agent_start(aegis_agent_t* agent)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Move a RUNNING agent to PAUSED.
+ *
+ * @param[in] agent  Agent to pause.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL agent or
+ *         any state other than RUNNING. Thread-safe.
+ */
 aegis_status_t aegis_agent_pause(aegis_agent_t* agent)
 {
     if (!agent) {
@@ -217,6 +268,13 @@ aegis_status_t aegis_agent_pause(aegis_agent_t* agent)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Move a PAUSED agent back to RUNNING.
+ *
+ * @param[in] agent  Agent to resume.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL agent or
+ *         any state other than PAUSED. Thread-safe.
+ */
 aegis_status_t aegis_agent_resume(aegis_agent_t* agent)
 {
     if (!agent) {
@@ -237,6 +295,18 @@ aegis_status_t aegis_agent_resume(aegis_agent_t* agent)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Request cancellation of a RUNNING or PAUSED agent.
+ *
+ * Publishes a CANCEL_REQUESTED event on the agent bus, then completes
+ * the RUNNING/PAUSED → CANCELLING → CANCELLED transition synchronously
+ * and signals the done-flag. (Production use would let the event loop
+ * drain in-flight tasks before the final hop.)
+ *
+ * @param[in] agent  Agent to cancel.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for a NULL agent or
+ *         any state other than RUNNING/PAUSED. Thread-safe.
+ */
 aegis_status_t aegis_agent_cancel(aegis_agent_t* agent)
 {
     if (!agent) {
@@ -273,6 +343,19 @@ aegis_status_t aegis_agent_cancel(aegis_agent_t* agent)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Block until the agent reaches a terminal state.
+ *
+ * Returns immediately when already terminal. Polls the state every
+ * 10 ms, so the effective wait is quantized to that granularity.
+ *
+ * @param[in] agent       Agent to wait for.
+ * @param[in] timeout_ms  Maximum wait in milliseconds; ≤ 0 waits
+ *                        indefinitely.
+ * @return AEGIS_OK once terminal, AEGIS_ERR_INVALID for a NULL agent,
+ *         AEGIS_ERR_TIMEOUT when the deadline expires first.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_agent_join(aegis_agent_t* agent, long timeout_ms)
 {
     if (!agent) {
@@ -305,6 +388,14 @@ aegis_status_t aegis_agent_join(aegis_agent_t* agent, long timeout_ms)
 
 /* ── Goal ──────────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Set the agent's goal string (copied, truncated to the buffer).
+ *
+ * Passing NULL clears the goal. NULL agent is a no-op.
+ *
+ * @param[in] agent  Agent to update.
+ * @param[in] goal   New goal text; NULL clears it. Thread-safe.
+ */
 void aegis_agent_set_goal(aegis_agent_t* agent, const char* goal)
 {
     if (!agent) {
@@ -320,6 +411,14 @@ void aegis_agent_set_goal(aegis_agent_t* agent, const char* goal)
     aegis_mutex_unlock(agent->lock);
 }
 
+/**
+ * @brief Return the agent's goal string.
+ *
+ * @param[in] agent  Agent to query; NULL yields NULL.
+ * @return Borrowed pointer to the internal goal buffer, or NULL when
+ *         unset/empty. Thread-safe for the read, but the pointer is only
+ *         valid until the next set_goal call; copy it if retained.
+ */
 const char* aegis_agent_get_goal(const aegis_agent_t* agent)
 {
     if (!agent) {
@@ -333,6 +432,12 @@ const char* aegis_agent_get_goal(const aegis_agent_t* agent)
 
 /* ── Properties ────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Return the agent's name given at creation.
+ *
+ * @param[in] agent  Agent to query; NULL yields NULL.
+ * @return Borrowed name string owned by the agent; do not free.
+ */
 const char* aegis_agent_name(const aegis_agent_t* agent)
 {
     if (!agent) {
@@ -341,6 +446,12 @@ const char* aegis_agent_name(const aegis_agent_t* agent)
     return agent->name;
 }
 
+/**
+ * @brief Return the agent's private event bus.
+ *
+ * @param[in] agent  Agent to query; NULL yields NULL.
+ * @return Borrowed bus pointer owned by the agent; do not destroy.
+ */
 aegis_event_bus_t* aegis_agent_event_bus(const aegis_agent_t* agent)
 {
     if (!agent) {

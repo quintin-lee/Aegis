@@ -11,6 +11,16 @@
 int cmd_interactive(const char* project_root, const char* model, const char* resume_path);
 int cmd_print(const char* prompt, const char* project_root, const char* model);
 
+/**
+ * @brief Aegis CLI entry point.
+ *
+ * Dispatches based on argv: no args → interactive mode; --print <prompt>
+ * runs one-shot; --resume [--resume=<path>] restores from a checkpoint;
+ * --init seeds a project layout; -h/-v print help/version. Model and
+ * working-directory are carried via --model / --model=... and --cwd /
+ * --cwd=.... All subcommands return an int exit code suitable for shell
+ * usage.
+ */
 int main(int argc, char** argv)
 {
     // No args → interactive (Pi-like)

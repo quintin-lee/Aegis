@@ -107,6 +107,23 @@ static char* build_prompt_from_messages(const aegis_message_list_t* msgs)
     return out;
 }
 
+/**
+ * @brief Synchronous model completion: build the prompt from @p req->messages,
+ *        call the backend (or mock fallback), and return the response.
+ *
+ * When no backend.complete callback is installed a deterministic mock is
+ * used: the response content is "mock response to: <last_user_message>".
+ * Checks @p token for cancellation before any work starts. The caller
+ * owns the response and must destroy it with aegis_model_response_destroy.
+ *
+ * @param[in]  client Model client (must be non-NULL).
+ * @param[in]  req    Request carrying the message list (must be non-NULL).
+ * @param[in]  token  Cancellation point, or NULL to ignore.
+ * @param[out] out    Receives the response; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_CANCELLED when @p token is already tripped, else the backend
+ *   or mock error.
+ */
 aegis_status_t aegis_model_complete(aegis_model_client_t* client, const aegis_model_request_t* req,
                                     const aegis_cancellation_token_t* token,
                                     aegis_model_response_t**          out)
@@ -164,6 +181,25 @@ aegis_status_t aegis_model_complete(aegis_model_client_t* client, const aegis_mo
     return AEGIS_OK;
 }
 
+/**
+ * @brief Streaming model completion: drives the backend stream callback
+ *        (or a mock echo of the last user message), checking cancellation
+ *        at each tick.
+ *
+ * The callback is invoked with AEGIS_MODEL_STREAM_TEXT_DELTA events for
+ * each chunk and AEGIS_MODEL_STREAM_END on success, or
+ * AEGIS_MODEL_STREAM_ERROR on failure. The callback owns its output; the
+ * caller only passes a pointer through @p user. Cancellation aborts the
+ * stream immediately.
+ *
+ * @param[in]  client Model client (must be non-NULL).
+ * @param[in]  req    Request carrying the message list (must be non-NULL).
+ * @param[in]  token  Cancellation point, or NULL to ignore.
+ * @param[in]  cb     Stream callback invoked for each event (must be non-NULL).
+ * @param[in]  user   Opaque pointer forwarded to @p cb.
+ * @return AEGIS_OK when the stream completes, AEGIS_ERR_INVALID for NULL
+ *   args, AEGIS_ERR_CANCELLED when @p token is already tripped.
+ */
 aegis_status_t aegis_model_stream(aegis_model_client_t* client, const aegis_model_request_t* req,
                                   const aegis_cancellation_token_t* token,
                                   aegis_model_stream_callback_fn cb, void* user)

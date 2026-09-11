@@ -15,6 +15,24 @@
 
 /* ── Internal evaluation ───────────────────────────────────────────────────── */
 
+/**
+ * @brief Evaluate whether the executed task graph achieved the stated goal.
+ *
+ * Counts terminal states across all tasks (success/failed/cancelled/skipped/
+ * incomplete) and produces a verdict plus feedback string. Strategy-bound
+ * critics may override this with an LLM-driven path; this is the fallback
+ * used when no strategy is attached. Cancellation is checked upfront.
+ * Empty goals or missing graphs produce an INVALID verdict immediately.
+ *
+ * @param[in]  critic Critic instance (must be non-NULL).
+ * @param[in]  goal   Original goal text (non-empty).
+ * @param[in]  plan   Original plan (ignored by builtin, passed to strategies).
+ * @param[in]  graph  Executed task graph to evaluate.
+ * @param[in]  token  Cancellation point, or NULL to ignore.
+ * @param[out] out    Receives the verdict; set even on early-exit paths.
+ * @return AEGIS_OK on success (including INVALID verdict), AEGIS_ERR_INVALID
+ *   for NULL critic/out, AEGIS_ERR_CANCELLED when @p token is tripped.
+ */
 aegis_status_t aegis_critic_evaluate_builtin(aegis_critic_t* critic, const char* goal,
                                              const aegis_plan_t*               plan,
                                              const aegis_task_graph_t*         graph,

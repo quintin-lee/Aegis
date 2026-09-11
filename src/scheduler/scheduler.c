@@ -19,6 +19,16 @@
 
 /* ── Id-set helpers (linear scan — bounded by AEGIS_SCHED_MAX_TASKS) ──────── */
 
+/**
+ * @brief Test whether an id is present in a small id set (linear scan).
+ *
+ * Sets are bounded by AEGIS_SCHED_MAX_TASKS, so a scan stays cheap.
+ *
+ * @param[in] set  Array of @p n ids.
+ * @param[in] n    Number of entries in @p set.
+ * @param[in] id   Id to look for.
+ * @return True when present, false otherwise.
+ */
 static bool id_in_set(const uint32_t* set, size_t n, uint32_t id)
 {
     for (size_t i = 0; i < n; i++) {
@@ -29,11 +39,26 @@ static bool id_in_set(const uint32_t* set, size_t n, uint32_t id)
     return false;
 }
 
+/**
+ * @brief Append an id to a set. The caller guarantees spare capacity.
+ *
+ * @param[in,out] set  Array with room for one more id.
+ * @param[in,out] n    Entry count; incremented.
+ * @param[in]     id   Id to append (duplicates are the caller's concern).
+ */
 static void id_set_add(uint32_t* set, size_t* n, uint32_t id)
 {
     set[(*n)++] = id;
 }
 
+/**
+ * @brief Remove an id from a set via swap-with-last.
+ *
+ * @param[in,out] set  Array of @p *n ids.
+ * @param[in,out] n    Entry count; decremented on removal.
+ * @param[in]     id   Id to remove.
+ * @return True when removed, false when absent (set untouched).
+ */
 static bool id_set_remove(uint32_t* set, size_t* n, uint32_t id)
 {
     for (size_t i = 0; i < *n; i++) {
@@ -66,6 +91,12 @@ static bool entry_before(const aegis_scheduler_t* s, const aegis_sched_entry_t* 
     return a->seq < b->seq; /* FIFO tiebreak */
 }
 
+/**
+ * @brief Exchange two heap entries in place.
+ *
+ * @param[in,out] a  First entry.
+ * @param[in,out] b  Second entry.
+ */
 static void heap_swap(aegis_sched_entry_t* a, aegis_sched_entry_t* b)
 {
     aegis_sched_entry_t tmp = *a;
@@ -73,6 +104,12 @@ static void heap_swap(aegis_sched_entry_t* a, aegis_sched_entry_t* b)
     *b                      = tmp;
 }
 
+/**
+ * @brief Restore the heap property upward from a newly inserted entry.
+ *
+ * @param[in] s    Scheduler owning the heap.
+ * @param[in] idx  Index of the entry to sift toward the root.
+ */
 static void heap_sift_up(aegis_scheduler_t* s, size_t idx)
 {
     while (idx > 0) {
@@ -85,6 +122,12 @@ static void heap_sift_up(aegis_scheduler_t* s, size_t idx)
     }
 }
 
+/**
+ * @brief Restore the heap property downward from a demoted root entry.
+ *
+ * @param[in] s    Scheduler owning the heap.
+ * @param[in] idx  Index of the entry to sift toward the leaves.
+ */
 static void heap_sift_down(aegis_scheduler_t* s, size_t idx)
 {
     for (;;) {
@@ -108,6 +151,16 @@ static void heap_sift_down(aegis_scheduler_t* s, size_t idx)
 
 /* ── Dependency gating ─────────────────────────────────────────────────────── */
 
+/**
+ * @brief Find a graph task by id with a linear scan.
+ *
+ * Called with the graph lock held; the borrowed task pointer must not
+ * outlive the lock.
+ *
+ * @param[in] g   Task graph to search.
+ * @param[in] id  Task id to look for.
+ * @return Pointer to the task, or NULL when absent.
+ */
 static aegis_task_t* find_task_by_id(const aegis_task_graph_t* g, uint32_t id)
 {
     for (size_t i = 0; i < g->n_tasks; i++) {
@@ -148,6 +201,18 @@ static bool deps_satisfied_locked(const aegis_task_graph_t* g, size_t idx)
 
 /* ── Lifecycle ─────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Create an empty scheduler with its state mutex.
+ *
+ * No graph is attached yet; attach one before polling.
+ *
+ * @param[out] out  Receives the new scheduler; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *         AEGIS_ERR_NOMEM on allocation/mutex failure.
+ *
+ * Ownership: the caller owns the returned scheduler and must release it with
+ * aegis_scheduler_destroy(). Thread-safe after creation.
+ */
 aegis_status_t aegis_scheduler_create(aegis_scheduler_t** out)
 {
     if (!out) {
@@ -170,6 +235,14 @@ aegis_status_t aegis_scheduler_create(aegis_scheduler_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a scheduler and its mutex.
+ *
+ * Tasks are owned by the attached graph and are left alone; only scheduler
+ * state (heap, id sets, mutex) is released. NULL is accepted and ignored.
+ *
+ * @param[in] sched  Scheduler to destroy, or NULL.
+ */
 void aegis_scheduler_destroy(aegis_scheduler_t* sched)
 {
     if (!sched) {
@@ -182,6 +255,19 @@ void aegis_scheduler_destroy(aegis_scheduler_t* sched)
 
 /* ── Wiring & policy ───────────────────────────────────────────────────────── */
 
+/**
+ * @brief Attach the task graph the scheduler dispatches from (borrowed).
+ *
+ * The graph must outlive the scheduler and stay attached; only one graph
+ * may be attached at a time.
+ *
+ * @param[in] sched  Scheduler to wire.
+ * @param[in] graph  Task graph to dispatch from (borrowed, must outlive use).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_BUSY when a graph is already attached.
+ *
+ * Thread-safe.
+ */
 aegis_status_t aegis_scheduler_attach(aegis_scheduler_t* sched, aegis_task_graph_t* graph)
 {
     if (!sched || !graph) {
@@ -200,6 +286,20 @@ aegis_status_t aegis_scheduler_attach(aegis_scheduler_t* sched, aegis_task_graph
     return AEGIS_OK;
 }
 
+/**
+ * @brief Install a custom dispatch-order comparator (plus opaque user data).
+ *
+ * A NULL @p cmp restores the default policy (Dependency → Priority → FIFO).
+ * The comparator must return positive when its first task dispatches first;
+ * ties and a NULL policy fall back to FIFO sequence order.
+ *
+ * @param[in] sched  Scheduler to configure.
+ * @param[in] cmp    Comparator, or NULL for the default policy.
+ * @param[in] user   Opaque pointer forwarded to @p cmp.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL scheduler.
+ *
+ * Thread-safe.
+ */
 aegis_status_t aegis_scheduler_set_policy(aegis_scheduler_t* sched, aegis_sched_compare_fn cmp,
                                           void* user)
 {
@@ -216,6 +316,22 @@ aegis_status_t aegis_scheduler_set_policy(aegis_scheduler_t* sched, aegis_sched_
 
 /* ── Selection & dispatch ──────────────────────────────────────────────────── */
 
+/**
+ * @brief Harvest newly dispatchable tasks from the graph into the heap.
+ *
+ * Scans every graph task: PENDING tasks whose dependencies are all
+ * SUCCESS/SKIPPED advance to READY, and READY tasks not already queued or
+ * in flight are pushed onto the dispatch heap (capped at
+ * AEGIS_SCHED_MAX_TASKS; the remainder waits for a later poll). Observes
+ * the global lock order scheduler → graph → task.
+ *
+ * @param[in]  sched         Scheduler with an attached graph.
+ * @param[out] out_enqueued  Optional receiver for the newly queued count.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL scheduler or a
+ *         missing graph attachment.
+ *
+ * Thread-safe.
+ */
 aegis_status_t aegis_scheduler_poll(aegis_scheduler_t* sched, size_t* out_enqueued)
 {
     if (!sched) {
@@ -279,6 +395,21 @@ aegis_status_t aegis_scheduler_poll(aegis_scheduler_t* sched, size_t* out_enqueu
     return AEGIS_OK;
 }
 
+/**
+ * @brief Pop the highest-priority dispatchable task from the heap.
+ *
+ * Pops the heap root, marks its id in flight (so it is never handed out
+ * twice), and returns the borrowed task pointer. Stale entries whose state
+ * changed while queued (cancelled/skipped externally) are silently dropped.
+ *
+ * @param[in]  sched  Scheduler to pop from.
+ * @param[out] out    Receives the borrowed task; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_NOT_FOUND when the heap holds nothing dispatchable.
+ *
+ * Ownership: the graph retains the task; the caller must report completion
+ * via aegis_scheduler_notify_complete(). Thread-safe.
+ */
 aegis_status_t aegis_scheduler_next(aegis_scheduler_t* sched, aegis_task_t** out)
 {
     if (!sched || !out) {
@@ -316,6 +447,20 @@ aegis_status_t aegis_scheduler_next(aegis_scheduler_t* sched, aegis_task_t** out
     return AEGIS_ERR_NOT_FOUND;
 }
 
+/**
+ * @brief Release a task from the in-flight set after it finishes.
+ *
+ * Pairs with aegis_scheduler_next(): every handed-out task must be
+ * reported exactly once so dependents can become dispatchable and the id
+ * may be scheduled again.
+ *
+ * @param[in] sched  Scheduler tracking the task.
+ * @param[in] task   Finished task (only its id is read).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_NOT_FOUND when the id is not in flight.
+ *
+ * Thread-safe.
+ */
 aegis_status_t aegis_scheduler_notify_complete(aegis_scheduler_t* sched, const aegis_task_t* task)
 {
     if (!sched || !task) {
@@ -335,6 +480,14 @@ aegis_status_t aegis_scheduler_notify_complete(aegis_scheduler_t* sched, const a
 
 /* ── Introspection ─────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Return the number of tasks waiting in the dispatch heap.
+ *
+ * @param[in] sched  Scheduler to inspect, or NULL.
+ * @return Heap entry count, or 0 for NULL.
+ *
+ * Thread-safe (logical const: locking mutates no observable value).
+ */
 size_t aegis_scheduler_pending_count(const aegis_scheduler_t* sched)
 {
     if (!sched) {
@@ -349,6 +502,14 @@ size_t aegis_scheduler_pending_count(const aegis_scheduler_t* sched)
     return n;
 }
 
+/**
+ * @brief Return the number of tasks handed out but not yet reported complete.
+ *
+ * @param[in] sched  Scheduler to inspect, or NULL.
+ * @return In-flight count, or 0 for NULL.
+ *
+ * Thread-safe (logical const: locking mutates no observable value).
+ */
 size_t aegis_scheduler_inflight_count(const aegis_scheduler_t* sched)
 {
     if (!sched) {

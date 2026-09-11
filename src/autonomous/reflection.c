@@ -8,6 +8,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Run the reflect phase: distill failure lessons for the replanner.
+ *
+ * Drops any prior reflection/feedback, rebuilds a reflection object from the
+ * current task graph, and snapshots its feedback text (falling back to a
+ * generic "plan failed, need revision" note when empty) into
+ * runtime->replan_feedback for the replan phase to consume.
+ *
+ * @param[in] agent    Agent instance; must be non-NULL.
+ * @param[in] runtime  Runtime with a graph; receives reflection + feedback.
+ *
+ * @return AEGIS_OK with last_reflection/replan_feedback set; INVALID for
+ *         missing inputs, NOMEM when the feedback copy fails.
+ */
 aegis_status_t aegis_autonomous_reflect(aegis_autonomous_agent_t*   agent,
                                   aegis_autonomous_runtime_t* runtime)
 {

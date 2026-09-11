@@ -51,7 +51,14 @@ static void out_buf_destroy(out_buf_t* b)
     out_buf_init(b);
 }
 
-/** Append one line. Silently switches to truncated mode past the caps. */
+/**
+ * @brief Append one output line, toggling into truncated/stopped mode
+ * once DISC_MAX_RESULTS or DISC_MAX_BYTES is reached.
+ *
+ * Silently switches past-capacity lines to the stopped flag so subsequent
+ * appends are cheap no-ops. The buffer doubles its capacity in geometric
+ * steps (1024 → 2048 → …) to amortize realloc cost.
+ */
 static void out_buf_append_line(out_buf_t* b, const char* line)
 {
     if (b->stopped) {
@@ -93,10 +100,20 @@ typedef struct walk_ctx {
 } walk_ctx_t;
 
 /**
- * Depth-first walk rooted at (root + rel). Skips "." / ".." and never
- * descends into ".git". Calls visit() for every regular file with a
- * project-relative path. Non-zero visit return aborts the walk and is
- * propagated verbatim.
+ * @brief Depth-first walk of regular files under `root`, calling `visit`
+ * with a project-relative and an absolute path for each file.
+ *
+ * Skips "." / ".." entries and never descends into ".git". Non-zero visit
+ * return aborts the walk and is propagated as the walk status.
+ *
+ * @param root Absolute directory to start walking from.
+ * @param rel  Path segment appended to `root` (use "" to start at root).
+ * @param depth Current recursion depth; stops descending at DISC_MAX_DEPTH.
+ * @param visit Callback invoked for each regular file.
+ * @param user  User pointer forwarded to visit.
+ * @param token Cancellation point checked every visited directory.
+ * @return AEGIS_OK when all files visited (or walk stopped by visit), else
+ *   the visit error.
  */
 static aegis_status_t walk_tree(const char* root, const char* rel, int depth, visit_fn visit,
                                 void* user, walk_ctx_t* wctx)
@@ -188,6 +205,13 @@ static int sort_entry_cmp(const void* a, const void* b)
     return strcmp(ea->name, eb->name);
 }
 
+/**
+ * @brief Execute the "list" tool: readdir + sort + visit under @p path.
+ *
+ * Resolves the path (absolute or project-relative), validates that it lies
+ * inside the project root, verifies it's a directory and then walks it with
+ * out_buf as visitor. Results are capped at DISC_MAX_RESULTS / DISC_MAX_BYTES.
+ */
 static aegis_status_t tool_list_execute(void* user, const aegis_tool_args_t* args,
                                         const aegis_cancellation_token_t* token,
                                         aegis_tool_result_t*              out)
@@ -323,6 +347,14 @@ static aegis_status_t glob_visit(const char* rel, const char* full, void* user, 
     return AEGIS_OK;
 }
 
+/**
+ * @brief Execute the "glob" tool: fnmatch filter over files discovered by
+ * walk_tree from the given root.
+ *
+ * Matches are evaluated against both the full relative path and the file
+ * basename (so patterns like "*.c" work across subdirs). Returns "(no
+ * matches)" when nothing matched rather than an empty buffer.
+ */
 static aegis_status_t tool_glob_execute(void* user, const aegis_tool_args_t* args,
                                         const aegis_cancellation_token_t* token,
                                         aegis_tool_result_t*              out)
@@ -455,6 +487,16 @@ static aegis_status_t grep_visit(const char* rel, const char* full, void* user, 
     return AEGIS_OK;
 }
 
+/**
+ * @brief Execute the "grep" tool: regex search over text files discovered
+ * from `path` (default "."), optionally filtered by glob `include`.
+ *
+ * Compiles `pattern` as an extended POSIX regex (REG_EXTENDED|REG_NOSUB)
+ * and emits lines in <file>:<lineno>: <match> format. Binary files are
+ * skipped (detected via NUL bytes in the first 1 KB); unreadable files
+ * produce inline error lines rather than aborting. Uses the same
+ * DISC_MAX_RESULTS / DISC_MAX_BYTES caps as list/glob.
+ */
 static aegis_status_t tool_grep_execute(void* user, const aegis_tool_args_t* args,
                                         const aegis_cancellation_token_t* token,
                                         aegis_tool_result_t*              out)
@@ -619,6 +661,15 @@ const aegis_tool_def_t aegis_coding_tool_grep = {
     .execute      = tool_grep_execute,
 };
 
+/**
+ * @brief Register the three read-only discovery tools (list, glob, grep).
+ *
+ * Order matters: list first, then glob, then grep. Fails fast — the first
+ * registration error is returned and no further tools are added.
+ *
+ * @param reg Registry to populate (must be non-NULL).
+ * @return AEGIS_OK when all three tools registered, else the first error.
+ */
 aegis_status_t aegis_coding_discovery_tools_register_all(aegis_tool_registry_t* reg)
 {
     if (!reg) {

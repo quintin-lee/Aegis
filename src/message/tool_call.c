@@ -15,6 +15,16 @@ struct aegis_tool_call {
     int   index;
 };
 
+/**
+ * @brief Allocate a new, empty tool call with index initialised to -1.
+ *
+ * All owned strings start NULL. The caller owns the result and must call
+ * aegis_tool_call_destroy.
+ *
+ * @param[out] out Receives the new tool call; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_call_create(aegis_tool_call_t** out)
 {
     if (!out) {
@@ -40,6 +50,16 @@ void aegis_tool_call_destroy(aegis_tool_call_t* c)
     free(c);
 }
 
+/**
+ * @brief Deep-copy a tool call, allocating fresh strings.
+ *
+ * The caller owns the clone and must destroy it with aegis_tool_call_destroy.
+ *
+ * @param[in]  src Tool call to clone (must be non-NULL).
+ * @param[out] out Receives the new copy; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL src/out,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_call_clone(const aegis_tool_call_t* src, aegis_tool_call_t** out)
 {
     if (!src || !out) {

@@ -6,6 +6,16 @@
 
 #include <string.h>
 
+/**
+ * @brief Validate a provider definition for non-NULL name and matching ABI.
+ *
+ * Returns AEGIS_ERR_INVALID when the def pointer, its name field, or the
+ * compiled-in ABI version differ from what the registry expects. Call
+ * this before registering to catch mismatches early.
+ *
+ * @param[in] def Provider definition to validate.
+ * @return AEGIS_OK when valid, AEGIS_ERR_INVALID on mismatch.
+ */
 aegis_status_t aegis_provider_def_check(const aegis_provider_def_t* def)
 {
     if (!def || !def->name || def->name[0] == '\0') {
@@ -23,6 +33,21 @@ void aegis_provider_entry_view(const aegis_provider_entry_t* entry, aegis_provid
     view->state = entry->state;
 }
 
+/**
+ * @brief Transition a registered provider into INITIALIZED and invoke its
+ *        init hook (if present).
+ *
+ * Idempotent when already INITIALIZED (returns AEGIS_ERR_BUSY to signal
+ * the caller). The state is claimed under the registry lock; on init
+ * failure the claim is rolled back to REGISTERED so retries are possible.
+ * The init hook itself runs lock-free per the provider ABI contract.
+ *
+ * @param[in] reg  Provider registry (must be non-NULL).
+ * @param[in] name Name of the provider to initialise.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOT_FOUND when the provider is absent, AEGIS_ERR_BUSY if
+ *   already initialised, else the init hook error.
+ */
 aegis_status_t aegis_provider_init(aegis_provider_registry_t* reg, const char* name)
 {
     if (!reg || !name) {
@@ -62,6 +87,20 @@ aegis_status_t aegis_provider_init(aegis_provider_registry_t* reg, const char* n
     return rc;
 }
 
+/**
+ * @brief Transition a provider back to REGISTERED and invoke its shutdown
+ *        hook (if present).
+ *
+ * Safe when already REGISTERED (no-op except for hook invocation). The
+ * state is claimed before calling shutdown so concurrent inits observe
+ * the non-initialised state. Shutdown runs lock-free per the ABI.
+ *
+ * @param[in] reg  Provider registry (must be non-NULL).
+ * @param[in] name Name of the provider to shut down.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOT_FOUND when the provider is absent, else the shutdown
+ *   hook error.
+ */
 aegis_status_t aegis_provider_shutdown(aegis_provider_registry_t* reg, const char* name)
 {
     if (!reg || !name) {

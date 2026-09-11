@@ -107,8 +107,11 @@ static bool git_arg_is_safe(const char* s)
 }
 
 /**
- * @brief Validate a branch name.
- * Must match: [a-zA-Z0-9._/\-]+
+ * @brief Validate a git branch name.
+ *
+ * Rejected characters: anything outside [a-zA-Z0-9._/\-]. Git itself is
+ * generous about naming; this is a conservative gate so the executor can
+ * pass the name directly to `git branch` without shell-escaping.
  */
 static bool git_branch_name_valid(const char* name)
 {
@@ -126,8 +129,11 @@ static bool git_branch_name_valid(const char* name)
 }
 
 /**
- * @brief Find the project root.
- * Uses getcwd() — the coding agent always runs from the project root.
+ * @brief Return the project root, taken from getcwd().
+ *
+ * Returns "." on getcwd failure; the caller should handle ENOENT or
+ * similar conditions upstream. Static buffer for thread-safety when
+ * called from a single-threaded tool executor path (per-turn token).
  */
 static const char* git_project_root(void)
 {
@@ -306,6 +312,15 @@ static aegis_status_t git_exec(const char* project_root, char** argv,
 
 /* ── git_status ────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Execute the "git_status" tool: run `git status --porcelain=v1
+ *        --branch` under the project root.
+ *
+ * Shows working-tree and index state for the optional @p path (default
+ * project root). Empty result is folded to "(no changes)". Cancellation
+ * propagates as AEGIS_ERR_CANCELLED; all other failures surface as a text
+ * message with the git exit code. Output is capped at GIT_MAX_LOG.
+ */
 static aegis_status_t tool_git_status_execute(void* user, const aegis_tool_args_t* args,
                                               const aegis_cancellation_token_t* token,
                                               aegis_tool_result_t*              out)
@@ -359,6 +374,18 @@ static aegis_status_t tool_git_status_execute(void* user, const aegis_tool_args_
 
 /* ── git_diff ──────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Execute the "git_diff" tool: either a symmetric diff against
+ * `base` (two-dot), a staged diff (`--staged`), or an unstaged diff of
+ * a single path.
+ *
+ * The three mutually-supported variants are:
+ *   - base=X, path= optional  → `git diff X -- path`
+ *   - staged=true             → `git diff --staged [-- -- path]`
+ *   - path=Y only             → `git diff -- path`
+ * @p base is validated for shell-safety; @p path must stay inside the
+ * project. Output capped at GIT_MAX_OUTPUT.
+ */
 static aegis_status_t tool_git_diff_execute(void* user, const aegis_tool_args_t* args,
                                             const aegis_cancellation_token_t* token,
                                             aegis_tool_result_t*              out)
@@ -435,6 +462,16 @@ static aegis_status_t tool_git_diff_execute(void* user, const aegis_tool_args_t*
 
 /* ── git_commit ────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Execute the "git_commit" tool: stage @p files (optional) then
+ *        commit with @p message.
+ *
+ * The message must be non-empty, <= 512 chars and pass git_arg_is_safe()
+ * (no shell metacharacters). When @p files is given it's a comma-separated
+ * list of project-relative paths; each is validated via aegis_safe_relative_path
+ * and the whole list is handed to `git add --` before `git commit`. Returns
+ * "(no changes to commit)" when git exits 0 with empty diff output.
+ */
 static aegis_status_t tool_git_commit_execute(void* user, const aegis_tool_args_t* args,
                                               const aegis_cancellation_token_t* token,
                                               aegis_tool_result_t*              out)
@@ -579,6 +616,15 @@ static aegis_status_t tool_git_commit_execute(void* user, const aegis_tool_args_
 
 /* ── git_log ───────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Execute the "git_log" tool: return the most-recent N commits,
+ *        optionally filtered by @p path.
+ *
+ * Supports three --format modes: "oneline" (default, %h %s), "short"
+ * (%h %ad %an: %s with --date=short) and "full" (%H + author + %s).
+ * @p count is clamped to [1, GIT_LOG_COUNT_MAX]. Output capped at
+ * GIT_MAX_LOG. Path must stay inside the project.
+ */
 static aegis_status_t tool_git_log_execute(void* user, const aegis_tool_args_t* args,
                                            const aegis_cancellation_token_t* token,
                                            aegis_tool_result_t*              out)
@@ -691,6 +737,18 @@ static aegis_status_t tool_git_log_execute(void* user, const aegis_tool_args_t* 
 
 /* ── git_branch ────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Execute the "git_branch" tool: list/create/delete/switch branches.
+ *
+ * Three actions are supported:
+ *   - "list" → `git branch -a --list` (all refs, capped at GIT_MAX_LOG)
+ *   - "create" <name> → `git checkout -b <name>` (name validated by
+ *                      git_branch_name_valid before reaching the shell)
+ *   - "delete" <name> / "switch" <name> via `git checkout <name>`
+ *
+ * Cancellation and 30 s timeout are delegated to git_exec(). Empty result
+ * is rendered as "(no branches)".
+ */
 static aegis_status_t tool_git_branch_execute(void* user, const aegis_tool_args_t* args,
                                               const aegis_cancellation_token_t* token,
                                               aegis_tool_result_t*              out)
@@ -931,6 +989,17 @@ const aegis_tool_def_t aegis_coding_tool_git_branch = {
 
 /* ── Registration ──────────────────────────────────────────────────────── */
 
+/**
+ * @brief Register the five git tools (status, diff, commit, log, branch).
+ *
+ * All git commands run via fork/exec under the project root (getcwd()) with
+ * a hard 128 KB / 64 KB output cap depending on the command, and a
+ * 30-second timeout. Branch-name and commit-message inputs are validated
+ * against a safe-character whitelist before reaching the shell.
+ *
+ * @param reg Registry to populate (must be non-NULL).
+ * @return AEGIS_OK when all five tools registered, else the first error.
+ */
 aegis_status_t aegis_coding_git_tools_register_all(aegis_tool_registry_t* reg)
 {
     if (!reg) {

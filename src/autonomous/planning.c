@@ -7,6 +7,21 @@
 #include "autonomous_agent_internal.h"
 #include <string.h>
 
+/**
+ * @brief Run the plan phase: turn the goal into runtime->plan via the planner.
+ *
+ * Rejects NULL/empty inputs and a missing planner, returns CANCELLED when the
+ * effective token is already set, and keeps an existing plan untouched (the
+ * replan path replaces it via the caller). On success the plan is stored,
+ * plans_generated is bumped, and an empty runtime goal is seeded.
+ *
+ * @param[in] agent    Agent carrying the planner; must be non-NULL.
+ * @param[in] runtime  Runtime receiving the new plan; must be non-NULL.
+ * @param[in] goal     Non-empty goal text; must be non-NULL.
+ *
+ * @return AEGIS_OK with runtime->plan set; INVALID/CANCELLED/INTERNAL or the
+ *         planner's error otherwise.
+ */
 aegis_status_t aegis_autonomous_plan(aegis_autonomous_agent_t* agent, aegis_autonomous_runtime_t* runtime,
                                const char* goal)
 {

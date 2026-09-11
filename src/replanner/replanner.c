@@ -25,6 +25,27 @@ static const char k_replan_intro[] =
 
 static const char k_feedback_header[] = "\nFEEDBACK:\n";
 
+/**
+ * @brief Revise an existing plan using the same LLM round-trip, injecting
+ *        feedback so the model knows what went wrong.
+ *
+ * When the planner is bound to a named strategy the revision is routed
+ * through that strategy's plan hook (the strategy receives goal + old
+ * plan + feedback). Otherwise the builtin path serialises the old plan,
+ * appends the feedback block, and calls generate() with a revised prompt.
+ * The version stamp is always bumped by one. Caller owns the returned
+ * plan; destroy it with aegis_plan_destroy.
+ *
+ * @param[in]  planner  Planner instance (must be non-NULL).
+ * @param[in]  old_plan Plan to revise (must be non-NULL, non-empty).
+ * @param[in]  feedback Feedback text explaining what failed (must be
+ *                      non-NULL, non-empty).
+ * @param[in]  token    Cancellation point, or NULL to ignore.
+ * @param[out] out      Receives the revised plan; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad args,
+ *   AEGIS_ERR_CANCELLED when @p token is tripped, else the planner/strategy
+ *   error.
+ */
 aegis_status_t aegis_replan(const aegis_planner_t* planner, const aegis_plan_t* old_plan,
                             const char* feedback, const aegis_cancellation_token_t* token,
                             aegis_plan_t** out)

@@ -28,8 +28,15 @@
 
 static aegis_mutation_queue_t* g_mq = NULL;
 
-// ── read ────────────────────────────────────────────────────────────────
-
+/**
+ * @brief Read a text file with optional byte-range clipping.
+ *
+ * Rejects non-project paths, non-regular files, files over 1 MB and binary
+ * content (detected via NUL bytes in the first 1 KB). Optional `offset` and
+ * `limit` params default to (0, file-size); limit is treated as "through EOF"
+ * when zero. Returns AEGIS_OK on completion (even on error, which is
+ * communicated via @p out string).
+ */
 static aegis_status_t tool_read_execute(void* user, const aegis_tool_args_t* args,
                                         const aegis_cancellation_token_t* token,
                                         aegis_tool_result_t*              out)
@@ -106,8 +113,15 @@ static aegis_status_t tool_read_execute(void* user, const aegis_tool_args_t* arg
     return st2;
 }
 
-// ── write (atomic) ─────────────────────────────────────────────────────
-
+/**
+ * @brief Write (or overwrite) a text file atomically via tmp+rename.
+ *
+ * Accepts the `path` and `content` string args. Creates any missing
+ * intermediate directories under the project root without shelling out.
+ * Writes to a per-pid tmp file, then renames — so partial writes are never
+ * visible. Mutually serialized with other write/edit bash calls via the
+ * mutation queue when configured.
+ */
 static aegis_status_t tool_write_execute(void* user, const aegis_tool_args_t* args,
                                          const aegis_cancellation_token_t* token,
                                          aegis_tool_result_t*              out)
@@ -197,8 +211,15 @@ static aegis_status_t tool_write_execute(void* user, const aegis_tool_args_t* ar
     return AEGIS_OK;
 }
 
-// ── edit ────────────────────────────────────────────────────────────────
-
+/**
+ * @brief Edit a text file by replacing the first unique occurrence of
+ * `old_string` with `new_string`, again via tmp+rename.
+ *
+ * Reads the entire file into memory; rejects files not found, missing old
+ * or non-unique old_string matches. Serialized through the mutation queue
+ * alongside write. The edit is atomic from any reader's perspective because
+ * it goes through rename().
+ */
 static aegis_status_t tool_edit_execute(void* user, const aegis_tool_args_t* args,
                                         const aegis_cancellation_token_t* token,
                                         aegis_tool_result_t*              out)
@@ -312,8 +333,18 @@ static aegis_status_t tool_edit_execute(void* user, const aegis_tool_args_t* arg
     return AEGIS_OK;
 }
 
-// ── bash ────────────────────────────────────────────────────────────────
-
+/**
+ * @brief Run a shell command via fork/exec, capturing stdout+stderr under
+ * the given timeout (default 30 s) and cancellation token.
+ *
+ * Spawns a new process group and pipes both stdout and stderr into the same
+ * buffer (so callers get interleaved output). The forked child execs
+ * "/bin/sh -c" — the caller must provide a properly escaped command string.
+ * Cancellation requests kill the process group immediately; timeout kills
+ * after the grace period with SIGKILL fallback. Returns the captured output
+ * (capped at GIT_MAX_OUTPUT via the internal buffer) plus an error string
+ * when non-zero exit, timeout, or cancellation occurred.
+ */
 static aegis_status_t tool_bash_execute(void* user, const aegis_tool_args_t* args,
                                         const aegis_cancellation_token_t* token,
                                         aegis_tool_result_t*              out)
@@ -535,6 +566,21 @@ const aegis_tool_def_t aegis_coding_tool_bash = {
     .execute      = tool_bash_execute,
 };
 
+/**
+ * @brief Register the four built-in coding tools plus the git and discovery
+ * tool families into @p reg, wiring the mutation queue for serialization.
+ *
+ * Also hoists g_mq into module scope so execute implementations can acquire
+ * per-path lock; callers should hold the queue across write/edit/bash calls
+ * to enforce exclusive access on any single path. Registration order is:
+ * read, write, edit, bash, git-all, discovery-all.
+ *
+ * @param reg Registry to populate (must be non-NULL).
+ * @param mq  Per-path mutex queue (may be NULL — tools operate without
+ *            serialization when absent).
+ * @return AEGIS_OK when all tools registered successfully, else the first
+ *   error encountered.
+ */
 aegis_status_t aegis_coding_tools_register_all(aegis_tool_registry_t*  reg,
                                                aegis_mutation_queue_t* mq)
 {

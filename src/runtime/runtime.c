@@ -9,6 +9,19 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Allocate a runtime with default config values and a recursive
+ *        mutex.
+ *
+ * The runtime is in the CREATED state and must be started with
+ * aegis_runtime_start() before use. Worker threads, the event loop and
+ * executor are initialised lazily on first start. The caller owns the
+ * runtime and must destroy it with aegis_runtime_destroy.
+ *
+ * @param[out] out Receives the new runtime; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *   AEGIS_ERR_NOMEM on allocation/mutex/atomic failure.
+ */
 aegis_status_t aegis_runtime_create(aegis_runtime_t** out)
 {
     if (!out) {
@@ -51,6 +64,20 @@ aegis_status_t aegis_runtime_create(aegis_runtime_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Start the runtime: transition from CREATED to RUNNING, spawn
+ *        workers, initialise the event loop and executor.
+ *
+ * Idempotent when already running (returns AEGIS_OK). Cancellation of
+ * an in-progress start is not supported — the caller must wait for the
+ * full start sequence to complete. On failure the runtime remains in
+ * CREATED and sub-systems that were partially initialised are torn down.
+ * Thread-safe with respect to concurrent destroy calls.
+ *
+ * @param[in] rt Runtime to start (must be non-NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL rt,
+ *   AEGIS_ERR_BUSY when already running, else the first subsystem error.
+ */
 aegis_status_t aegis_runtime_start(aegis_runtime_t* rt)
 {
     if (!rt) {

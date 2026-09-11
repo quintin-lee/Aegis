@@ -49,12 +49,32 @@ struct aegis_coding_agent {
     bool                        owns_tools;
 };
 
+/**
+ * @brief Duplicate a string, tolerating NULL.
+ *
+ * @param[in] s Source string, or NULL.
+ * @return Heap copy of @p s, or NULL when @p s is NULL or out of memory.
+ *   The caller owns the result and must free() it.
+ */
 static char* dup_or_null(const char* s)
 {
     return s ? strdup(s) : NULL;
 }
 
 #ifdef AEGIS_OPENAI_PROVIDER
+/**
+ * @brief Build the OpenAI-backed model client for the coding agent.
+ *
+ * Creates the provider context first, then wraps it in a model client. On
+ * client-creation failure the provider context is destroyed and @p *out_ctx
+ * is reset to NULL so the caller never sees a half-built pair.
+ *
+ * @param[in]  a          Agent holding the API key / base URL configuration.
+ * @param[in]  model_name Model identifier passed to the provider.
+ * @param[out] out_ctx    Receives the new provider context (NULL on failure).
+ * @param[out] out_client Receives the new model client (untouched on failure).
+ * @return AEGIS_OK on success, otherwise the provider/client error.
+ */
 static aegis_status_t build_openai_model(aegis_coding_agent_t* a, const char* model_name,
                                          aegis_openai_model_ctx_t** out_ctx,
                                          aegis_model_client_t**     out_client)
@@ -74,6 +94,24 @@ static aegis_status_t build_openai_model(aegis_coding_agent_t* a, const char* mo
 }
 #endif
 
+/**
+ * @brief Create a coding agent: session, model client, tools and agent loop.
+ *
+ * Uses the caller-supplied tool registry when @p cfg->tools is set
+ * (borrowed, never destroyed); otherwise builds an owned registry with the
+ * built-in coding tools, a mutation queue and best-effort skill loading from
+ * $HOME/.aegis/skills and <project_root>/.aegis/skills. The model defaults to
+ * "mock" unless @p cfg->model names another backend ("llm-openai" provider
+ * when compiled with AEGIS_OPENAI_PROVIDER). Provider strings are retained so
+ * set_model() can rebuild the backend later. Event/approval callbacks are not
+ * part of the config; install them afterwards with the set_* accessors.
+ * Any failure unwinds all already-created sub-objects.
+ *
+ * @param[in]  cfg Configuration (project root, model, provider, tools).
+ * @param[out] out Receives the new agent; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure, else the sub-object error.
+ */
 aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
                                          aegis_coding_agent_t**             out)
 {
@@ -195,6 +233,16 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a coding agent and every sub-object it owns.
+ *
+ * Destroys the loop, skills, model client/session/token and heap strings.
+ * The tool registry and mutation queue are destroyed only when the agent
+ * owns them (built internally); a caller-supplied registry is left alone.
+ * NULL is a no-op.
+ *
+ * @param[in] a Agent to destroy, or NULL.
+ */
 void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
 {
     if (!a) {
@@ -235,11 +283,30 @@ void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
     free(a);
 }
 
+/**
+ * @brief Borrow the agent's session.
+ *
+ * @param[in] a Agent, or NULL.
+ * @return The owned session pointer (do NOT destroy), or NULL when @p a
+ *   is NULL.
+ */
 aegis_session_t* aegis_coding_agent_session(aegis_coding_agent_t* a)
 {
     return a ? a->session : NULL;
 }
 
+/**
+ * @brief Replace the agent's session, rebuilding the agent loop around it.
+ *
+ * Builds the replacement loop first; only on success are the old loop and
+ * old session destroyed and the agent repointed, so a failure leaves the
+ * agent untouched. The agent takes ownership of @p session on success.
+ *
+ * @param[in] a       Agent to update.
+ * @param[in] session New session; consumed on success, untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL args, else the
+ *   loop-creation error (agent unchanged).
+ */
 aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* a, aegis_session_t* session)
 {
     if (!a || !session) {
@@ -271,6 +338,20 @@ aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* a, aegis
     return AEGIS_OK;
 }
 
+/**
+ * @brief Run one user turn through the agent loop.
+ *
+ * Creates a fresh cancellation token per turn (cancellation is one-shot and
+ * must not leak into the next run), binds it to the loop, then runs to
+ * completion. When the loop reports dropped context, the session is compacted
+ * as a best-effort follow-up. Not thread-safe with concurrent run/interrupt
+ * calls on the same agent.
+ *
+ * @param[in] a          Agent to run.
+ * @param[in] user_input User message starting the turn.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL args, else the
+ *   token-creation or loop error.
+ */
 aegis_status_t aegis_coding_agent_run(aegis_coding_agent_t* a, const char* user_input)
 {
     if (!a || !user_input) {
@@ -295,6 +376,17 @@ aegis_status_t aegis_coding_agent_run(aegis_coding_agent_t* a, const char* user_
     return st;
 }
 
+/**
+ * @brief Request cancellation of the in-flight turn.
+ *
+ * Signals the loop's bound cancellation token; the turn unwinds at the next
+ * cancellation checkpoint. Safe to call from another thread while run() is
+ * executing.
+ *
+ * @param[in] a Agent whose turn should stop.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL agent/loop, else
+ *   the loop-cancel error.
+ */
 aegis_status_t aegis_coding_agent_interrupt(const aegis_coding_agent_t* a)
 {
     if (!a || !a->loop) {
@@ -303,6 +395,19 @@ aegis_status_t aegis_coding_agent_interrupt(const aegis_coding_agent_t* a)
     return aegis_agent_loop_cancel((aegis_agent_loop_t*)a->loop);
 }
 
+/**
+ * @brief Hot-swap the model client, rebuilding the loop around it.
+ *
+ * Builds the replacement loop first; only on success are the old loop and
+ * old client destroyed and the agent repointed. The agent takes ownership of
+ * @p client on success; on failure @p client stays with the caller.
+ * Session, tools and event/approval callbacks are untouched.
+ *
+ * @param[in] a      Agent to update.
+ * @param[in] client New model client; consumed on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL args, else the
+ *   loop-creation error (agent and @p client unchanged).
+ */
 aegis_status_t aegis_coding_agent_set_model_client(aegis_coding_agent_t* a,
                                                    aegis_model_client_t* client)
 {
@@ -335,11 +440,27 @@ aegis_status_t aegis_coding_agent_set_model_client(aegis_coding_agent_t* a,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Borrow the active model name.
+ *
+ * @param[in] a Agent, or NULL.
+ * @return Model name string owned by the agent (do NOT free), or NULL when
+ *   @p a is NULL.
+ */
 const char* aegis_coding_agent_model_name(const aegis_coding_agent_t* a)
 {
     return a ? a->model_name : NULL;
 }
 
+/**
+ * @brief Borrow the agent's tool registry.
+ *
+ * @param[in]  a   Agent, or NULL.
+ * @param[out] out Receives the registry pointer (still owned by the agent;
+ *   do NOT destroy). Untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL args or when no
+ *   registry is attached.
+ */
 aegis_status_t aegis_coding_agent_tools(const aegis_coding_agent_t* a, aegis_tool_registry_t** out)
 {
     if (!a || !out) {
@@ -349,6 +470,15 @@ aegis_status_t aegis_coding_agent_tools(const aegis_coding_agent_t* a, aegis_too
     return (*out) ? AEGIS_OK : AEGIS_ERR_INVALID;
 }
 
+/**
+ * @brief Snapshot last-turn and cumulative token usage.
+ *
+ * @param[in]  a     Agent to query.
+ * @param[out] last  Receives the most recent turn's usage.
+ * @param[out] total Receives the cumulative usage across turns.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL args, else the
+ *   loop-usage error (@p total then untouched).
+ */
 aegis_status_t aegis_coding_agent_usage(aegis_coding_agent_t* a, aegis_usage_t* last,
                                         aegis_usage_t* total)
 {
@@ -362,6 +492,17 @@ aegis_status_t aegis_coding_agent_usage(aegis_coding_agent_t* a, aegis_usage_t* 
     return aegis_agent_loop_usage(a->loop, total);
 }
 
+/**
+ * @brief Register (or clear) the agent-loop event observer.
+ *
+ * Stored on the agent and forwarded to the loop; @p user is borrowed and
+ * passed through to @p fn. NULL @p fn disables event emission.
+ *
+ * @param[in] a    Agent to configure.
+ * @param[in] fn   Event callback, or NULL to disable.
+ * @param[in] user Opaque pointer forwarded to @p fn (borrowed).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL agent.
+ */
 aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* a,
                                                      aegis_agent_event_fn fn, void* user)
 {
@@ -373,6 +514,17 @@ aegis_status_t aegis_coding_agent_set_event_callback(aegis_coding_agent_t* a,
     return aegis_agent_loop_set_event_callback(a->loop, fn, user);
 }
 
+/**
+ * @brief Install or clear the tool approval gate.
+ *
+ * Stored on the agent and forwarded to the loop; @p user is borrowed and
+ * passed through to @p fn. NULL @p fn allows all tool calls.
+ *
+ * @param[in] a    Agent to configure.
+ * @param[in] fn   Approval callback, or NULL to allow everything.
+ * @param[in] user Opaque pointer forwarded to @p fn (borrowed).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL agent.
+ */
 aegis_status_t aegis_coding_agent_set_tool_approval(aegis_coding_agent_t*  a,
                                                     aegis_tool_approval_fn fn, void* user)
 {
@@ -384,6 +536,21 @@ aegis_status_t aegis_coding_agent_set_tool_approval(aegis_coding_agent_t*  a,
     return aegis_agent_loop_set_tool_approval(a->loop, fn, user);
 }
 
+/**
+ * @brief Switch the model by name, rebuilding client and loop atomically.
+ *
+ * Creates the new client (OpenAI backend when the stored provider is
+ * "llm-openai", plain client otherwise) and a fresh loop bound to it, then
+ * swaps all three (loop, client, name) at once and destroys the old ones.
+ * NOMEM after a successful build keeps everything old and discards the
+ * replacement, so the agent is never left half-swapped. The session, tools
+ * and callbacks are untouched.
+ *
+ * @param[in] a     Agent to update.
+ * @param[in] model New model identifier (non-empty).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL/empty args, else
+ *   the client/loop error (agent unchanged).
+ */
 aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char* model)
 {
     if (!a || !model || model[0] == '\0') {

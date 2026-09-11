@@ -13,6 +13,15 @@
 #include <string.h>
 #include <time.h>
 
+/**
+ * @brief Print the startup banner with the active model name.
+ *
+ * Uses "." as the canonical project root in the banner; callers that
+ * track the root separately should print it alongside. Model falls back
+ * to "mock" when NULL. Output goes to stdout.
+ *
+ * @param[in] model Model identifier string, or NULL for the default.
+ */
 void print_banner(const char* model)
 {
     printf("Aegis Coding Agent\n");
@@ -23,6 +32,15 @@ void print_banner(const char* model)
 
 /* ── Live streaming output ────────────────────────────────────────── */
 
+/**
+ * @brief Flush any open inline line before starting the next streaming
+ *        block, preserving readability of per-turn output.
+ *
+ * Sets cx->line_open to false so subsequent event handlers know whether
+ * they need to emit a leading newline. Safe to call repeatedly.
+ *
+ * @param[in,out] cx Current stream-rendering context.
+ */
 void cli_stream_prelude(cli_stream_ctx_t* cx)
 {
     if (cx->line_open) {

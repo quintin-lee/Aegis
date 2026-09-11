@@ -8,6 +8,21 @@
 #include "autonomous_agent_internal.h"
 #include <stdlib.h>
 
+/**
+ * @brief Run the replan phase: revise the plan from reflection feedback.
+ *
+ * Asks the planner for a revised plan built on runtime->replan_feedback, then
+ * swaps it in (destroying the old plan), bumps the replan counter, and drops
+ * the stale task graph so the next execution iteration rebuilds it.
+ * Cancellation is honoured before dispatch.
+ *
+ * @param[in] agent    Agent carrying the planner; must be non-NULL.
+ * @param[in] runtime  Runtime with plan + replan_feedback; plan is replaced.
+ *
+ * @return AEGIS_OK with the new plan installed; INVALID for missing inputs,
+ *         CANCELLED when the token is set, INTERNAL on empty result, or the
+ *         planner's error.
+ */
 aegis_status_t aegis_autonomous_replan(aegis_autonomous_agent_t*   agent,
                                  aegis_autonomous_runtime_t* runtime)
 {

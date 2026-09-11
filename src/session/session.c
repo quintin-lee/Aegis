@@ -24,6 +24,13 @@ struct aegis_session {
     aegis_message_list_t* messages;
 };
 
+/**
+ * @brief Read the wall-clock time in milliseconds since the Unix epoch.
+ *
+ * Backs the session created_at/updated_at timestamps.
+ *
+ * @return Current CLOCK_REALTIME time in milliseconds.
+ */
 static uint64_t now_ms(void)
 {
     struct timespec ts;
@@ -31,12 +38,33 @@ static uint64_t now_ms(void)
     return (uint64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
+/**
+ * @brief Generate a random UUID string for session/branch identity.
+ *
+ * @param[out] out  Buffer of at least 37 bytes receiving the NUL-terminated
+ *                  canonical UUID text.
+ */
 static void gen_uuid_str(char out[37])
 {
     aegis_uuid_t u = aegis_uuid_generate();
     aegis_uuid_format(&u, out, 37);
 }
 
+/**
+ * @brief Create a new session with fresh id/branch ids and an empty history.
+ *
+ * The session id and branch id are random UUIDs; parent id starts empty and
+ * timestamps start at creation time. @p project_root is duplicated and may
+ * be NULL for a project-less session.
+ *
+ * @param[in]  project_root  Optional working-directory path (copied), may be NULL.
+ * @param[out] out           Receives the new session on success; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ *
+ * Ownership: the caller owns the returned session and must release it with
+ * aegis_session_destroy().
+ */
 aegis_status_t aegis_session_create(const char* project_root, aegis_session_t** out)
 {
     if (!out) {
@@ -68,6 +96,13 @@ aegis_status_t aegis_session_create(const char* project_root, aegis_session_t** 
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a session with its project path and owned message history.
+ *
+ * NULL is accepted and ignored.
+ *
+ * @param[in] s  Session to destroy, or NULL.
+ */
 void aegis_session_destroy(aegis_session_t* s)
 {
     if (!s) {
@@ -80,27 +115,73 @@ void aegis_session_destroy(aegis_session_t* s)
     free(s);
 }
 
+/**
+ * @brief Borrow the session's unique id string.
+ *
+ * @param[in] s  Session, or NULL.
+ * @return Pointer to the id text, or NULL for NULL. Valid until destruction.
+ */
 const char* aegis_session_id(const aegis_session_t* s)
 {
     return s ? s->id : NULL;
 }
+/**
+ * @brief Return the session creation time in wall-clock milliseconds.
+ *
+ * @param[in] s  Session, or NULL.
+ * @return Creation timestamp, or 0 for NULL.
+ */
 uint64_t aegis_session_created_at(const aegis_session_t* s)
 {
     return s ? s->created_at : 0;
 }
+/**
+ * @brief Return the last-update time in wall-clock milliseconds.
+ *
+ * Refreshed on every appended message and on compaction.
+ *
+ * @param[in] s  Session, or NULL.
+ * @return Update timestamp, or 0 for NULL.
+ */
 uint64_t aegis_session_updated_at(const aegis_session_t* s)
 {
     return s ? s->updated_at : 0;
 }
+/**
+ * @brief Borrow the session's branch id string.
+ *
+ * Forks keep the source history but receive a fresh branch id at creation.
+ *
+ * @param[in] s  Session, or NULL.
+ * @return Pointer to the branch id text, or NULL for NULL. Valid until destruction.
+ */
 const char* aegis_session_branch_id(const aegis_session_t* s)
 {
     return s ? s->branch_id : NULL;
 }
+/**
+ * @brief Borrow the id of the session this one was forked from.
+ *
+ * @param[in] s  Session, or NULL.
+ * @return Pointer to the parent id text, or NULL when there is no parent
+ *         (root sessions) or @p s is NULL. Valid until destruction.
+ */
 const char* aegis_session_parent_id(const aegis_session_t* s)
 {
     return s && s->parent_id[0] ? s->parent_id : NULL;
 }
 
+/**
+ * @brief Append a copy of a message to the session history.
+ *
+ * The message is cloned into the owned list (the caller keeps @p msg), and
+ * the session's updated_at timestamp is refreshed on success.
+ *
+ * @param[in] s    Session to extend.
+ * @param[in] msg  Message to copy into the history.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         or the clone/append error otherwise.
+ */
 aegis_status_t aegis_session_append_message(aegis_session_t* s, const aegis_message_t* msg)
 {
     if (!s || !msg) {
@@ -113,11 +194,25 @@ aegis_status_t aegis_session_append_message(aegis_session_t* s, const aegis_mess
     return st;
 }
 
+/**
+ * @brief Return the number of messages in the session history.
+ *
+ * @param[in] s  Session, or NULL.
+ * @return Message count, or 0 for NULL / missing list.
+ */
 size_t aegis_session_message_count(const aegis_session_t* s)
 {
     return s && s->messages ? aegis_message_list_count(s->messages) : 0;
 }
 
+/**
+ * @brief Borrow the message at a history index.
+ *
+ * @param[in] s    Session, or NULL.
+ * @param[in] idx  Zero-based position in the history.
+ * @return Pointer to the message, or NULL for NULL session / out-of-range
+ *         index. Valid until the history is mutated or destroyed.
+ */
 const aegis_message_t* aegis_session_message_at(const aegis_session_t* s, size_t idx)
 {
     if (!s || !s->messages) {
@@ -126,11 +221,32 @@ const aegis_message_t* aegis_session_message_at(const aegis_session_t* s, size_t
     return aegis_message_list_at(s->messages, idx);
 }
 
+/**
+ * @brief Borrow the session's owned message list.
+ *
+ * @param[in] s  Session, or NULL.
+ * @return Pointer to the list, or NULL for NULL. The session retains
+ *         ownership; valid until destruction or compaction.
+ */
 const aegis_message_list_t* aegis_session_messages(const aegis_session_t* s)
 {
     return s ? s->messages : NULL;
 }
 
+/**
+ * @brief Compact the history down to the newest messages.
+ *
+ * Keeps at most @p keep_messages newest entries, but adjusts the cut point
+ * so tool-call/result pairs are never split: a leading tool message pulls
+ * its owning assistant message back in, and an assistant message that owns
+ * tool calls pulls the following tool-result run forward. Requesting at
+ * least the current count is a no-op success.
+ *
+ * @param[in] s              Session to compact.
+ * @param[in] keep_messages  Maximum number of newest messages to retain.
+ * @return AEGIS_OK on success (including no-op), AEGIS_ERR_INVALID for NULL
+ *         session/list, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_session_compact(aegis_session_t* s, size_t keep_messages)
 {
     if (!s || !s->messages) {
@@ -190,6 +306,21 @@ aegis_status_t aegis_session_compact(aegis_session_t* s, size_t keep_messages)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Fork a session into an independent branch sharing the history.
+ *
+ * The child gets fresh session/branch ids, records @p src's id as its
+ * parent, inherits the project root, and deep-clones the message list, so
+ * later appends on either side do not affect the other.
+ *
+ * @param[in]  src  Session to fork from.
+ * @param[out] out  Receives the new child session; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         or the creation/clone error otherwise.
+ *
+ * Ownership: the caller owns the returned session and must release it with
+ * aegis_session_destroy().
+ */
 aegis_status_t aegis_session_fork(const aegis_session_t* src, aegis_session_t** out)
 {
     if (!src || !out) {
@@ -217,6 +348,15 @@ aegis_status_t aegis_session_fork(const aegis_session_t* src, aegis_session_t** 
 // JSONL persistence — simple, one JSON object per line
 // We use a minimal JSON escaping for content
 
+/**
+ * @brief Write a string to the JSONL file with minimal JSON escaping.
+ *
+ * Escapes quotes, backslashes, and CR/LF control characters. NULL input
+ * writes nothing.
+ *
+ * @param[in] f  Open output stream.
+ * @param[in] s  String to escape and write, or NULL.
+ */
 static void json_escape(FILE* f, const char* s)
 {
     if (!s) {
@@ -238,6 +378,19 @@ static void json_escape(FILE* f, const char* s)
     }
 }
 
+/**
+ * @brief Persist a session as append-only JSONL (one object per line).
+ *
+ * Writes a "session_start" header line followed by one "message" line per
+ * history entry (with optional reasoning) plus one "tool_call" line per tool
+ * call. The file is written to "<path>.tmp" and atomically renamed over
+ * @p path, so a crash never leaves a half-written session file behind.
+ *
+ * @param[in] s     Session to save.
+ * @param[in] path  Destination file path.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments, file
+ *         open failure, or rename failure.
+ */
 aegis_status_t aegis_session_save(const aegis_session_t* s, const char* path)
 {
     if (!s || !path) {
@@ -294,7 +447,26 @@ aegis_status_t aegis_session_save(const aegis_session_t* s, const char* path)
         return AEGIS_ERR_INVALID;
     }
     return AEGIS_OK;
-}  // Loader restores session metadata, messages, and tool calls from JSONL
+}
+  // Loader restores session metadata, messages, and tool calls from JSONL
+/**
+ * @brief Load a session previously written by aegis_session_save().
+ *
+ * Restores the session/branch ids, project root, messages (role, content,
+ * optional reasoning, ids), and tool calls (matched to messages by msg_id)
+ * using a tolerant line parser: unknown lines are skipped and sessions saved
+ * before the reasoning field existed still load. Missing files report
+ * AEGIS_ERR_NOT_FOUND; an empty or unreadable first line reports
+ * AEGIS_ERR_INVALID.
+ *
+ * @param[in]  path  Source JSONL file path.
+ * @param[out] out   Receives the restored session; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad arguments or corrupt
+ *         header, AEGIS_ERR_NOT_FOUND when the file cannot be opened.
+ *
+ * Ownership: the caller owns the returned session and must release it with
+ * aegis_session_destroy().
+ */
 aegis_status_t aegis_session_load(const char* path, aegis_session_t** out)
 {
     if (!path || !out) {

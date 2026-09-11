@@ -11,6 +11,19 @@
 #include "aegis/security/security.h"
 #include <string.h>
 
+/**
+ * @brief Default work function for computational (non-tool) tasks.
+ *
+ * Echoes the task description back as the task output. Cancellation is
+ * honoured before doing any work.
+ *
+ * @param[in] task   Task being executed; must be non-NULL.
+ * @param[in] token  Optional cancellation token; NULL disables the check.
+ * @param[in] user   Unused user context.
+ *
+ * @return AEGIS_OK with output set; INVALID for NULL task, CANCELLED when the
+ *         token is set, or the set_output error.
+ */
 static aegis_status_t autonomous_default_work(aegis_task_t*                     task,
                                               const aegis_cancellation_token_t* token, void* user)
 {
@@ -28,6 +41,24 @@ static aegis_status_t autonomous_default_work(aegis_task_t*                     
     return aegis_task_set_output(task, description, strlen(description));
 }
 
+/**
+ * @brief Run the execute phase: drain the materialized plan through the pool.
+ *
+ * Rebuilds the task graph from runtime->plan, attaches it to the scheduler,
+ * then pulls tasks one by one: tool tasks pass registry lookup plus the
+ * security gate before tool_submit, computational tasks run under the default
+ * echo work function. Each completion bumps execution counters, checkpoints
+ * (EXECUTING → CHECKPOINTING → EXECUTING), and FAILED outcomes are tolerated
+ * so the critic — not the drain loop — decides success. Cancellation is
+ * polled before every task.
+ *
+ * @param[in] agent    Agent carrying scheduler/executor/tool config.
+ * @param[in] runtime  Runtime with a plan; receives the fresh graph + stats.
+ *
+ * @return AEGIS_OK when the graph drains; INVALID for missing inputs,
+ *         CANCELLED/TIMEOUT on cooperative stop, PERM on security denial, or
+ *         the first fatal submit/wait error.
+ */
 aegis_status_t aegis_autonomous_execute(aegis_autonomous_agent_t*   agent,
                                   aegis_autonomous_runtime_t* runtime)
 {

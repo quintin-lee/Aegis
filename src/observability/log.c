@@ -50,6 +50,17 @@ static aegis_log_level_t get_min_level(void)
 
 /* ── Public API ────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Install or clear the logging sink.
+ *
+ * Thread-safe: swaps both the sink pointer and its user context under the
+ * global log mutex. Call with NULL to disable logging (fast-path returns
+ * before any format work).
+ *
+ * @param[in] sink Callback that receives (level, module, ctx, formatted),
+ *                 or NULL to clear.
+ * @param[in] user Opaque pointer forwarded to @p sink, or NULL.
+ */
 void aegis_log_set_sink(aegis_log_sink_fn sink, void* user)
 {
     pthread_mutex_lock(&g_log_mutex);
@@ -58,6 +69,14 @@ void aegis_log_set_sink(aegis_log_sink_fn sink, void* user)
     pthread_mutex_unlock(&g_log_mutex);
 }
 
+/**
+ * @brief Set the minimum log level; messages below it are dropped.
+ *
+ * Thread-safe. Lower numeric levels are more verbose (DEBUG < INFO < WARN
+ * < ERROR < FATAL). Default is DEBUG.
+ *
+ * @param[in] level New floor level.
+ */
 void aegis_log_set_min_level(aegis_log_level_t level)
 {
     pthread_mutex_lock(&g_log_mutex);
@@ -70,6 +89,14 @@ aegis_log_level_t aegis_log_get_min_level(void)
     return get_min_level();
 }
 
+/**
+ * @brief Map a log level enum to its human-readable name.
+ *
+ * Unknown values map to "?????".
+ *
+ * @param[in] level Log level.
+ * @return Static string; do NOT free.
+ */
 const char* aegis_log_level_str(aegis_log_level_t level)
 {
     switch (level) {
@@ -88,6 +115,20 @@ const char* aegis_log_level_str(aegis_log_level_t level)
     }
 }
 
+/**
+ * @brief Core log dispatch: format and deliver when the message passes the
+ *        current level gate and a sink is installed.
+ *
+ * Uses a 4 KB stack format buffer (truncates silently if exceeded). The
+ * fast-path checks level and sink before any allocation; the slow-path
+ * formats via vasprintf on the heap. Thread-safe via the global mutex.
+ *
+ * @param[in] level   Message severity.
+ * @param[in] module  Source module path (e.g. "src/agent/foo.c").
+ * @param[in] ctx     Call-site context (e.g. function name), or NULL.
+ * @param[in] fmt     printf-style format string.
+ * @param[in] ...     Format arguments.
+ */
 void aegis_log_impl(aegis_log_level_t level, const char* module, const char* ctx, const char* fmt,
                     ...)
 {

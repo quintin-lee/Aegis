@@ -66,6 +66,16 @@ static const char* task_state_name(aegis_task_state_t s)
 
 /* ── Create / Destroy ──────────────────────────────────────────────────────── */
 
+/* ── Create / Destroy ──────────────────────────────────────────────────────── */
+
+/**
+ * @brief Allocate an empty checkpoint with version 0 and the current epoch
+ *        timestamp.
+ *
+ * @param[out] out Receives the new checkpoint; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_checkpoint_create(aegis_checkpoint_t** out)
 {
     AEGIS_CHECK_OUT(out);
@@ -79,6 +89,13 @@ aegis_status_t aegis_checkpoint_create(aegis_checkpoint_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Free a checkpoint, releasing its heap strings (goal, plan_text).
+ *
+ * NULL is a no-op.
+ *
+ * @param[in] ckpt Checkpoint to destroy, or NULL.
+ */
 void aegis_checkpoint_destroy(aegis_checkpoint_t* ckpt)
 {
     if (!ckpt) {
@@ -91,6 +108,25 @@ void aegis_checkpoint_destroy(aegis_checkpoint_t* ckpt)
 
 /* ── Populate ──────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Fill a checkpoint from the current agent state plus goal, plan,
+ *        graph snapshot and version stamp.
+ *
+ * All string inputs are copied; plan/graph content is serialised
+ * in-place. The agent-state field defaults to "CREATED" when @p agent_state
+ * is NULL. Thread-safe with respect to other checkpoints (each checkpoint
+ * has its own mutex); concurrent writes to the same checkpoint are NOT
+ * safe.
+ *
+ * @param[in] ckpt         Checkpoint to fill (must be non-NULL).
+ * @param[in] agent_state  Agent state string (copied; NULL → "CREATED").
+ * @param[in] goal         Goal text (copied; NULL is accepted).
+ * @param[in] plan         Plan to serialise (may be NULL).
+ * @param[in] graph        Task graph to serialise (may be NULL).
+ * @param[in] version      Checkpoint version stamp.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p ckpt,
+ *   AEGIS_ERR_NOMEM on allocation failure, else the serialise error.
+ */
 aegis_status_t aegis_checkpoint_populate(aegis_checkpoint_t* ckpt, const char* agent_state,
                                          const char* goal, const aegis_plan_t* plan,
                                          const aegis_task_graph_t* graph, uint32_t version)
@@ -243,6 +279,20 @@ const aegis_checkpoint_task_snapshot_t* aegis_checkpoint_task_snapshot(
 
 /* ── Serialization ─────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Serialize a checkpoint to a heap-allocated JSON string.
+ *
+ * The output must be freed by the caller with free(). Serialises the
+ * agent-state, goal, plan text, version, timestamp and task snapshots
+ * (id/name/state/retry/error fields). Returns AEGIS_ERR_NOMEM on
+ * allocation failure; @p out is set to NULL in that case.
+ *
+ * @param[in]  ckpt Checkpoint to serialise (must be non-NULL).
+ * @param[out] out  Receives the heap-allocated JSON string; set only on
+ *                  success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_checkpoint_serialize(const aegis_checkpoint_t* ckpt, char** out)
 {
     if (!ckpt || !out) {
@@ -338,6 +388,20 @@ static char* read_file_to_string(const char* path)
     return data;
 }
 
+/**
+ * @brief Parse a checkpoint from previously-serialized JSON text.
+ *
+ * The parser is tolerant of missing fields (they fall back to defaults:
+ * empty strings, zero counts, PENDING state). CRC32 integrity is
+ * validated when present; a mismatch returns AEGIS_ERR_INVALID without
+ * populating @p out. Caller owns the resulting checkpoint and must
+ * destroy it with aegis_checkpoint_destroy.
+ *
+ * @param[in]  text JSON text to parse (must be non-NULL).
+ * @param[out] out  Receives the new checkpoint; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad text or CRC
+ *   mismatch, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_checkpoint_deserialize(const char* text, aegis_checkpoint_t** out)
 {
     if (!text || !out) {
@@ -504,6 +568,22 @@ aegis_status_t aegis_checkpoint_deserialize(const char* text, aegis_checkpoint_t
 
 /* ── Atomic write ──────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Write a checkpoint atomically to disk under @p path.
+ *
+ * Serialises first, then writes to a tmp file and renames so a crash
+ * never leaves a half-written checkpoint. Cancellation is checked before
+ * any IO starts; a tripped token returns AEGIS_ERR_CANCELLED immediately.
+ * Thread-safe across checkpoints (each checkpoint has its own mutex);
+ * concurrent writes to the same file are NOT safe.
+ *
+ * @param[in]  ckpt  Checkpoint to persist (must be non-NULL).
+ * @param[in]  path  Destination file path (must be non-NULL).
+ * @param[in]  token Cancellation point, or NULL to ignore.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_CANCELLED when @p token is tripped, else IO/serialisation
+ *   error.
+ */
 aegis_status_t aegis_checkpoint_write(const aegis_checkpoint_t* ckpt, const char* path,
                                       const aegis_cancellation_token_t* token)
 {
@@ -552,6 +632,20 @@ aegis_status_t aegis_checkpoint_write(const aegis_checkpoint_t* ckpt, const char
 
 /* ── Restore ───────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Read and parse a checkpoint from disk.
+ *
+ * Opens @p path, reads the full contents into a heap buffer, and passes
+ * it to aegis_checkpoint_deserialize. Returns AEGIS_ERR_NOT_FOUND when
+ * the file does not exist, AEGIS_ERR_INVALID on CRC mismatch or parse
+ * failure, and AEGIS_ERR_NOMEM on allocation failure. Caller owns the
+ * returned checkpoint.
+ *
+ * @param[in]  path Source file path (must be non-NULL).
+ * @param[out] out  Receives the new checkpoint; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID/NOT_FOUND/NOMEM as
+ *   appropriate.
+ */
 aegis_status_t aegis_checkpoint_read(const char* path, aegis_checkpoint_t** out,
                                      aegis_checkpoint_status_t* status)
 {

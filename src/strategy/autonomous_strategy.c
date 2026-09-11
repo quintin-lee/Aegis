@@ -28,6 +28,15 @@ struct aegis_autonomous_strategy {
     aegis_agent_strategy_def_t   def;
 };
 
+/**
+ * @brief Strategy init hook: lazily create the private autonomous runtime.
+ *
+ * Idempotent: a second call with an existing runtime succeeds immediately.
+ *
+ * @param[in] user  The strategy instance.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL, or the runtime
+ *         creation error otherwise.
+ */
 static aegis_status_t strat_init(void* user)
 {
     aegis_autonomous_strategy_t* s = (aegis_autonomous_strategy_t*)user;
@@ -40,6 +49,15 @@ static aegis_status_t strat_init(void* user)
     return aegis_autonomous_runtime_create(&s->runtime);
 }
 
+/**
+ * @brief Strategy shutdown hook: destroy the private runtime, if any.
+ *
+ * The owned agent is left alive (destroyed with the strategy itself).
+ * NULL is accepted as success.
+ *
+ * @param[in] user  The strategy instance, or NULL.
+ * @return Always AEGIS_OK.
+ */
 static aegis_status_t strat_shutdown(void* user)
 {
     aegis_autonomous_strategy_t* s = (aegis_autonomous_strategy_t*)user;
@@ -53,6 +71,13 @@ static aegis_status_t strat_shutdown(void* user)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Read the goal from the loop session's first non-empty user message.
+ *
+ * @param[in] loop  Agent loop exposing its session.
+ * @return Borrowed pointer to the goal text, or NULL when the session has
+ *         no usable user message. Valid while the session history is intact.
+ */
 static const char* find_goal(aegis_agent_loop_t* loop)
 {
     aegis_session_t* sess = aegis_agent_loop_session(loop);
@@ -72,6 +97,16 @@ static const char* find_goal(aegis_agent_loop_t* loop)
     return NULL;
 }
 
+/**
+ * @brief Bring an early-lifecycle agent to READY and sync iteration counters.
+ *
+ * Copies the agent iteration into the runtime when they diverge, then moves
+ * RECOVERING/CREATED/INITIALIZING agents to READY so planning may start.
+ *
+ * @param[in] agent    Autonomous agent (lock taken briefly).
+ * @param[in] runtime  Private runtime receiving the iteration sync.
+ * @return Always AEGIS_OK.
+ */
 static aegis_status_t ensure_ready(aegis_autonomous_agent_t* agent,
                                    aegis_autonomous_runtime_t* runtime)
 {
@@ -88,6 +123,21 @@ static aegis_status_t ensure_ready(aegis_autonomous_agent_t* agent,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Before-turn hook: plan once per goal, then hand off to the phase machine.
+ *
+ * Lazily creates the runtime, then no-ops when a plan already exists (later
+ * turns are driven by should_continue). Otherwise reads the goal from the
+ * session, moves the agent READY → PLANNING, runs the autonomous plan step,
+ * and advances to SCHEDULING; a planning failure moves the agent to FAILED.
+ * A pre-cancelled token aborts before any planning.
+ *
+ * @param[in] user  The strategy instance.
+ * @param[in] loop  Agent loop providing the session goal.
+ * @return AEGIS_OK on success (or plan already present),
+ *         AEGIS_ERR_INVALID for bad arguments/missing goal,
+ *         AEGIS_ERR_CANCELLED when pre-cancelled, or the planning error.
+ */
 static aegis_status_t strat_before_turn(void* user, aegis_agent_loop_t* loop)
 {
     aegis_autonomous_strategy_t* s = (aegis_autonomous_strategy_t*)user;
@@ -123,6 +173,16 @@ static aegis_status_t strat_before_turn(void* user, aegis_agent_loop_t* loop)
     return AEGIS_OK;
 }
 
+/**
+ * @brief After-model hook: intentionally a no-op.
+ *
+ * Model turns are reactive; execution stays inside the autonomous executor,
+ * so there is nothing to do after a model step.
+ *
+ * @param[in] user  Unused.
+ * @param[in] loop  Unused.
+ * @return Always AEGIS_OK.
+ */
 static aegis_status_t strat_after_model(void* user, aegis_agent_loop_t* loop)
 {
     (void)user;
@@ -130,6 +190,15 @@ static aegis_status_t strat_after_model(void* user, aegis_agent_loop_t* loop)
     return AEGIS_OK;
 }
 
+/**
+ * @brief After-tool hook: intentionally a no-op.
+ *
+ * Tool results are consumed by the autonomous executor, not the loop.
+ *
+ * @param[in] user  Unused.
+ * @param[in] loop  Unused.
+ * @return Always AEGIS_OK.
+ */
 static aegis_status_t strat_after_tool(void* user, aegis_agent_loop_t* loop)
 {
     (void)user;
@@ -137,6 +206,23 @@ static aegis_status_t strat_after_tool(void* user, aegis_agent_loop_t* loop)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Drive one execute → evaluate → reflect/replan iteration.
+ *
+ * Bounds the run at max_iterations (default 5), then per call bumps the
+ * shared iteration counter and runs execute (checkpointing the plan/graph
+ * on both outcomes) and evaluate. SUCCESS completes the agent; a replanable
+ * critique (REPLAN_REQUIRED/PARTIAL/FAILURE) runs reflect → replan, resets
+ * to PLANNING → SCHEDULING, and requests another turn; an unknown critique
+ * verdict fails. Cancellation at entry or mid-run moves to CANCELLING.
+ *
+ * @param[in]  user          The strategy instance.
+ * @param[out] out_continue  Set to 1 to request another loop turn, else 0.
+ * @return AEGIS_OK when the iteration (or terminal completion) succeeds,
+ *         AEGIS_ERR_INVALID for bad arguments, AEGIS_ERR_CANCELLED when
+ *         cancelled, AEGIS_ERR_MAX_ITERATIONS at the iteration cap, or the
+ *         execute/evaluate/reflect/replan error otherwise.
+ */
 static aegis_status_t strat_should_continue(void* user, int* out_continue)
 {
     aegis_autonomous_strategy_t* s = (aegis_autonomous_strategy_t*)user;
@@ -207,6 +293,23 @@ static aegis_status_t strat_should_continue(void* user, int* out_continue)
     return AEGIS_ERR_INTERNAL;
 }
 
+/**
+ * @brief Create an autonomous loop strategy with its own agent and runtime.
+ *
+ * Builds the owned autonomous agent from @p cfg plus a private runtime
+ * (never the agent run-loop's runtime), and wires the strategy ABI table
+ * ("autonomous": init/shutdown/before_turn/after_model/after_tool/
+ * should_continue). Partial construction is rolled back.
+ *
+ * @param[in]  cfg  Autonomous agent configuration.
+ * @param[out] out  Receives the new strategy; set only on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_NOMEM on allocation failure, or the agent/runtime
+ *         creation error otherwise.
+ *
+ * Ownership: the caller owns the returned strategy and must release it with
+ * aegis_autonomous_strategy_destroy().
+ */
 aegis_status_t aegis_autonomous_strategy_create(const aegis_autonomous_agent_config_t* cfg,
                                                 aegis_autonomous_strategy_t**          out)
 {
@@ -242,6 +345,13 @@ aegis_status_t aegis_autonomous_strategy_create(const aegis_autonomous_agent_con
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a strategy with its private runtime and owned agent.
+ *
+ * NULL is accepted and ignored.
+ *
+ * @param[in] s  Strategy to destroy, or NULL.
+ */
 void aegis_autonomous_strategy_destroy(aegis_autonomous_strategy_t* s)
 {
     if (!s) {
@@ -256,6 +366,13 @@ void aegis_autonomous_strategy_destroy(aegis_autonomous_strategy_t* s)
     free(s);
 }
 
+/**
+ * @brief Borrow the loop-strategy ABI table for registration with a loop.
+ *
+ * @param[in] s  Strategy instance, or NULL.
+ * @return Pointer to the definition, or NULL for NULL. Valid until the
+ *         strategy is destroyed.
+ */
 const aegis_agent_strategy_def_t* aegis_autonomous_strategy_def(aegis_autonomous_strategy_t* s)
 {
     return s ? &s->def : NULL;

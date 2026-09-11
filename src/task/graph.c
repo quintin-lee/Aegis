@@ -105,6 +105,19 @@ static bool would_create_cycle(aegis_task_graph_t* g, uint32_t source, uint32_t 
 
 /* ── Lifecycle ─────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Allocate an empty task graph.
+ *
+ * Creates the graph structure with a recursive mutex and resets the
+ * task-ID allocator to 1.
+ *
+ * @param[out] out  Receives the new graph on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_NOMEM when @p out is NULL or
+ *         allocation / mutex creation fails.
+ *
+ * @note Ownership: caller owns the graph; release with
+ *       aegis_task_graph_destroy(). Thread-safe.
+ */
 aegis_status_t aegis_task_graph_create(aegis_task_graph_t** out)
 {
     AEGIS_CHECK_OUT(out);
@@ -125,6 +138,14 @@ aegis_status_t aegis_task_graph_create(aegis_task_graph_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a graph and free every task and dependency it holds.
+ *
+ * @param[in] graph  Graph to destroy; NULL is a no-op.
+ *
+ * @note Also frees the tasks themselves, so tasks added to a graph must
+ *       not be destroyed separately.
+ */
 void aegis_task_graph_destroy(aegis_task_graph_t* graph)
 {
     if (!graph) {
@@ -151,6 +172,18 @@ void aegis_task_graph_destroy(aegis_task_graph_t* graph)
 
 /* ── Task Management ───────────────────────────────────────────────────────── */
 
+/**
+ * @brief Add a task to the graph, assigning it an ID when unset.
+ *
+ * Takes ownership of @p task without copying it. When @c task->id is 0
+ * a fresh ID is assigned from the graph's allocator.
+ *
+ * @param[in] graph  Target graph.
+ * @param[in] task   Task to adopt; must not be NULL.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_BUSY when the graph already holds
+ *         AEGIS_GRAPH_MAX_TASKS tasks. Thread-safe.
+ */
 aegis_status_t aegis_task_graph_add_task(aegis_task_graph_t* graph, aegis_task_t* task)
 {
     if (!graph || !task) {
@@ -177,6 +210,18 @@ aegis_status_t aegis_task_graph_add_task(aegis_task_graph_t* graph, aegis_task_t
     return AEGIS_OK;
 }
 
+/**
+ * @brief Remove a task from the graph without freeing it.
+ *
+ * Drops every dependency edge touching @p task and compacts the task
+ * array. The task pointer itself remains owned by the caller.
+ *
+ * @param[in] graph  Graph holding the task.
+ * @param[in] task   Task pointer previously added to @p graph.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_NOT_FOUND when @p task is not in the graph.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_task_graph_remove_task(aegis_task_graph_t* graph, aegis_task_t* task)
 {
     if (!graph || !task) {
@@ -231,6 +276,14 @@ aegis_status_t aegis_task_graph_remove_task(aegis_task_graph_t* graph, aegis_tas
     return AEGIS_OK;
 }
 
+/**
+ * @brief Look up a task in the graph by its ID.
+ *
+ * @param[in] graph  Graph to search; NULL returns NULL.
+ * @param[in] id     Task ID to find.
+ * @return Borrowed task pointer, or NULL when absent. Thread-safe, but
+ *         the pointer is only valid while the task stays in the graph.
+ */
 aegis_task_t* aegis_task_graph_get_task(const aegis_task_graph_t* graph, uint32_t id)
 {
     if (!graph) {
@@ -244,6 +297,22 @@ aegis_task_t* aegis_task_graph_get_task(const aegis_task_graph_t* graph, uint32_
 
 /* ── Dependency Management ─────────────────────────────────────────────────── */
 
+/**
+ * @brief Add a @c source → @c target ordering edge between two member tasks.
+ *
+ * Both tasks must already belong to @p graph. Adding an existing edge
+ * is a silent no-op returning AEGIS_OK.
+ *
+ * @param[in] graph   Graph to modify.
+ * @param[in] source  Prerequisite task (must complete first).
+ * @param[in] target  Dependent task.
+ * @return AEGIS_OK on success (or duplicate edge),
+ *         AEGIS_ERR_INVALID for NULL arguments or when the edge would
+ *         introduce a cycle, AEGIS_ERR_NOT_FOUND when either task is not
+ *         a graph member, AEGIS_ERR_BUSY when the target already has
+ *         AEGIS_GRAPH_MAX_DEPS_PER_TASK edges, AEGIS_ERR_NOMEM on
+ *         allocation failure. Thread-safe.
+ */
 aegis_status_t aegis_task_graph_add_dependency(aegis_task_graph_t* graph, aegis_task_t* source,
                                                aegis_task_t* target)
 {
@@ -310,6 +379,16 @@ aegis_status_t aegis_task_graph_add_dependency(aegis_task_graph_t* graph, aegis_
     return AEGIS_OK;
 }
 
+/**
+ * @brief Remove the @c source → @c target edge from the graph.
+ *
+ * @param[in] graph   Graph to modify.
+ * @param[in] source  Prerequisite task of the edge.
+ * @param[in] target  Dependent task owning the edge record.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_NOT_FOUND when the target or the edge is absent.
+ *         Thread-safe.
+ */
 aegis_status_t aegis_task_graph_remove_dependency(aegis_task_graph_t* graph, aegis_task_t* source,
                                                   aegis_task_t* target)
 {
@@ -353,6 +432,20 @@ aegis_status_t aegis_task_graph_remove_dependency(aegis_task_graph_t* graph, aeg
 
 /* ── Query ─────────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Collect every task currently in the READY state.
+ *
+ * @param[in]  graph       Graph to query.
+ * @param[out] out_vector  Receives a heap array of borrowed task pointers
+ *                         (empty graph yields a zero-length allocation or
+ *                         NULL with count 0).
+ * @param[out] out_count   Receives the number of ready tasks.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_NOMEM on allocation failure. Thread-safe.
+ *
+ * @note Ownership: caller frees @p *out_vector with free(), not the
+ *       tasks it points to.
+ */
 aegis_status_t aegis_task_graph_ready_tasks(const aegis_task_graph_t* graph,
                                             aegis_task_t*** out_vector, size_t* out_count)
 {
@@ -391,6 +484,12 @@ aegis_status_t aegis_task_graph_ready_tasks(const aegis_task_graph_t* graph,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Return the number of tasks currently in the graph.
+ *
+ * @param[in] graph  Graph to query; NULL yields 0. Thread-safe.
+ * @return Task count, or 0 when @p graph is NULL.
+ */
 size_t aegis_task_graph_task_count(const aegis_task_graph_t* graph)
 {
     if (!graph) {
@@ -402,6 +501,19 @@ size_t aegis_task_graph_task_count(const aegis_task_graph_t* graph)
     return n;
 }
 
+/**
+ * @brief Snapshot all tasks in the graph into a heap array.
+ *
+ * @param[in]  graph       Graph to query.
+ * @param[out] out_vector  Receives the array of borrowed task pointers
+ *                         (NULL with count 0 when the graph is empty).
+ * @param[out] out_count   Receives the task count.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL arguments,
+ *         AEGIS_ERR_NOMEM on allocation failure. Thread-safe.
+ *
+ * @note Ownership: caller frees @p *out_vector with free(), not the
+ *       tasks it points to.
+ */
 aegis_status_t aegis_task_graph_tasks(const aegis_task_graph_t* graph, aegis_task_t*** out_vector,
                                       size_t* out_count)
 {
@@ -429,6 +541,12 @@ aegis_status_t aegis_task_graph_tasks(const aegis_task_graph_t* graph, aegis_tas
     return AEGIS_OK;
 }
 
+/**
+ * @brief Return the total number of dependency edges in the graph.
+ *
+ * @param[in] graph  Graph to query; NULL yields 0. Thread-safe.
+ * @return Edge count, or 0 when @p graph is NULL.
+ */
 size_t aegis_task_graph_dependency_count(const aegis_task_graph_t* graph)
 {
     if (!graph) {
@@ -442,6 +560,13 @@ size_t aegis_task_graph_dependency_count(const aegis_task_graph_t* graph)
 
 /* ── Validation ────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Test whether the graph is acyclic using Kahn's algorithm.
+ *
+ * @param[in] graph  Graph to test; NULL is vacuously considered a DAG.
+ * @return True when the graph has no cycles, false otherwise.
+ *         Thread-safe.
+ */
 bool aegis_task_graph_is_dag(const aegis_task_graph_t* graph)
 {
     if (!graph) {
@@ -509,6 +634,17 @@ bool aegis_task_graph_is_dag(const aegis_task_graph_t* graph)
     return acyclic;
 }
 
+/**
+ * @brief Validate graph invariants: no self-loops, no dangling edges, no cycles.
+ *
+ * Checks that no dependency is a self-loop, that every edge endpoint
+ * refers to a member task, and that the graph is acyclic (verified with
+ * Kahn's algorithm).
+ *
+ * @param[in] graph  Graph to validate.
+ * @return AEGIS_OK when all invariants hold, AEGIS_ERR_INVALID for a
+ *         NULL graph or any violation. Thread-safe.
+ */
 aegis_status_t aegis_task_graph_validate(const aegis_task_graph_t* graph)
 {
     if (!graph) {

@@ -8,6 +8,23 @@
 #include "aegis/checkpoint/checkpoint.h"
 #include <string.h>
 
+/**
+ * @brief Restore agent state from a checkpoint file for crash recovery.
+ *
+ * Reads and validates the checkpoint (missing → NOT_FOUND; corrupted,
+ * incomplete or version-mismatched → INVALID; task snapshots with negative
+ * retries or empty names → INVALID), then applies iteration/sequence/goal
+ * under the agent lock, marks the agent recovered, and walks
+ * RECOVERING → READY. The saved plan text is not deserialized — a NULL plan
+ * simply makes the next loop replan from the restored goal.
+ *
+ * @param[in] aa    Agent to restore into; must be non-NULL.
+ * @param[in] path  Checkpoint file; must be non-NULL.
+ *
+ * @return AEGIS_OK recovered and READY; INVALID/NOT_FOUND/IO otherwise.
+ *
+ * Thread-safe: state application is lock-guarded; transitions run off-lock.
+ */
 aegis_status_t aegis_autonomous_checkpoint_restore(aegis_autonomous_agent_t* aa, const char* path)
 {
     if (!aa || !path) {

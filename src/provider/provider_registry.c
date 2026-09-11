@@ -23,6 +23,19 @@ static bool provider_name_eq(const void* a, const void* b, size_t len)
 
 static size_t g_seed_counter = 0; /* Not security-sensitive: collision resistance only. */
 
+/**
+ * @brief Create an empty provider registry with a fresh mutex and a
+ *        seeded FNV-1a hashmap.
+ *
+ * Each create call increments a module-global seed counter so that hash
+ * collisions across registries are unlikely (no security claim — collision
+ * resistance is the only goal). The caller owns the registry and must
+ * destroy it with aegis_provider_registry_destroy.
+ *
+ * @param[out] out Receives the new registry; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *   AEGIS_ERR_NOMEM on allocation/mutex/hashmap failure.
+ */
 aegis_status_t aegis_provider_registry_create(aegis_provider_registry_t** out)
 {
     if (!out) {
@@ -66,6 +79,16 @@ static void registry_shutdown_all(aegis_provider_registry_t* reg)
     }
 }
 
+/**
+ * @brief Destroy a provider registry, shutting down every entry and
+ *        freeing owned structures.
+ *
+ * NULL is a no-op. Entries that were initialised are shut down first
+ * (running their shutdown hook lock-free), then all entry structs and
+ * the registry itself are freed.
+ *
+ * @param[in] reg Registry to destroy, or NULL.
+ */
 void aegis_provider_registry_destroy(aegis_provider_registry_t* reg)
 {
     if (!reg) {

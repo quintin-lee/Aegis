@@ -25,6 +25,21 @@
 #include <time.h>
 #include <unistd.h>
 
+/**
+ * @brief Run the interactive REPL loop: one user input per turn,
+ *        tool approval gate, streaming render, checkpoint save-on-exit.
+ *
+ * When @p resume_path is given the session is loaded and wired into a
+ * fresh coding agent; otherwise a new agent+session are created. The
+ * loop pumps turns until the user types /exit or the agent reports a
+ * dropped context that forces compaction. Returns 0 on normal exit, 1
+ * on fatal agent-creation failure.
+ *
+ * @param project_root  Working directory for the agent (NULL → ".").
+ * @param model         Model name override (NULL → "mock").
+ * @param resume_path   Optional checkpoint to restore from (NULL = fresh).
+ * @return 0 on normal exit, 1 on fatal errors.
+ */
 int cmd_interactive(const char* project_root, const char* model, const char* resume_path)
 {
     aegis_coding_agent_config_t cfg = {0};

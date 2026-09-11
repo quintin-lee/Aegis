@@ -38,6 +38,15 @@ void aegis_tool_arg_entry_clear(aegis_tool_arg_entry_t* entry)
 
 /* ── Argument list lifecycle ──────────────────────────────────────────── */
 
+/**
+ * @brief Create an empty argument list.
+ *
+ * The caller owns the result and must call aegis_tool_args_destroy.
+ *
+ * @param[out] out Receives the new list; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_args_create(aegis_tool_args_t** out)
 {
     if (!out) {
@@ -47,6 +56,14 @@ aegis_status_t aegis_tool_args_create(aegis_tool_args_t** out)
     return *out ? AEGIS_OK : AEGIS_ERR_NOMEM;
 }
 
+/**
+ * @brief Destroy an argument list and every owned entry/payload it holds.
+ *
+ * NULL is a no-op. Each entry's name and STRING/BYTES payload are freed;
+ * BOOL/INT/FLOAT payloads are zeroed.
+ *
+ * @param[in] args Argument list to destroy, or NULL.
+ */
 void aegis_tool_args_destroy(aegis_tool_args_t* args)
 {
     if (!args) {

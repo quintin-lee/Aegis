@@ -7,6 +7,14 @@
 
 /* Implementation moved from header to fix -Wunused-function warnings */
 
+/**
+ * @brief Fill @p c with the compiled-in defaults (goal, checkpoint path,
+ *        LLM provider, config path, max-iterations, zero timeout).
+ *
+ * NULL is a no-op. All fixed-size buffers are NUL-terminated.
+ *
+ * @param[in] c Config struct to fill, or NULL.
+ */
 void cli_config_default(cli_config_t* c)
 {
     if (!c) {
@@ -39,6 +47,19 @@ void trim(char* s)
     }
 }
 
+/**
+ * @brief Load a JSON config file into @p c, preserving any fields already
+ *        set when the key is absent from the file.
+ *
+ * Parses a minimal JSON object with the keys goal, checkpoint_path,
+ * llm_provider, config_path, max_iterations and timeout_ms. Missing or
+ * malformed files return -1 without modifying @p c. Caller-supplied
+ * pointers are validated.
+ *
+ * @param[in]  c    Config struct to populate (must be non-NULL).
+ * @param[in]  path Path to the JSON config file (must be non-NULL).
+ * @return 0 on success, -1 on I/O or parse failure.
+ */
 int cli_config_load(cli_config_t* c, const char* path)
 {
     if (!c || !path) {

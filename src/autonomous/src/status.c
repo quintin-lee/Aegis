@@ -7,6 +7,16 @@
  */
 #include "aegis/status.h"
 
+/**
+ * @brief Map a status code to its canonical snake_case name.
+ *
+ * Every aegis_status_t value has a corresponding string; unknown values map
+ * to "unknown".
+ *
+ * @param[in] status  Status code to name.
+ *
+ * @return Pointer to a static string; never NULL, must not be freed.
+ */
 const char* aegis_status_str(aegis_status_t status)
 {
     switch (status) {

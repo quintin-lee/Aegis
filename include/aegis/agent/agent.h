@@ -124,9 +124,11 @@ aegis_status_t aegis_agent_pause(aegis_agent_t* agent);
 /**
  * @brief Resume agent execution.
  *
- * Transitions: PAUSED → RUNNING
+ * Transitions: PAUSED → RUNNING. The event bus is available via the
+ * aegis_agent_event_bus() accessor (declared elsewhere in this header);
+ * the accessor call shown here is part of the example chain, not a
+ * declaration inside the doc block.
  *
-aegis_event_bus_t* aegis_agent_event_bus(const aegis_agent_t* agent);
  * @return AEGIS_OK on success, or a negative error code.
  */
 aegis_status_t aegis_agent_resume(aegis_agent_t* agent);
