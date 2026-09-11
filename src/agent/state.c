@@ -1,3 +1,9 @@
+/**
+ * @file state.c
+ * @brief Agent-loop state helpers: state enum to wire string (unknown
+ * values map to "UNKNOWN") and terminal-state predicate (COMPLETED,
+ * FAILED, CANCELLED are terminal).
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/agent/state.h"
 

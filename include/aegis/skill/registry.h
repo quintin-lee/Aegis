@@ -5,6 +5,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+/**
+ * @file registry.h
+ * @brief Ordered skill registry: create/destroy, add (transfers
+ * ownership), count and index-based borrowed access. Not thread-safe.
+ */
 typedef struct aegis_skill_registry aegis_skill_registry_t;
 aegis_status_t                      aegis_skill_registry_create(aegis_skill_registry_t** out);
 void                                aegis_skill_registry_destroy(aegis_skill_registry_t* reg);

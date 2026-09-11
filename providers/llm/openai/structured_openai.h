@@ -7,6 +7,14 @@
 extern "C" {
 #endif
 
+/**
+ * @file structured_openai.h
+ * @brief OpenAI-compatible model backend factory: builds a streaming +
+ * complete backend from endpoint credentials; the context owns endpoint
+ * strings and SSE state. Destroy releases the context (backend copies
+ * made at creation stay valid).
+ */
+
 typedef struct aegis_openai_model_ctx aegis_openai_model_ctx_t;
 
 aegis_status_t aegis_openai_model_create(const char* api_key, const char* base_url,

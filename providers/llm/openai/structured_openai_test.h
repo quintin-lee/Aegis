@@ -9,6 +9,12 @@
 extern "C" {
 #endif
 
+/**
+ * @file structured_openai_test.h
+ * @brief Test seam: complete-response JSON parser exposed for unit tests
+ * (no network). Production code goes through the backend instead.
+ */
+
 aegis_status_t aegis_openai_parse_complete_response(const char* json, size_t len,
                                                      aegis_model_response_t** out);
 

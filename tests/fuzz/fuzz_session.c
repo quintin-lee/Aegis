@@ -1,3 +1,9 @@
+/**
+ * @file fuzz_session.c
+ * @brief libFuzzer harness over session create/append/save/load with
+ * byte-mutated inputs; FUZZ_STANDALONE builds a fixed-sample main so the
+ * corpus runs as a regular ctest without a fuzzer engine.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/session/session.h"
 #include "aegis/message/message.h"
