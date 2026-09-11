@@ -90,6 +90,9 @@ add_executable(aegis
     apps/aegis/cli_cancel.c
     apps/aegis/cli_inspect.c
     apps/aegis/cli_interactive.c
+    apps/aegis/cli_input.c
+    apps/aegis/cli_gate.c
+    apps/aegis/cli_render.c
 )
 target_link_libraries(aegis PRIVATE aegis_coding aegis_session aegis_checkpoint aegis_message aegis_tool pthread)
 target_compile_definitions(aegis PRIVATE AEGIS_VERSION_STRING="${AEGIS_VERSION_STRING}")
