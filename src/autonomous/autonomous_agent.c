@@ -1,3 +1,10 @@
+/**
+ * @file autonomous_agent.c
+ * @brief Public autonomous agent lifecycle: create/destroy/run/cancel plus
+ * checkpoint save/restore entry points. Composes the phase submodules
+ * (planning/execution/evaluation/reflection/replanning); owns planner,
+ * scheduler, executor, critic and the cancellation token tree.
+ */
 #include "aegis/autonomous_agent.h"
 #include "aegis/autonomous_state.h"
 

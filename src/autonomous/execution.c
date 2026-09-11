@@ -1,3 +1,10 @@
+/**
+ * @file execution.c
+ * @brief Execute phase: materializes the plan into the task graph and
+ * drains it through scheduler → security gate → executor, with per-task
+ * timeout and cooperative cancellation. Computational steps run under a
+ * default no-op work function; tool steps dispatch via the registry.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "autonomous_agent_internal.h"
 #include "aegis/tool/tool.h"

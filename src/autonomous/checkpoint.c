@@ -1,3 +1,9 @@
+/**
+ * @file checkpoint.c
+ * @brief Checkpoint save path: snapshots agent state, goal, plan and task
+ * graph to the configured path (no-op when unconfigured). Restore lives
+ * in recovery.c; on-disk format in checkpoint/checkpoint.h.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "autonomous_agent_internal.h"
 

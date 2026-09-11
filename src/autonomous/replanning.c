@@ -1,3 +1,9 @@
+/**
+ * @file replanning.c
+ * @brief Replan phase: asks the planner for a revised plan using the
+ * stored reflection feedback, swaps it in and drops the stale task
+ * graph so execution rebuilds it on the next iteration.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "autonomous_agent_internal.h"
 #include <stdlib.h>

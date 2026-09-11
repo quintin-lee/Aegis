@@ -1,3 +1,8 @@
+/**
+ * @file planning.c
+ * @brief Plan phase: dispatches the goal through the planner into
+ * runtime->plan. Rejects empty goals and missing planner up front.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "autonomous_agent_internal.h"
 #include <string.h>

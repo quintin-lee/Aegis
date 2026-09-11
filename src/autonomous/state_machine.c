@@ -1,3 +1,9 @@
+/**
+ * @file state_machine.c
+ * @brief Agent state machine: spec-defined transition table with
+ * validation, mutex-guarded transitions and post-unlock event publish
+ * (no callbacks run under the agent lock).
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "autonomous_agent_internal.h"
 

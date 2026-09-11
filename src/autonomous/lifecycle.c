@@ -1,3 +1,9 @@
+/**
+ * @file lifecycle.c
+ * @brief Agent lifecycle helpers: effective-token resolution (explicit
+ * config token wins, else the owned internal token) plus init/cleanup
+ * for planner, scheduler, executor and owned policy objects.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "autonomous_agent_internal.h"
 #include <stdlib.h>

@@ -1,3 +1,9 @@
+/**
+ * @file evaluation.c
+ * @brief Evaluate phase: runs the critic over the current plan and task
+ * graph, storing the verdict in runtime->last_critique for the loop's
+ * success/replan decision. Honors cancellation before dispatch.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "autonomous_agent_internal.h"
 #include <string.h>

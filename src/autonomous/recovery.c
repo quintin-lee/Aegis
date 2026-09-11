@@ -1,3 +1,8 @@
+/**
+ * @file recovery.c
+ * @brief Checkpoint restore path: reads and validates a checkpoint file
+ * (missing/corrupt/incomplete reported verbatim) to resume agent state.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "autonomous_agent_internal.h"
 #include "aegis/checkpoint/checkpoint.h"

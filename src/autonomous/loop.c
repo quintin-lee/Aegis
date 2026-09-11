@@ -1,3 +1,10 @@
+/**
+ * @file loop.c
+ * @brief Autonomous closed-loop driver: plan → execute → checkpoint →
+ * evaluate → (reflect → replan | complete) bounded by max_iterations.
+ * Maps phase outcomes to agent states; checkpoint is saved per task and
+ * on failure paths; exhaustion without success yields MAX_ITERATIONS.
+ */
 #define _POSIX_C_SOURCE 200809L
 #include "autonomous_agent_internal.h"
 #include <string.h>
