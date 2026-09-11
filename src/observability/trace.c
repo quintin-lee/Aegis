@@ -100,6 +100,14 @@ aegis_status_t aegis_trace_context_clone(const aegis_trace_context_t* ctx,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a trace context and free its heap allocation.
+ *
+ * Spans are stored inline in the context; there is nothing per-span to free.
+ * NULL is a no-op.
+ *
+ * @param[in] ctx Trace context to destroy, or NULL.
+ */
 void aegis_trace_context_destroy(aegis_trace_context_t* ctx)
 {
     free(ctx);
@@ -107,6 +115,22 @@ void aegis_trace_context_destroy(aegis_trace_context_t* ctx)
 
 /* ── Span lifecycle ────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Create a new trace span within the given context.
+ *
+ * Spans are stored in a fixed-size array (AEGIS_TRACE_MAX_SPANS = 64);
+ * when full the call returns AEGIS_ERR_BUSY. The new span's parent is
+ * the most recently created span. The name pointer is borrowed (not
+ * copied) — it must outlive the span. The caller does NOT own the span;
+ * it lives inside the context and is destroyed when the context is
+ * destroyed.
+ *
+ * @param[in]  ctx  Trace context to extend (must be non-NULL).
+ * @param[in]  name Span name (borrowed pointer, must remain valid).
+ * @param[out] out  Receives a pointer into the context's span array.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_BUSY when the span table is full.
+ */
 aegis_status_t aegis_trace_span_create(aegis_trace_context_t* ctx, const char* name,
                                        aegis_trace_span_t** out)
 {
@@ -133,6 +157,14 @@ aegis_status_t aegis_trace_span_create(aegis_trace_context_t* ctx, const char* n
     return AEGIS_OK;
 }
 
+/**
+ * @brief Mark a span as ended, recording the end timestamp.
+ *
+ * Idempotent: calling end() multiple times on the same span is a no-op
+ * after the first call. NULL is a no-op.
+ *
+ * @param[in] span Span to end, or NULL.
+ */
 void aegis_trace_span_end(aegis_trace_span_t* span)
 {
     if (!span || span->ended) {
@@ -150,11 +182,27 @@ void aegis_trace_span_destroy(aegis_trace_span_t* span)
 
 /* ── Context accessors ─────────────────────────────────────────────────────── */
 
+/**
+ * @brief Return the trace id for the given context.
+ *
+ * All spans in the same context share the same trace_id.
+ *
+ * @param[in] ctx Trace context, or NULL.
+ * @return Trace id, or 0 for NULL.
+ */
 uint64_t aegis_trace_context_trace_id(const aegis_trace_context_t* ctx)
 {
     return ctx ? ctx->trace_id : 0;
 }
 
+/**
+ * @brief Return the active (most recently created) span id.
+ *
+ * Returns 0 when the context has no spans.
+ *
+ * @param[in] ctx Trace context, or NULL.
+ * @return Active span id, or 0.
+ */
 uint64_t aegis_trace_context_span_id(const aegis_trace_context_t* ctx)
 {
     if (!ctx || ctx->n_spans == 0) {
@@ -163,6 +211,14 @@ uint64_t aegis_trace_context_span_id(const aegis_trace_context_t* ctx)
     return ctx->spans[ctx->current_span].id;
 }
 
+/**
+ * @brief Return the parent span id of the active span.
+ *
+ * Returns 0 when there is no active span or no parent (root span).
+ *
+ * @param[in] ctx Trace context, or NULL.
+ * @return Parent span id, or 0.
+ */
 uint64_t aegis_trace_context_parent_span_id(const aegis_trace_context_t* ctx)
 {
     if (!ctx || ctx->n_spans == 0) {
@@ -171,11 +227,27 @@ uint64_t aegis_trace_context_parent_span_id(const aegis_trace_context_t* ctx)
     return ctx->spans[ctx->current_span].parent_id;
 }
 
+/**
+ * @brief Return the agent id associated with the trace context.
+ *
+ * Set via aegis_trace_context_set_agent_id(). Defaults to 0.
+ *
+ * @param[in] ctx Trace context, or NULL.
+ * @return Agent id, or 0.
+ */
 uint64_t aegis_trace_context_agent_id(const aegis_trace_context_t* ctx)
 {
     return ctx ? ctx->agent_id : 0;
 }
 
+/**
+ * @brief Set the agent id on a trace context.
+ *
+ * NULL is a no-op.
+ *
+ * @param[in] ctx      Trace context to update.
+ * @param[in] agent_id New agent id.
+ */
 void aegis_trace_context_set_agent_id(aegis_trace_context_t* ctx, uint64_t agent_id)
 {
     if (ctx) {
@@ -185,26 +257,58 @@ void aegis_trace_context_set_agent_id(aegis_trace_context_t* ctx, uint64_t agent
 
 /* ── Span accessors ────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Return the span's unique id.
+ *
+ * @param[in] span Span, or NULL.
+ * @return Span id, or 0 for NULL.
+ */
 uint64_t aegis_trace_span_id(const aegis_trace_span_t* span)
 {
     return span ? span->id : 0;
 }
 
+/**
+ * @brief Return the span's trace id (shared across all spans in one trace).
+ *
+ * @param[in] span Span, or NULL.
+ * @return Trace id, or 0 for NULL.
+ */
 uint64_t aegis_trace_span_trace_id(const aegis_trace_span_t* span)
 {
     return span ? span->trace_id : 0;
 }
 
+/**
+ * @brief Return the span's parent span id.
+ *
+ * @param[in] span Span, or NULL.
+ * @return Parent span id, or 0 for NULL / root span.
+ */
 uint64_t aegis_trace_span_parent_id(const aegis_trace_span_t* span)
 {
     return span ? span->parent_id : 0;
 }
 
+/**
+ * @brief Borrow the span name string (borrowed, not owned).
+ *
+ * @param[in] span Span, or NULL.
+ * @return Name text, or NULL for NULL span.
+ */
 const char* aegis_trace_span_name(const aegis_trace_span_t* span)
 {
     return span ? span->name : NULL;
 }
 
+/**
+ * @brief Return the span duration in microseconds.
+ *
+ * Returns 0 when the span has not yet been ended or @p span is NULL.
+ *
+ * @param[in] span Span, or NULL.
+ * @return Duration in microseconds, or 0.
+ */
 uint64_t aegis_trace_span_duration_us(const aegis_trace_span_t* span)
 {
     if (!span || !span->ended) {
@@ -215,11 +319,25 @@ uint64_t aegis_trace_span_duration_us(const aegis_trace_span_t* span)
 
 /* ── Global trace scope ────────────────────────────────────────────────────── */
 
+/**
+ * @brief Set the thread-local active trace context.
+ *
+ * Subsequent span creations will use this context as the parent chain.
+ * This is a global (per-thread) setter with no lock — callers must
+ * coordinate access themselves.
+ *
+ * @param[in] ctx Active context, or NULL to clear.
+ */
 void aegis_trace_set_active(const aegis_trace_context_t* ctx)
 {
     g_active_ctx = ctx;
 }
 
+/**
+ * @brief Return the current thread-local active trace context.
+ *
+ * @return Active context pointer, or NULL when none is set.
+ */
 const aegis_trace_context_t* aegis_trace_get_active(void)
 {
     return g_active_ctx;

@@ -26,6 +26,16 @@ pthread_mutex_t aegis_plugins_lock = PTHREAD_MUTEX_INITIALIZER;
 
 /* ── Validation ────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Validate a plugin manifest for ABI compatibility and required fields.
+ *
+ * Checks that the manifest name is non-empty, the ABI version matches
+ * the compiled-in constant, and that the struct-size fields match
+ * sizeof() for provider_def, strategy_def and tool_def.
+ *
+ * @param[in] m Manifest to validate (must be non-NULL).
+ * @return AEGIS_OK when valid, AEGIS_ERR_INVALID on mismatch.
+ */
 aegis_status_t aegis_plugin_validate_manifest(const aegis_plugin_manifest_t* m)
 {
     if (!m || !m->name || m->name[0] == '\0') {
@@ -48,6 +58,15 @@ aegis_status_t aegis_plugin_validate_manifest(const aegis_plugin_manifest_t* m)
 
 /* ── Table management ──────────────────────────────────────────────────────── */
 
+/**
+ * @brief Add a plugin to the global plugin table.
+ *
+ * Thread-safe under the global plugin mutex. Returns AEGIS_ERR_BUSY
+ * when the table is full (AEGIS_PLUGIN_MAX_PLUGINS).
+ *
+ * @param[in] p Plugin to register (must be non-NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_BUSY when full.
+ */
 aegis_status_t aegis_plugin_table_add(aegis_plugin_t* p)
 {
     pthread_mutex_lock(&aegis_plugins_lock);
@@ -60,6 +79,13 @@ aegis_status_t aegis_plugin_table_add(aegis_plugin_t* p)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Remove a plugin from the global plugin table.
+ *
+ * Uses swap-remove (order is not preserved). Thread-safe.
+ *
+ * @param[in] p Plugin to remove (must have been previously added).
+ */
 void aegis_plugin_table_remove(aegis_plugin_t* p)
 {
     pthread_mutex_lock(&aegis_plugins_lock);
@@ -76,6 +102,19 @@ void aegis_plugin_table_remove(aegis_plugin_t* p)
 
 /* ── Public API ────────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Load a plugin from the given shared-object path.
+ *
+ * Opens the .so via dlopen(RTLD_NOW|RTLD_LOCAL), resolves the
+ * manifest/init/shutdown symbols, validates the manifest, optionally
+ * runs init(), and inserts the plugin into the global table. The
+ * caller owns the returned handle and must call aegis_plugin_unload.
+ *
+ * @param[in]  path Path to the .so file (must be non-NULL, non-empty).
+ * @param[out] out  Receives the loaded plugin; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID/NOT_FOUND/NOMEM on
+ *   failure, else the init error.
+ */
 aegis_status_t aegis_plugin_load(const char* path, aegis_plugin_t** out)
 {
     AEGIS_CHECK_OUT(out);
@@ -162,6 +201,17 @@ aegis_status_t aegis_plugin_load(const char* path, aegis_plugin_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Unload a plugin: call shutdown (if initialized), remove from
+ *        the table, close the handle, and free the struct.
+ *
+ * Idempotent: calling unload() twice on the same plugin is a no-op the
+ * second time. NULL is a no-op.
+ *
+ * @param[in] plugin Plugin to unload.
+ * @return AEGIS_OK always (errors during shutdown are logged but not
+ *   propagated).
+ */
 aegis_status_t aegis_plugin_unload(aegis_plugin_t* plugin)
 {
     if (!plugin) {
@@ -193,11 +243,24 @@ const aegis_plugin_manifest_t* aegis_plugin_manifest(const aegis_plugin_t* plugi
     return plugin ? &plugin->manifest : NULL;
 }
 
+/**
+ * @brief Return the path string stored at load time.
+ *
+ * @param[in] plugin Plugin, or NULL.
+ * @return Path text, or NULL for NULL plugin.
+ */
 const char* aegis_plugin_path(const aegis_plugin_t* plugin)
 {
     return plugin ? plugin->path : NULL;
 }
 
+/**
+ * @brief Return the number of plugins currently loaded.
+ *
+ * Thread-safe under the global plugin mutex.
+ *
+ * @return Plugin count.
+ */
 size_t aegis_plugin_count(void)
 {
     int n;
@@ -207,6 +270,14 @@ size_t aegis_plugin_count(void)
     return (size_t)n;
 }
 
+/**
+ * @brief Return the plugin at a zero-based index.
+ *
+ * Out-of-range returns NULL. Thread-safe.
+ *
+ * @param[in] idx Zero-based index.
+ * @return Plugin pointer, or NULL for out-of-range.
+ */
 aegis_plugin_t* aegis_plugin_at(size_t idx)
 {
     pthread_mutex_lock(&aegis_plugins_lock);

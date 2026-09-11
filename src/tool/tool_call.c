@@ -22,6 +22,22 @@
 
 /* ── Core invocation ──────────────────────────────────────────────────── */
 
+/**
+ * @brief Look up a tool by name, validate its args, and dispatch the
+ *        execute callback under an optional cancellation token.
+ *
+ * Returns AEGIS_ERR_INVALID when the tool is unknown or args fail the
+ * schema check. On execute failure the result payload is zeroed to avoid
+ * leaking allocations from a misbehaving tool.
+ *
+ * @param[in]  reg     Tool registry (must be non-NULL).
+ * @param[in]  name    Tool name to invoke (must be non-NULL, non-empty).
+ * @param[in]  args    Call-time arguments (may be NULL — interpreted as empty).
+ * @param[in]  token   Cancellation point, or NULL to ignore.
+ * @param[out] out     Receives the result payload; set even on error.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad args,
+ *   AEGIS_ERR_CANCELLED when @p token is tripped, else the execute error.
+ */
 aegis_status_t aegis_tool_execute(aegis_tool_registry_t* reg, const char* name,
                                   const aegis_tool_args_t*          args,
                                   const aegis_cancellation_token_t* token, aegis_tool_result_t* out)
@@ -57,6 +73,23 @@ aegis_status_t aegis_tool_execute(aegis_tool_registry_t* reg, const char* name,
     return st;
 }
 
+/**
+ * @brief Execute a tool with a hard timeout.
+ *
+ * Builds a one-shot cancellation token with the given millisecond deadline
+ * and delegates to aegis_tool_execute. A timeout_ms of 0 is rejected as
+ * invalid (it would otherwise produce an always-expired deadline). The
+ * caller owns the result payload on success and must call
+ * aegis_tool_result_destroy.
+ *
+ * @param[in]  reg        Tool registry.
+ * @param[in]  name       Tool name (non-NULL, non-empty).
+ * @param[in]  args       Call-time arguments (may be NULL).
+ * @param[in]  timeout_ms Timeout in milliseconds (must be > 0).
+ * @param[out] out        Receives the result payload.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad args or timeout_ms==0,
+ *   AEGIS_ERR_TIMEOUT on deadline expiry, else the execute error.
+ */
 aegis_status_t aegis_tool_call(aegis_tool_registry_t* reg, const char* name,
                                const aegis_tool_args_t* args, long timeout_ms,
                                aegis_tool_result_t* out)
@@ -79,6 +112,21 @@ aegis_status_t aegis_tool_call(aegis_tool_registry_t* reg, const char* name,
 
 /* ── Job lifecycle ────────────────────────────────────────────────────── */
 
+/**
+ * @brief Allocate a tool-execution job that bundles the registry, tool
+ *        name and argument list into a single object for the executor.
+ *
+ * The job takes ownership of @p args (caller must not use it afterwards)
+ * and copies @p tool_name into heap storage. Destroy with
+ * aegis_tool_job_destroy when no longer needed.
+ *
+ * @param[out] out       Receives the new job; untouched on failure.
+ * @param[in]  reg       Registry the tool belongs to (must be non-NULL).
+ * @param[in]  tool_name Tool name (must be non-NULL, non-empty).
+ * @param[in]  args      Arguments to pass (consumed; may be NULL → empty).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad args,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_job_create(aegis_tool_job_t** out, aegis_tool_registry_t* reg,
                                      const char* tool_name, aegis_tool_args_t* args)
 {
@@ -106,6 +154,14 @@ aegis_status_t aegis_tool_job_create(aegis_tool_job_t** out, aegis_tool_registry
     return AEGIS_OK;
 }
 
+/**
+ * @brief Free a tool-execution job and release the owned args and name.
+ *
+ * NULL is a no-op. Safe to call after the job has already been consumed
+ * by the executor (the executor calls destroy once it is done with the job).
+ *
+ * @param[in] job Job to destroy, or NULL.
+ */
 void aegis_tool_job_destroy(aegis_tool_job_t* job)
 {
     if (!job) {
@@ -185,6 +241,22 @@ static aegis_status_t tool_work_impl(aegis_task_t* task, const aegis_cancellatio
 
 aegis_work_fn aegis_tool_work_fn = tool_work_impl;
 
+/**
+ * @brief Submit a tool execution as an async work item on the executor.
+ *
+ * The caller retains ownership of @p args (transferred into the job, then
+ * destroyed there) and @p task (the executor manages lifecycle). Returns
+ * AEGIS_ERR_INVALID when exec/reg/tool_name/args are NULL. If the submit
+ * fails the job is destroyed immediately so nothing leaks.
+ *
+ * @param[in] exec     Executor to submit the work onto (must be non-NULL).
+ * @param[in] reg      Tool registry (must be non-NULL).
+ * @param[in] task     Task representing this execution (must be non-NULL).
+ * @param[in] tool_name Name of the tool to invoke (must be non-NULL, non-empty).
+ * @param[in] args     Call arguments (consumed by the job; may be NULL → empty).
+ * @return AEGIS_OK on submission success, AEGIS_ERR_INVALID for bad args,
+ *   AEGIS_ERR_NOMEM on allocation failure, else the executor-submit error.
+ */
 aegis_status_t aegis_tool_submit(aegis_executor_t* exec, aegis_tool_registry_t* reg,
                                  aegis_task_t* task, const char* tool_name, aegis_tool_args_t* args)
 {

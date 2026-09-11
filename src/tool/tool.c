@@ -26,6 +26,14 @@ static void value_clear(aegis_tool_value_t* v)
     memset(v, 0, sizeof(*v));
 }
 
+/**
+ * @brief Clear an argument entry: free its name and value payload.
+ *
+ * NULL is a no-op. After clearing the entry is zeroed so a subsequent
+ * clear() call is safe.
+ *
+ * @param[in] entry Entry to clear, or NULL.
+ */
 void aegis_tool_arg_entry_clear(aegis_tool_arg_entry_t* entry)
 {
     if (!entry) {
@@ -76,6 +84,12 @@ void aegis_tool_args_destroy(aegis_tool_args_t* args)
     free(args);
 }
 
+/**
+ * @brief Return the number of arguments in the list.
+ *
+ * @param[in] args Argument list, or NULL.
+ * @return Entry count, or 0 for NULL.
+ */
 size_t aegis_tool_args_count(const aegis_tool_args_t* args)
 {
     return args ? args->len : 0;
@@ -83,6 +97,17 @@ size_t aegis_tool_args_count(const aegis_tool_args_t* args)
 
 /* ── Lookup (before add_entry: duplicate-name rejection reuses it) ────── */
 
+/**
+ * @brief Look up an argument by name.
+ *
+ * Returns true and sets @p out to a borrowed pointer into the list when
+ * found. The pointer is valid until the list is mutated.
+ *
+ * @param[in]  args Argument list (must be non-NULL).
+ * @param[in]  name Name to look up (must be non-NULL).
+ * @param[out] out  Receives the value pointer; untouched when not found.
+ * @return true when the argument exists, false otherwise.
+ */
 bool aegis_tool_args_find(const aegis_tool_args_t* args, const char* name,
                           const aegis_tool_value_t** out)
 {
@@ -197,26 +222,82 @@ static aegis_status_t add_entry(aegis_tool_args_t* args, const char* name,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Append a boolean argument.
+ *
+ * Duplicate names are rejected with AEGIS_ERR_BUSY.
+ *
+ * @param[in] args Argument list to extend.
+ * @param[in] name Argument name (non-empty).
+ * @param[in] v    Boolean value.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad args,
+ *   AEGIS_ERR_BUSY on duplicate name, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_args_add_bool(aegis_tool_args_t* args, const char* name, bool v)
 {
     return add_entry(args, name, AEGIS_TOOL_VAL_BOOL, &v, 0);
 }
 
+/**
+ * @brief Append an int64 argument.
+ *
+ * Duplicate names are rejected with AEGIS_ERR_BUSY.
+ *
+ * @param[in] args Argument list to extend.
+ * @param[in] name Argument name (non-empty).
+ * @param[in] v    Integer value.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad args,
+ *   AEGIS_ERR_BUSY on duplicate name, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_args_add_int(aegis_tool_args_t* args, const char* name, int64_t v)
 {
     return add_entry(args, name, AEGIS_TOOL_VAL_INT, &v, 0);
 }
 
+/**
+ * @brief Append a double-float argument.
+ *
+ * Duplicate names are rejected with AEGIS_ERR_BUSY.
+ *
+ * @param[in] args Argument list to extend.
+ * @param[in] name Argument name (non-empty).
+ * @param[in] v    Float value.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad args,
+ *   AEGIS_ERR_BUSY on duplicate name, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_args_add_float(aegis_tool_args_t* args, const char* name, double v)
 {
     return add_entry(args, name, AEGIS_TOOL_VAL_FLOAT, &v, 0);
 }
 
+/**
+ * @brief Append a string argument (deep-copied).
+ *
+ * Duplicate names are rejected with AEGIS_ERR_BUSY.
+ *
+ * @param[in] args Argument list to extend.
+ * @param[in] name Argument name (non-empty).
+ * @param[in] s    String value (may be NULL — treated as empty).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad args,
+ *   AEGIS_ERR_BUSY on duplicate name, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_args_add_string(aegis_tool_args_t* args, const char* name, const char* s)
 {
     return add_entry(args, name, AEGIS_TOOL_VAL_STRING, s, 0);
 }
 
+/**
+ * @brief Append a bytes argument (deep-copied).
+ *
+ * Duplicate names are rejected with AEGIS_ERR_BUSY.
+ *
+ * @param[in] args  Argument list to extend.
+ * @param[in] name  Argument name (non-empty).
+ * @param[in] data  Raw bytes (may be NULL when len == 0).
+ * @param[in] len   Byte count.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for bad args,
+ *   AEGIS_ERR_BUSY on duplicate name, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_args_add_bytes(aegis_tool_args_t* args, const char* name,
                                          const void* data, size_t len)
 {
@@ -225,6 +306,14 @@ aegis_status_t aegis_tool_args_add_bytes(aegis_tool_args_t* args, const char* na
 
 /* ── Result helpers ───────────────────────────────────────────────────── */
 
+/**
+ * @brief Destroy a tool result, freeing its owned payload.
+ *
+ * NULL is a no-op. The result struct itself is NOT freed — the caller
+ * owns it.
+ *
+ * @param[in] result Result to destroy, or NULL.
+ */
 void aegis_tool_result_destroy(aegis_tool_result_t* result)
 {
     if (!result) {
@@ -246,6 +335,16 @@ static char* dup_bytes(const void* data, size_t len)
     return (char*)copy;
 }
 
+/**
+ * @brief Set the result to a string value (deep-copied).
+ *
+ * Replaces any prior payload. NULL @p s is rejected.
+ *
+ * @param[in] result Result container to fill.
+ * @param[in] s      String value (non-NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_result_set_string(aegis_tool_result_t* result, const char* s)
 {
     if (!result || !s) {
@@ -264,6 +363,17 @@ aegis_status_t aegis_tool_result_set_string(aegis_tool_result_t* result, const c
     return AEGIS_OK;
 }
 
+/**
+ * @brief Set the result to a raw bytes value (deep-copied).
+ *
+ * Replaces any prior payload. NULL @p data is only accepted when len is 0.
+ *
+ * @param[in] result Result container to fill.
+ * @param[in] data   Bytes to copy (may be NULL when len == 0).
+ * @param[in] len    Byte count.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_result_set_bytes(aegis_tool_result_t* result, const void* data,
                                            size_t len)
 {
@@ -282,6 +392,15 @@ aegis_status_t aegis_tool_result_set_bytes(aegis_tool_result_t* result, const vo
     return AEGIS_OK;
 }
 
+/**
+ * @brief Set the result to a boolean value.
+ *
+ * Replaces any prior payload.
+ *
+ * @param[in] result Result container to fill.
+ * @param[in] v      Boolean value.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL result.
+ */
 aegis_status_t aegis_tool_result_set_bool(aegis_tool_result_t* result, bool v)
 {
     if (!result) {
@@ -293,6 +412,15 @@ aegis_status_t aegis_tool_result_set_bool(aegis_tool_result_t* result, bool v)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Set the result to an int64 value.
+ *
+ * Replaces any prior payload.
+ *
+ * @param[in] result Result container to fill.
+ * @param[in] v      Integer value.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL result.
+ */
 aegis_status_t aegis_tool_result_set_int(aegis_tool_result_t* result, int64_t v)
 {
     if (!result) {
@@ -304,6 +432,15 @@ aegis_status_t aegis_tool_result_set_int(aegis_tool_result_t* result, int64_t v)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Set the result to a double-float value.
+ *
+ * Replaces any prior payload.
+ *
+ * @param[in] result Result container to fill.
+ * @param[in] v      Float value.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL result.
+ */
 aegis_status_t aegis_tool_result_set_float(aegis_tool_result_t* result, double v)
 {
     if (!result) {

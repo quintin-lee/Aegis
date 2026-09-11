@@ -179,39 +179,106 @@ aegis_status_t aegis_message_clone(const aegis_message_t* src, aegis_message_t**
     return AEGIS_OK;
 }
 
-/* accessors */
+/* ── accessors ────────────────────────────────────────────────────────────── */
+
+/**
+ * @brief Borrow the message id string.
+ *
+ * @param[in] m Message, or NULL.
+ * @return Id text, or NULL for NULL message.
+ */
 const char* aegis_message_id(const aegis_message_t* m)
 {
     return m ? m->id : NULL;
 }
+/**
+ * @brief Borrow the message role.
+ *
+ * Returns AEGIS_MESSAGE_USER when @p m is NULL as a safe default.
+ *
+ * @param[in] m Message, or NULL.
+ * @return Role enum.
+ */
 aegis_message_role_t aegis_message_role(const aegis_message_t* m)
 {
     return m ? m->role : AEGIS_MESSAGE_USER;
 }
+/**
+ * @brief Return the message timestamp in wall-clock milliseconds.
+ *
+ * @param[in] m Message, or NULL.
+ * @return Timestamp, or 0 for NULL.
+ */
 uint64_t aegis_message_timestamp(const aegis_message_t* m)
 {
     return m ? m->timestamp : 0;
 }
+/**
+ * @brief Borrow the message content string.
+ *
+ * @param[in] m Message, or NULL.
+ * @return Content text, or NULL for NULL / empty content.
+ */
 const char* aegis_message_content(const aegis_message_t* m)
 {
     return m ? m->content : NULL;
 }
+/**
+ * @brief Borrow the reasoning (thought-chain) text.
+ *
+ * Only set on assistant messages that carried a reasoning block. Returns
+ * NULL when absent or on NULL input.
+ *
+ * @param[in] m Message, or NULL.
+ * @return Reasoning text, or NULL.
+ */
 const char* aegis_message_reasoning(const aegis_message_t* m)
 {
     return m ? m->reasoning : NULL;
 }
+/**
+ * @brief Borrow the tool-call id associated with a TOOL message.
+ *
+ * For a message whose role is AEGIS_MESSAGE_TOOL, this is the call_id
+ * of the tool invocation this result belongs to. NULL on other roles.
+ *
+ * @param[in] m Message, or NULL.
+ * @return Tool-call id text, or NULL.
+ */
 const char* aegis_message_tool_call_id(const aegis_message_t* m)
 {
     return m ? m->tool_call_id : NULL;
 }
+/**
+ * @brief Borrow the parent message id for chain-of-thought linking.
+ *
+ * @param[in] m Message, or NULL.
+ * @return Parent id text, or NULL when there is no parent.
+ */
 const char* aegis_message_parent_id(const aegis_message_t* m)
 {
     return m ? m->parent_id : NULL;
 }
+/**
+ * @brief Return the number of tool calls attached to this message.
+ *
+ * @param[in] m Message, or NULL.
+ * @return Tool-call count, or 0 for NULL.
+ */
 size_t aegis_message_tool_call_count(const aegis_message_t* m)
 {
     return m ? m->tool_call_count : 0;
 }
+/**
+ * @brief Borrow the tool call at the given index.
+ *
+ * Out-of-range returns NULL. Valid until the message is mutated or
+ * destroyed.
+ *
+ * @param[in] m  Message to query.
+ * @param[in] idx Zero-based index.
+ * @return Tool call pointer, or NULL for out-of-range / NULL message.
+ */
 const aegis_tool_call_t* aegis_message_tool_call_at(const aegis_message_t* m, size_t idx)
 {
     if (!m || idx >= m->tool_call_count) {
@@ -234,6 +301,17 @@ static aegis_status_t set_str(char** dst, const char* src)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Set the message id, replacing any prior value.
+ *
+ * Empty string is rejected. Caller supplies the id text which is
+ * deep-copied; the caller retains ownership of the source string.
+ *
+ * @param[in] m  Message to update.
+ * @param[in] id New id text.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL m/id or empty id,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_set_id(aegis_message_t* m, const char* id)
 {
     if (!m || !id || !id[0]) {
@@ -242,6 +320,16 @@ aegis_status_t aegis_message_set_id(aegis_message_t* m, const char* id)
     return set_str(&m->id, id);
 }
 
+/**
+ * @brief Set the message content, replacing any prior value.
+ *
+ * NULL content is accepted and clears the field. Deep-copied.
+ *
+ * @param[in] m   Message to update.
+ * @param[in] txt New content text, or NULL to clear.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL m,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_set_content(aegis_message_t* m, const char* txt)
 {
     if (!m) {
@@ -249,6 +337,16 @@ aegis_status_t aegis_message_set_content(aegis_message_t* m, const char* txt)
     }
     return set_str(&m->content, txt);
 }
+/**
+ * @brief Set the reasoning (thought-chain) text, replacing any prior value.
+ *
+ * NULL clears the field. Deep-copied.
+ *
+ * @param[in] m  Message to update.
+ * @param[in] r  New reasoning text, or NULL to clear.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL m,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_set_reasoning(aegis_message_t* m, const char* r)
 {
     if (!m) {
@@ -256,6 +354,17 @@ aegis_status_t aegis_message_set_reasoning(aegis_message_t* m, const char* r)
     }
     return set_str(&m->reasoning, r);
 }
+/**
+ * @brief Set the tool-call id for a TOOL-role message.
+ *
+ * Links this result message back to its invoking tool call. NULL clears.
+ * Deep-copied.
+ *
+ * @param[in] m  Message to update.
+ * @param[in] id Tool-call id text, or NULL to clear.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL m,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_set_tool_call_id(aegis_message_t* m, const char* id)
 {
     if (!m) {
@@ -263,6 +372,16 @@ aegis_status_t aegis_message_set_tool_call_id(aegis_message_t* m, const char* id
     }
     return set_str(&m->tool_call_id, id);
 }
+/**
+ * @brief Set the parent message id for chain-of-thought linking.
+ *
+ * NULL clears the field. Deep-copied.
+ *
+ * @param[in] m     Message to update.
+ * @param[in] pid   Parent id text, or NULL to clear.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL m,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_set_parent_id(aegis_message_t* m, const char* pid)
 {
     if (!m) {
@@ -308,6 +427,17 @@ aegis_status_t aegis_message_add_tool_call(aegis_message_t* m, const aegis_tool_
 
 /* ── list ───────────────────────────────────────────────────────────────── */
 
+/* ── list ───────────────────────────────────────────────────────────────── */
+
+/**
+ * @brief Create an empty message list.
+ *
+ * The caller owns the result and must call aegis_message_list_destroy.
+ *
+ * @param[out] out Receives the new list; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_list_create(aegis_message_list_t** out)
 {
     if (!out) {
@@ -321,6 +451,14 @@ aegis_status_t aegis_message_list_create(aegis_message_list_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a message list and every owned message it holds.
+ *
+ * Each message is deep-destroyed (freed along with its strings and
+ * nested tool calls). NULL is a no-op.
+ *
+ * @param[in] l List to destroy, or NULL.
+ */
 void aegis_message_list_destroy(aegis_message_list_t* l)
 {
     if (!l) {
@@ -333,6 +471,16 @@ void aegis_message_list_destroy(aegis_message_list_t* l)
     free(l);
 }
 
+/**
+ * @brief Deep-copy a message list, cloning every contained message.
+ *
+ * The caller owns the clone and must call aegis_message_list_destroy.
+ *
+ * @param[in]  src Source list (must be non-NULL).
+ * @param[out] out Receives the new copy; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL src/out,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_list_clone(const aegis_message_list_t* src, aegis_message_list_t** out)
 {
     if (!src || !out) {
@@ -354,10 +502,25 @@ aegis_status_t aegis_message_list_clone(const aegis_message_list_t* src, aegis_m
     return AEGIS_OK;
 }
 
+/**
+ * @brief Return the number of messages in the list.
+ *
+ * @param[in] l List, or NULL.
+ * @return Message count, or 0 for NULL.
+ */
 size_t aegis_message_list_count(const aegis_message_list_t* l)
 {
     return l ? l->count : 0;
 }
+/**
+ * @brief Borrow the message at a zero-based index.
+ *
+ * Out-of-range returns NULL. Valid until the list is mutated or destroyed.
+ *
+ * @param[in] l  List to query.
+ * @param[in] idx Zero-based position.
+ * @return Message pointer, or NULL for NULL list / out-of-range.
+ */
 const aegis_message_t* aegis_message_list_at(const aegis_message_list_t* l, size_t idx)
 {
     if (!l || idx >= l->count) {
@@ -384,6 +547,17 @@ static aegis_status_t list_reserve(aegis_message_list_t* l, size_t need)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Append a cloned message to the end of the list.
+ *
+ * The message is deep-copied before insertion; the original is untouched.
+ * Returns AEGIS_ERR_NOMEM if the list cannot grow.
+ *
+ * @param[in] l    List to extend (must be non-NULL).
+ * @param[in] msg  Message to append (must be non-NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_list_append(aegis_message_list_t* l, const aegis_message_t* msg)
 {
     if (!l || !msg) {
@@ -402,6 +576,17 @@ aegis_status_t aegis_message_list_append(aegis_message_list_t* l, const aegis_me
     return AEGIS_OK;
 }
 
+/**
+ * @brief Prepend a cloned message to the front of the list.
+ *
+ * Same ownership rules as append() but inserts at index 0, shifting
+ * existing entries forward.
+ *
+ * @param[in] l    List to extend.
+ * @param[in] msg  Message to prepend.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_message_list_prepend(aegis_message_list_t* l, const aegis_message_t* msg)
 {
     if (!l || !msg) {

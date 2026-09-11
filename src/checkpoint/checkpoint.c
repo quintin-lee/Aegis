@@ -203,6 +203,16 @@ aegis_status_t aegis_checkpoint_populate(aegis_checkpoint_t* ckpt, const char* a
     return AEGIS_OK;
 }
 
+/**
+ * @brief Set the goal text on a checkpoint (replaces any prior value).
+ *
+ * Deep-copied. NULL clears the goal field.
+ *
+ * @param[in] ckpt Checkpoint to update.
+ * @param[in] goal New goal text, or NULL to clear.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL ckpt,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_checkpoint_set_goal(aegis_checkpoint_t* ckpt, const char* goal)
 {
     if (!ckpt) {
@@ -229,6 +239,13 @@ uint64_t aegis_checkpoint_iteration(const aegis_checkpoint_t* ckpt)
     return ckpt ? ckpt->iteration : 0;
 }
 
+/**
+ * @brief Set the iteration counter on a checkpoint.
+ *
+ * @param[in] ckpt   Checkpoint to update.
+ * @param[in] iter   New iteration value.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL ckpt.
+ */
 aegis_status_t aegis_checkpoint_set_iteration(aegis_checkpoint_t* ckpt, uint64_t iter)
 {
     if (!ckpt) {
@@ -238,36 +255,88 @@ aegis_status_t aegis_checkpoint_set_iteration(aegis_checkpoint_t* ckpt, uint64_t
     return AEGIS_OK;
 }
 
+/**
+ * @brief Return the checkpoint creation timestamp in epoch seconds.
+ *
+ * @param[in] ckpt Checkpoint, or NULL.
+ * @return Timestamp, or 0 for NULL.
+ */
 uint64_t aegis_checkpoint_timestamp(const aegis_checkpoint_t* ckpt)
 {
     return ckpt ? ckpt->timestamp : 0;
 }
 
+/**
+ * @brief Borrow the checkpoint goal text.
+ *
+ * Returns "" when the checkpoint has no goal set or is NULL.
+ *
+ * @param[in] ckpt Checkpoint, or NULL.
+ * @return Goal text.
+ */
 const char* aegis_checkpoint_goal(const aegis_checkpoint_t* ckpt)
 {
     return ckpt ? (ckpt->goal ? ckpt->goal : "") : "";
 }
 
+/**
+ * @brief Return the plan version stamp stored in the checkpoint.
+ *
+ * @param[in] ckpt Checkpoint, or NULL.
+ * @return Plan version, or 0 for NULL.
+ */
 uint32_t aegis_checkpoint_plan_version(const aegis_checkpoint_t* ckpt)
 {
     return ckpt ? ckpt->plan_version : 0;
 }
 
+/**
+ * @brief Borrow the serialised plan text.
+ *
+ * Returns NULL when no plan text is attached or on NULL input.
+ *
+ * @param[in] ckpt Checkpoint, or NULL.
+ * @return Plan text, or NULL.
+ */
 const char* aegis_checkpoint_plan_text(const aegis_checkpoint_t* ckpt)
 {
     return ckpt ? ckpt->plan_text : NULL;
 }
 
+/**
+ * @brief Borrow the agent state string.
+ *
+ * Returns "CREATED" when no state is set or on NULL input.
+ *
+ * @param[in] ckpt Checkpoint, or NULL.
+ * @return Agent state text.
+ */
 const char* aegis_checkpoint_agent_state(const aegis_checkpoint_t* ckpt)
 {
     return ckpt ? ckpt->agent_state : "CREATED";
 }
 
+/**
+ * @brief Return the number of task snapshots stored.
+ *
+ * @param[in] ckpt Checkpoint, or NULL.
+ * @return Task count, or 0 for NULL.
+ */
 size_t aegis_checkpoint_task_count(const aegis_checkpoint_t* ckpt)
 {
     return ckpt ? ckpt->n_tasks : 0;
 }
 
+/**
+ * @brief Borrow the task snapshot at a given index.
+ *
+ * Out-of-range returns NULL. Valid until the checkpoint is modified
+ * or destroyed.
+ *
+ * @param[in] ckpt Checkpoint to query.
+ * @param[in] idx  Zero-based index.
+ * @return Task snapshot pointer, or NULL for out-of-range / NULL ckpt.
+ */
 const aegis_checkpoint_task_snapshot_t* aegis_checkpoint_task_snapshot(
     const aegis_checkpoint_t* ckpt, size_t idx)
 {

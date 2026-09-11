@@ -127,26 +127,56 @@ void aegis_reflection_destroy(aegis_reflection_t* refl)
     free(refl);
 }
 
+/**
+ * @brief Return the number of successful tasks.
+ *
+ * @param[in] refl Reflection, or NULL.
+ * @return Success count, or 0 for NULL.
+ */
 size_t aegis_reflection_success_count(const aegis_reflection_t* refl)
 {
     return refl ? refl->success : 0;
 }
 
+/**
+ * @brief Return the number of failed tasks.
+ *
+ * @param[in] refl Reflection, or NULL.
+ * @return Failed count, or 0 for NULL.
+ */
 size_t aegis_reflection_failed_count(const aegis_reflection_t* refl)
 {
     return refl ? refl->failed : 0;
 }
 
+/**
+ * @brief Return the number of cancelled tasks.
+ *
+ * @param[in] refl Reflection, or NULL.
+ * @return Cancelled count, or 0 for NULL.
+ */
 size_t aegis_reflection_cancelled_count(const aegis_reflection_t* refl)
 {
     return refl ? refl->cancelled : 0;
 }
 
+/**
+ * @brief Return the number of skipped tasks.
+ *
+ * @param[in] refl Reflection, or NULL.
+ * @return Skipped count, or 0 for NULL.
+ */
 size_t aegis_reflection_skipped_count(const aegis_reflection_t* refl)
 {
     return refl ? refl->skipped : 0;
 }
 
+/**
+ * @brief Return the number of incomplete (non-terminal) tasks.
+ *
+ * @param[in] refl Reflection, or NULL.
+ * @return Incomplete count, or 0 for NULL.
+ */
 size_t aegis_reflection_incomplete_count(const aegis_reflection_t* refl)
 {
     return refl ? refl->incomplete : 0;

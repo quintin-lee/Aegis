@@ -96,18 +96,44 @@ aegis_status_t aegis_tool_call_clone(const aegis_tool_call_t* src, aegis_tool_ca
     return AEGIS_OK;
 }
 
+/**
+ * @brief Borrow the tool-call id string.
+ *
+ * @param[in] c Tool call, or NULL.
+ * @return Call-id text, or NULL for NULL call.
+ */
 const char* aegis_tool_call_id(const aegis_tool_call_t* c)
 {
     return c ? c->call_id : NULL;
 }
+/**
+ * @brief Borrow the tool name string.
+ *
+ * @param[in] c Tool call, or NULL.
+ * @return Tool name text, or NULL for NULL call.
+ */
 const char* aegis_tool_call_name(const aegis_tool_call_t* c)
 {
     return c ? c->tool_name : NULL;
 }
+/**
+ * @brief Borrow the JSON arguments string.
+ *
+ * @param[in] c Tool call, or NULL.
+ * @return Arguments text, or NULL for NULL call / empty args.
+ */
 const char* aegis_tool_call_arguments(const aegis_tool_call_t* c)
 {
     return c ? c->arguments : NULL;
 }
+/**
+ * @brief Return the tool-call index within its parent message.
+ *
+ * Returns -1 when @p c is NULL or no index has been set.
+ *
+ * @param[in] c Tool call, or NULL.
+ * @return Index value, or -1 for NULL.
+ */
 int aegis_tool_call_index(const aegis_tool_call_t* c)
 {
     return c ? c->index : -1;
@@ -127,6 +153,16 @@ static aegis_status_t set_str(char** dst, const char* src)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Set the call-id, replacing any prior value.
+ *
+ * Empty string is rejected. Deep-copied.
+ *
+ * @param[in] c    Tool call to update.
+ * @param[in] id   New call-id text.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL c or empty id,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_call_set_id(aegis_tool_call_t* c, const char* id)
 {
     if (!c) {
@@ -134,6 +170,16 @@ aegis_status_t aegis_tool_call_set_id(aegis_tool_call_t* c, const char* id)
     }
     return set_str(&c->call_id, id);
 }
+/**
+ * @brief Set the tool name, replacing any prior value.
+ *
+ * Deep-copied.
+ *
+ * @param[in] c      Tool call to update.
+ * @param[in] name   New tool name text.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL c,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_call_set_name(aegis_tool_call_t* c, const char* name)
 {
     if (!c) {
@@ -141,6 +187,16 @@ aegis_status_t aegis_tool_call_set_name(aegis_tool_call_t* c, const char* name)
     }
     return set_str(&c->tool_name, name);
 }
+/**
+ * @brief Set the JSON arguments string, replacing any prior value.
+ *
+ * Deep-copied.
+ *
+ * @param[in] c      Tool call to update.
+ * @param[in] json   New arguments text.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL c,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_tool_call_set_arguments(aegis_tool_call_t* c, const char* json)
 {
     if (!c) {
@@ -148,6 +204,13 @@ aegis_status_t aegis_tool_call_set_arguments(aegis_tool_call_t* c, const char* j
     }
     return set_str(&c->arguments, json);
 }
+/**
+ * @brief Set the tool-call index within its parent message.
+ *
+ * @param[in] c    Tool call to update.
+ * @param[in] idx  New index value.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL c.
+ */
 aegis_status_t aegis_tool_call_set_index(aegis_tool_call_t* c, int idx)
 {
     if (!c) {

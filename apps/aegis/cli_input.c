@@ -22,6 +22,16 @@
  * running turn are not lost: an empty line interrupts the turn, a
  * non-empty line queues as the next input. */
 
+/**
+ * @brief Initialise a line-queue for use by the background reader thread.
+ *
+ * Creates the mutex and condition variable; the queue starts empty and
+ * unclosed. Must be called before any push/pop/close. Not thread-safe
+ * with concurrent initialisation — only one thread should call this on
+ * a given queue at a time.
+ *
+ * @param[in] q Queue to initialise.
+ */
 void lq_init(line_queue_t* q)
 {
     memset(q, 0, sizeof(*q));
@@ -29,6 +39,17 @@ void lq_init(line_queue_t* q)
     pthread_cond_init(&q->cv, NULL);
 }
 
+/**
+ * @brief Push a line onto the queue, signalling the pop waiter.
+ *
+ * The caller still owns @p text after this call (the line cell captures
+ * the pointer). Thread-safe: the queue mutex is held during the push.
+ *
+ * @param[in] q    Queue to append to (must be initialised).
+ * @param[in] text Line text to queue (may be NULL — a NULL cell is
+ *                 dropped; the pointer is still free'd when the cell is
+ *                 popped).
+ */
 void lq_push(line_queue_t* q, char* text)
 {
     line_cell_t* c = malloc(sizeof(*c));
@@ -69,6 +90,14 @@ char* lq_pop(line_queue_t* q)
     return text;
 }
 
+/**
+ * @brief Signal the queue closed so pop() unblocks and returns NULL.
+ *
+ * Broadcasts the condition variable so all waiters wake up and observe
+ * the closed flag. Thread-safe.
+ *
+ * @param[in] q Queue to close (must be initialised).
+ */
 void lq_close(line_queue_t* q)
 {
     pthread_mutex_lock(&q->mu);
@@ -91,6 +120,16 @@ volatile sig_atomic_t g_reader_shutdown = 0;
 struct termios g_orig_tio;
 bool           g_raw_enabled = false;
 
+/**
+ * @brief Switch stdin into raw (non-canonical, no-echo) mode so that a
+ *        single Esc byte is delivered immediately — enabling the
+ *        interactive agent to react to "Esc to interrupt" without
+ *        waiting for a newline.
+ *
+ * A copy of the original termios struct is saved in g_orig_tio so that
+ * raw_disable() can restore it. No-op when stdin is not a TTY (tests,
+ * pipes). Not thread-safe: only one session should call this at a time.
+ */
 void raw_enable(void)
 {
     if (!isatty(STDIN_FILENO)) {
@@ -108,6 +147,13 @@ void raw_enable(void)
     }
 }
 
+/**
+ * @brief Restore the original termios settings and re-enable canonical
+ *        mode + echo on stdin.
+ *
+ * No-op when raw mode was never enabled. Not thread-safe with concurrent
+ * enable/disable calls.
+ */
 void raw_disable(void)
 {
     if (g_raw_enabled) {
