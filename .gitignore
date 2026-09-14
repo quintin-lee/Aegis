@@ -19,6 +19,9 @@ compile_commands.json
 *.swo
 *~
 
+# opencode session state
+.omo/
+
 # OS
 .DS_Store
 Thumbs.db
