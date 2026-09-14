@@ -5,6 +5,8 @@
  */
 #include "aegis/session/session.h"
 #include "aegis/message/message.h"
+#include "aegis/model/model.h"
+#include "aegis/common/cancellation/cancellation.h"
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -276,6 +278,123 @@ static void test_fork(void)
     printf("fork PASS\n");
 }
 
+static aegis_status_t failing_complete(void* user, const aegis_model_request_t* req,
+                                       const aegis_cancellation_token_t* token,
+                                       aegis_model_response_t** out)
+{
+    (void)user;
+    (void)req;
+    (void)token;
+    *out = NULL;
+    return AEGIS_ERR_PROVIDER;
+}
+
+static aegis_session_t* make_session_with_user_msgs(const char* root, size_t total)
+{
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create(root, &s), "make session");
+    for (size_t i = 0; i < total; ++i) {
+        aegis_message_t* m = NULL;
+        expect_ok(aegis_message_create(AEGIS_MESSAGE_USER, &m), "make msg");
+        char buf[32];
+        snprintf(buf, sizeof(buf), "msg %zu", i);
+        expect_ok(aegis_message_set_content(m, buf), "make msg content");
+        expect_ok(aegis_session_append_message(s, m), "make msg append");
+        aegis_message_destroy(m);
+    }
+    return s;
+}
+
+static void test_compact_with_summary_null_model(void)
+{
+    aegis_session_t* s = make_session_with_user_msgs("/tmp/sum-null", 10);
+    aegis_message_t* summary = NULL;
+    aegis_status_t st =
+        aegis_session_compact_with_summary(s, 3, /*model*/ NULL, /*token*/ NULL, &summary);
+    assert(st == AEGIS_OK);
+    assert(summary == NULL);
+    assert(aegis_session_message_count(s) == 3);
+    aegis_session_destroy(s);
+    printf("compact_with_summary_null_model PASS\n");
+}
+
+static void test_compact_with_summary_mock_model(void)
+{
+    aegis_session_t* s = make_session_with_user_msgs("/tmp/sum-mock", 5);
+    aegis_model_client_t* model = NULL;
+    expect_ok(aegis_model_client_create("mock", &model), "mock client");
+    aegis_message_t* summary = NULL;
+    aegis_status_t st =
+        aegis_session_compact_with_summary(s, 2, model, /*token*/ NULL, &summary);
+    assert(st == AEGIS_OK);
+    assert(summary != NULL);
+    /* retained (2) + prepended summary (1) = 3. */
+    assert(aegis_session_message_count(s) == 3);
+    const aegis_message_t* head = aegis_session_message_at(s, 0);
+    assert(aegis_message_role(head) == AEGIS_MESSAGE_ASSISTANT);
+    /* Dropped [0,3) = msgs 0,1,2; last USER content 'msg 2' -> mock echoes it. */
+    assert(strcmp(aegis_message_content(head), "mock response to: msg 2") == 0);
+    aegis_model_client_destroy(model);
+    aegis_session_destroy(s);
+    printf("compact_with_summary_mock PASS\n");
+}
+
+static void test_compact_with_summary_model_fails(void)
+{
+    aegis_session_t* s = make_session_with_user_msgs("/tmp/sum-fail", 5);
+    aegis_model_backend_t backend = {
+        .user = NULL, .complete = failing_complete, .stream = NULL,
+        .capabilities = AEGIS_MODEL_CAP_TEXT,
+    };
+    aegis_model_client_t* model = NULL;
+    expect_ok(aegis_model_client_create_with_backend("mock", &backend, &model), "fail client");
+    aegis_message_t* summary = NULL;
+    aegis_status_t st =
+        aegis_session_compact_with_summary(s, 2, model, /*token*/ NULL, &summary);
+    assert(st == AEGIS_OK); /* truncation still happened */
+    assert(summary == NULL);
+    assert(aegis_session_message_count(s) == 2);
+    aegis_model_client_destroy(model);
+    aegis_session_destroy(s);
+    printf("compact_with_summary_model_fails PASS\n");
+}
+
+static void test_compact_with_summary_cancelled_token(void)
+{
+    aegis_session_t* s = make_session_with_user_msgs("/tmp/sum-cancel", 5);
+    aegis_model_client_t* model = NULL;
+    expect_ok(aegis_model_client_create("mock", &model), "cancel client");
+    aegis_cancellation_token_t* token = NULL;
+    expect_ok(aegis_cancellation_token_create(&token), "token");
+    aegis_cancellation_token_request_cancel(token);
+    aegis_message_t* summary = NULL;
+    aegis_status_t st =
+        aegis_session_compact_with_summary(s, 2, model, token, &summary);
+    assert(st == AEGIS_OK);
+    assert(summary == NULL);
+    assert(aegis_session_message_count(s) == 2);
+    aegis_cancellation_token_destroy(token);
+    aegis_model_client_destroy(model);
+    aegis_session_destroy(s);
+    printf("compact_with_summary_cancelled PASS\n");
+}
+
+static void test_compact_with_summary_noop(void)
+{
+    aegis_session_t* s = make_session_with_user_msgs("/tmp/sum-noop", 5);
+    aegis_model_client_t* model = NULL;
+    expect_ok(aegis_model_client_create("mock", &model), "noop client");
+    aegis_message_t* summary = NULL;
+    aegis_status_t st =
+        aegis_session_compact_with_summary(s, 5, model, /*token*/ NULL, &summary);
+    assert(st == AEGIS_OK);
+    assert(summary == NULL);
+    assert(aegis_session_message_count(s) == 5);
+    aegis_model_client_destroy(model);
+    aegis_session_destroy(s);
+    printf("compact_with_summary_noop PASS\n");
+}
+
 int main(void)
 {
     test_create_append();
@@ -286,6 +405,11 @@ int main(void)
     test_compact_preserves_tool_group();
     test_compact_preserves_multiple_tool_results();
     test_fork();
+    test_compact_with_summary_null_model();
+    test_compact_with_summary_mock_model();
+    test_compact_with_summary_model_fails();
+    test_compact_with_summary_cancelled_token();
+    test_compact_with_summary_noop();
     printf("All session tests PASS\n");
     return 0;
 }
