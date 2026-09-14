@@ -44,30 +44,25 @@ typedef struct aegis_anthropic_model_ctx {
 } aegis_anthropic_model_ctx_t;
 
 /* Per-block type of the content block currently being streamed. */
-typedef enum {
-    BLOCK_NONE = 0,
-    BLOCK_TEXT,
-    BLOCK_THINKING,
-    BLOCK_TOOL_USE
-} block_kind_t;
+typedef enum { BLOCK_NONE = 0, BLOCK_TEXT, BLOCK_THINKING, BLOCK_TOOL_USE } block_kind_t;
 
 typedef struct {
-    aegis_anthropic_model_ctx_t*    ctx;
-    const aegis_model_request_t*    req;
+    aegis_anthropic_model_ctx_t*      ctx;
+    const aegis_model_request_t*      req;
     const aegis_cancellation_token_t* token;
-    aegis_model_stream_callback_fn  callback;
-    void*                           callback_user;
-    aegis_sse_state_t               sse;
-    uint32_t                        input_tokens;
-    uint32_t                        output_tokens;
-    bool                            saw_stop;
-    block_kind_t                    block_type[16];
-    bool                            block_started[16];
-    char*                           tool_args[16];
-    size_t                          tool_args_len[16];
-    size_t                          tool_args_cap[16];
-    char                            tool_id[16][128];
-    char                            tool_name[16][256];
+    aegis_model_stream_callback_fn    callback;
+    void*                             callback_user;
+    aegis_sse_state_t                 sse;
+    uint32_t                          input_tokens;
+    uint32_t                          output_tokens;
+    bool                              saw_stop;
+    block_kind_t                      block_type[16];
+    bool                              block_started[16];
+    char*                             tool_args[16];
+    size_t                            tool_args_len[16];
+    size_t                            tool_args_cap[16];
+    char                              tool_id[16][128];
+    char                              tool_name[16][256];
 } anthro_state_t;
 
 /* ── JSON body helpers (Anthropic wire shape) ────────────────────────── */
@@ -76,8 +71,8 @@ static int append_system_param(aegis_json_builder_t* b, const aegis_message_list
 {
     /* Collect system-role messages; join into a top-level "system" array of
      * {type:"text",text} blocks. */
-    int  first = 1;
-    int  count = 0;
+    int first = 1;
+    int count = 0;
     for (size_t i = 0; i < aegis_message_list_count(msgs); ++i) {
         const aegis_message_t* m = aegis_message_list_at(msgs, i);
         if (aegis_message_role(m) != AEGIS_MESSAGE_SYSTEM) {
@@ -97,7 +92,8 @@ static int append_system_param(aegis_json_builder_t* b, const aegis_message_list
                 return 0;
             }
         }
-        if (!aegis_json_append_raw(b, "{\"type\":\"text\",\"text\":", strlen("{\"type\":\"text\",\"text\":")) ||
+        if (!aegis_json_append_raw(
+                b, "{\"type\":\"text\",\"text\":", strlen("{\"type\":\"text\",\"text\":")) ||
             !aegis_json_append_string(b, text) || !aegis_json_append_raw(b, "}", 1)) {
             return 0;
         }
@@ -111,8 +107,8 @@ static int append_system_param(aegis_json_builder_t* b, const aegis_message_list
 
 static int append_content_block_text(aegis_json_builder_t* b, const char* text)
 {
-    if (!aegis_json_append_raw(b, "{\"type\":\"text\",\"text\":",
-                               strlen("{\"type\":\"text\",\"text\":")) ||
+    if (!aegis_json_append_raw(
+            b, "{\"type\":\"text\",\"text\":", strlen("{\"type\":\"text\",\"text\":")) ||
         !aegis_json_append_string(b, text) || !aegis_json_append_raw(b, "}", 1)) {
         return 0;
     }
@@ -130,8 +126,9 @@ static int append_message_blocks(aegis_json_builder_t* b, const aegis_message_t*
     switch (aegis_message_role(m)) {
     case AEGIS_MESSAGE_TOOL: {
         /* tool_result content block inside a user message */
-        if (!aegis_json_append_raw(b, ",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":",
-                                   strlen(",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":"))) {
+        if (!aegis_json_append_raw(
+                b, ",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":",
+                strlen(",\"content\":[{\"type\":\"tool_result\",\"tool_use_id\":"))) {
             return 0;
         }
         const char* id = aegis_message_tool_call_id(m);
@@ -147,14 +144,14 @@ static int append_message_blocks(aegis_json_builder_t* b, const aegis_message_t*
     }
     case AEGIS_MESSAGE_ASSISTANT: {
         const char* content = aegis_message_content(m);
-        size_t      tc     = aegis_message_tool_call_count(m);
+        size_t      tc      = aegis_message_tool_call_count(m);
         if (!content && tc == 0) {
             return aegis_json_append_raw(b, ",\"content\":[]", strlen(",\"content\":[]"));
         }
         if (!aegis_json_append_raw(b, ",\"content\":[", strlen(",\"content\":["))) {
             return 0;
         }
-        int  first = 1;
+        int first = 1;
         if (content) {
             if (!append_content_block_text(b, content)) {
                 return 0;
@@ -210,7 +207,7 @@ static int append_message_blocks(aegis_json_builder_t* b, const aegis_message_t*
 typedef struct {
     aegis_json_builder_t* buffer;
     aegis_status_t        status;
-    bool                 first;
+    bool                  first;
 } tool_schema_context_t;
 
 static aegis_status_t append_tool_schema(const aegis_tool_def_t* def, void* user)
@@ -230,7 +227,7 @@ static aegis_status_t append_tool_schema(const aegis_tool_def_t* def, void* user
         !aegis_json_append_raw(b, ",\"description\":", strlen(",\"description\":")) ||
         !aegis_json_append_string(b, def->description ? def->description : "") ||
         !aegis_json_append_raw(b, ",\"input_schema\":{\"type\":\"object\",\"properties\":{",
-                                strlen(",\"input_schema\":{\"type\":\"object\",\"properties\":{"))) {
+                               strlen(",\"input_schema\":{\"type\":\"object\",\"properties\":{"))) {
         ctx->status = AEGIS_ERR_NOMEM;
         return ctx->status;
     }
@@ -248,7 +245,7 @@ static aegis_status_t append_tool_schema(const aegis_tool_def_t* def, void* user
         const char* type = p->type == AEGIS_TOOL_VAL_BOOL    ? "boolean"
                            : p->type == AEGIS_TOOL_VAL_INT   ? "integer"
                            : p->type == AEGIS_TOOL_VAL_FLOAT ? "number"
-                                                              : "string";
+                                                             : "string";
         if (!aegis_json_append_string(b, type)) {
             ctx->status = AEGIS_ERR_NOMEM;
             return ctx->status;
@@ -293,7 +290,7 @@ static aegis_status_t append_tool_schema(const aegis_tool_def_t* def, void* user
 
 static char* build_body(const aegis_model_request_t* req, const char* fallback_model)
 {
-    const char* model_name = req->model && *req->model ? req->model : fallback_model;
+    const char*          model_name = req->model && *req->model ? req->model : fallback_model;
     aegis_json_builder_t b;
     aegis_json_builder_init(&b);
     if (!aegis_json_append_raw(&b, "{\"model\":", strlen("{\"model\":")) ||
@@ -388,6 +385,18 @@ static const char* json_string_after(const char* json, const char* key)
     return p + 1;
 }
 
+/* Find the SECOND occurrence of @p key (the nested value, skipping the
+ * top-level event type). @return the string value start, or NULL. */
+static const char* json_string_after2(const char* json, const char* key)
+{
+    const char* p = strstr(json, key);
+    if (!p) {
+        return NULL;
+    }
+    p = p + strlen(key); /* skip past the first match */
+    return json_string_after(p, key);
+}
+
 static size_t copy_json_string(const char* p, char* out, size_t cap)
 {
     if (!p || !out || cap == 0) {
@@ -460,7 +469,7 @@ static int append_tool_args(anthro_state_t* s, uint32_t index, const char* chunk
         if (!p) {
             return 0;
         }
-        s->tool_args[index] = p;
+        s->tool_args[index]     = p;
         s->tool_args_cap[index] = cap;
     }
     memcpy(s->tool_args[index] + s->tool_args_len[index], chunk, len);
@@ -484,8 +493,8 @@ static int emit_event(anthro_state_t* s, const char* record, size_t len)
         free(json);
         return 1;
     }
-    char ev_type[64] = {0};
-    size_t ev_len     = copy_json_string(type, ev_type, sizeof(ev_type));
+    char   ev_type[64] = {0};
+    size_t ev_len      = copy_json_string(type, ev_type, sizeof(ev_type));
     if (!ev_len) {
         free(json);
         return 1;
@@ -502,8 +511,8 @@ static int emit_event(anthro_state_t* s, const char* record, size_t len)
         if (index < 16) {
             s->block_started[index] = true;
             s->block_type[index]    = BLOCK_NONE;
-            const char* cb_type      = json_string_after(json, "\"type\"");
-            char        cb[64] = {0};
+            const char* cb_type     = json_string_after2(json, "\"type\"");
+            char        cb[64]      = {0};
             if (cb_type && copy_json_string(cb_type, cb, sizeof(cb))) {
                 if (strcmp(cb, "text") == 0) {
                     s->block_type[index] = BLOCK_TEXT;
@@ -530,8 +539,8 @@ static int emit_event(anthro_state_t* s, const char* record, size_t len)
         uint32_t index = 0;
         json_uint_after(json, "\"index\"", &index);
         if (index < 16) {
-            const char* delta_type = json_string_after(json, "\"type\"");
-            char        dt[64] = {0};
+            const char* delta_type = json_string_after2(json, "\"type\"");
+            char        dt[64]     = {0};
             if (delta_type && copy_json_string(delta_type, dt, sizeof(dt))) {
                 if (strcmp(dt, "text_delta") == 0 && s->block_type[index] == BLOCK_TEXT) {
                     const char* text = json_string_after(json, "\"text\"");
@@ -541,7 +550,7 @@ static int emit_event(anthro_state_t* s, const char* record, size_t len)
                             free(json);
                             return 0;
                         }
-                        size_t n = copy_json_string(text, decoded, len + 1);
+                        size_t                     n  = copy_json_string(text, decoded, len + 1);
                         aegis_model_stream_event_t ev = {
                             .type = AEGIS_MODEL_STREAM_TEXT_DELTA, .data = decoded, .len = n};
                         aegis_status_t rc = s->callback(&ev, s->callback_user);
@@ -560,7 +569,7 @@ static int emit_event(anthro_state_t* s, const char* record, size_t len)
                             free(json);
                             return 0;
                         }
-                        size_t n = copy_json_string(thinking, decoded, len + 1);
+                        size_t                     n = copy_json_string(thinking, decoded, len + 1);
                         aegis_model_stream_event_t ev = {
                             .type = AEGIS_MODEL_STREAM_REASONING_DELTA, .data = decoded, .len = n};
                         aegis_status_t rc = s->callback(&ev, s->callback_user);
@@ -574,9 +583,6 @@ static int emit_event(anthro_state_t* s, const char* record, size_t len)
                            s->block_type[index] == BLOCK_TOOL_USE) {
                     const char* partial = json_string_after(json, "\"partial_json\"");
                     if (partial) {
-                        /* copy the raw (unescaped) JSON substring */
-                        size_t n = copy_json_string(partial, (char*)s->tool_name[index], 0);
-                        (void)n;
                         char* chunk = malloc(len + 1);
                         if (!chunk) {
                             free(json);
@@ -609,14 +615,15 @@ static int emit_event(anthro_state_t* s, const char* record, size_t len)
                                                     .index     = index,
                                                     .tool_name = s->tool_name[index],
                                                     .call_id   = s->tool_id[index]};
-                aegis_status_t rc = s->callback(&delta, s->callback_user);
+                aegis_status_t             rc    = s->callback(&delta, s->callback_user);
                 if (rc != AEGIS_OK) {
                     free(json);
                     return 0;
                 }
             }
             /* END the tool call */
-            aegis_model_stream_event_t end = {.type = AEGIS_MODEL_STREAM_TOOL_CALL_END, .index = index};
+            aegis_model_stream_event_t end = {.type  = AEGIS_MODEL_STREAM_TOOL_CALL_END,
+                                              .index = index};
             if (s->callback(&end, s->callback_user) != AEGIS_OK) {
                 free(json);
                 return 0;
@@ -632,7 +639,7 @@ static int emit_event(anthro_state_t* s, const char* record, size_t len)
     }
     if (strcmp(ev_type, "message_stop") == 0) {
         aegis_usage_t u = {.input_tokens = s->input_tokens, .output_tokens = s->output_tokens};
-        u.total_tokens   = u.input_tokens + u.output_tokens;
+        u.total_tokens  = u.input_tokens + u.output_tokens;
         aegis_model_stream_event_t usage = {
             .type = AEGIS_MODEL_STREAM_USAGE, .data = &u, .len = sizeof(u)};
         aegis_status_t rc = s->callback(&usage, s->callback_user);
@@ -650,8 +657,9 @@ static int emit_event(anthro_state_t* s, const char* record, size_t len)
         return 1;
     }
     if (strcmp(ev_type, "error") == 0) {
-        aegis_model_stream_event_t ev = {.type = AEGIS_MODEL_STREAM_ERROR, .data = json, .len = len};
-        aegis_status_t              rc = s->callback(&ev, s->callback_user);
+        aegis_model_stream_event_t ev = {
+            .type = AEGIS_MODEL_STREAM_ERROR, .data = json, .len = len};
+        aegis_status_t rc = s->callback(&ev, s->callback_user);
         free(json);
         return rc == AEGIS_OK;
     }
@@ -752,8 +760,8 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
         return AEGIS_ERR_PERM;
     }
     const char* base = ctx->base_url && *ctx->base_url ? ctx->base_url : ANTHROPIC_DEFAULT_URL;
-    char url[2048];
-    int  u = snprintf(url, sizeof(url), "%s/v1/messages", base);
+    char        url[2048];
+    int         u = snprintf(url, sizeof(url), "%s/v1/messages", base);
     if (u < 0 || (size_t)u >= sizeof(url)) {
         free(body);
         return AEGIS_ERR_INVALID;
@@ -774,13 +782,12 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
     headers                    = curl_slist_append(headers, "Content-Type: application/json");
     headers                    = curl_slist_append(headers, "Accept: text/event-stream");
     headers                    = curl_slist_append(headers, apikey);
-    headers                    =
-        curl_slist_append(headers, "anthropic-version: 2023-06-01");
-    anthro_state_t state = {.ctx           = ctx,
-                            .req           = req,
-                            .token         = token,
-                            .callback      = callback,
-                            .callback_user = callback_user};
+    headers                    = curl_slist_append(headers, "anthropic-version: 2023-06-01");
+    anthro_state_t state       = {.ctx           = ctx,
+                                  .req           = req,
+                                  .token         = token,
+                                  .callback      = callback,
+                                  .callback_user = callback_user};
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
@@ -829,45 +836,27 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
 
 /* ── complete-response parsing ───────────────────────────────────────── */
 
-static int append_content_block_to_message(aegis_message_t* msg, const char* block_json, size_t len,
-                                           char* scratch, size_t scratch_cap)
-{
-    (void)scratch;
-    (void)scratch_cap;
-    const char* text = json_string_after(block_json, "\"text\"");
-    if (text) {
-        char* decoded = malloc(len + 1);
-        if (!decoded) {
-            return 0;
-        }
-        size_t n = copy_json_string(text, decoded, len + 1);
-        aegis_message_set_content(msg, n ? decoded : "");
-        free(decoded);
-    }
-    return 1;
-}
-
 static aegis_status_t parse_complete_response(const char* json, size_t len,
-                                               aegis_model_response_t** out)
+                                              aegis_model_response_t** out)
 {
     if (!json || !out || len == 0 || len > ANTHROPIC_MAX_RESPONSE) {
         return AEGIS_ERR_INVALID;
     }
-    *out                            = NULL;
+    *out                             = NULL;
     aegis_model_response_t* response = NULL;
     aegis_status_t          status   = aegis_model_response_create(&response);
     if (status != AEGIS_OK) {
         return status;
     }
     aegis_message_t* message = NULL;
-    status                  = aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &message);
+    status                   = aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &message);
     if (status != AEGIS_OK) {
         aegis_model_response_destroy(response);
         return status;
     }
     /* Concatenate all text content blocks into one content string. */
-    char* content = NULL;
-    size_t content_len = 0, content_cap = 0;
+    char*       content     = NULL;
+    size_t      content_len = 0, content_cap = 0;
     const char* p = json;
     while ((p = strstr(p, "\"type\":\"text\"")) != NULL) {
         const char* text = json_string_after(p, "\"text\"");
@@ -903,9 +892,8 @@ static aegis_status_t parse_complete_response(const char* json, size_t len,
     response->message = message;
     json_uint_after(json, "\"input_tokens\"", &response->usage.input_tokens);
     json_uint_after(json, "\"output_tokens\"", &response->usage.output_tokens);
-    response->usage.total_tokens =
-        response->usage.input_tokens + response->usage.output_tokens;
-    response->raw = malloc(len + 1);
+    response->usage.total_tokens = response->usage.input_tokens + response->usage.output_tokens;
+    response->raw                = malloc(len + 1);
     if (!response->raw) {
         free(content);
         aegis_model_response_destroy(response);
@@ -925,7 +913,7 @@ cleanup:
 
 #ifdef AEGIS_ANTHROPIC_TEST_API
 aegis_status_t aegis_anthropic_parse_complete_response(const char* json, size_t len,
-                                                        aegis_model_response_t** out)
+                                                       aegis_model_response_t** out)
 {
     return parse_complete_response(json, len, out);
 }
@@ -934,7 +922,7 @@ aegis_status_t aegis_anthropic_parse_complete_response(const char* json, size_t 
 static size_t on_complete_write(void* ptr, size_t size, size_t nmemb, void* user)
 {
     aegis_json_builder_t* buffer = user;
-    size_t total                = size * nmemb;
+    size_t                total  = size * nmemb;
     return aegis_json_append_raw(buffer, ptr, total) ? total : 0;
 }
 
@@ -946,7 +934,7 @@ static aegis_status_t structured_complete(void* user, const aegis_model_request_
         return AEGIS_ERR_INVALID;
     }
     aegis_anthropic_model_ctx_t* ctx = user;
-    *out                              = NULL;
+    *out                             = NULL;
     if (token && aegis_cancellation_token_is_cancelled(token)) {
         return AEGIS_ERR_CANCELLED;
     }
@@ -1027,8 +1015,8 @@ aegis_status_t aegis_anthropic_model_create(const char* api_key, const char* bas
     if (!out || !backend) {
         return AEGIS_ERR_INVALID;
     }
-    *out                               = NULL;
-    aegis_anthropic_model_ctx_t* ctx   = calloc(1, sizeof(*ctx));
+    *out                             = NULL;
+    aegis_anthropic_model_ctx_t* ctx = calloc(1, sizeof(*ctx));
     if (!ctx) {
         return AEGIS_ERR_NOMEM;
     }
@@ -1039,12 +1027,12 @@ aegis_status_t aegis_anthropic_model_create(const char* api_key, const char* bas
         aegis_anthropic_model_destroy(ctx);
         return AEGIS_ERR_NOMEM;
     }
-    backend->user     = ctx;
-    backend->complete = structured_complete;
-    backend->stream   = structured_stream;
+    backend->user         = ctx;
+    backend->complete     = structured_complete;
+    backend->stream       = structured_stream;
     backend->capabilities = AEGIS_MODEL_CAP_TEXT | AEGIS_MODEL_CAP_TOOL_CALLING |
                             AEGIS_MODEL_CAP_STREAMING | AEGIS_MODEL_CAP_REASONING;
-    *out = ctx;
+    *out                  = ctx;
     return AEGIS_OK;
 }
 
