@@ -25,6 +25,8 @@ typedef struct aegis_model_request {
     bool                         stream;
     const char*                  tool_choice; /**< Borrowed, e.g. "auto" */
     void*                        metadata;    /**< Borrowed user metadata */
+    uint32_t
+        thinking_budget; /**< 0 = disabled; else Anthropic thinking tokens (must be < max_tokens) */
 } aegis_model_request_t;
 
 #ifdef __cplusplus
