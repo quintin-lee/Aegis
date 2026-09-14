@@ -8,6 +8,7 @@ add_library(aegis_llm_openai STATIC
 set_source_files_properties(structured_openai.c PROPERTIES COMPILE_DEFINITIONS AEGIS_OPENAI_TEST_API)
 target_include_directories(aegis_llm_openai PUBLIC $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>
                                             PRIVATE ${PROJECT_SOURCE_DIR}/providers/llm/openai
+                                                    ${PROJECT_SOURCE_DIR}/providers/llm/shared
                                                     ${CURL_INCLUDE_DIRS})
-target_link_libraries(aegis_llm_openai PUBLIC aegis_common aegis_model aegis_message aegis_tool PRIVATE ${CURL_LIBRARIES})
+target_link_libraries(aegis_llm_openai PUBLIC aegis_common aegis_model aegis_message aegis_tool aegis_llm_shared PRIVATE ${CURL_LIBRARIES})
 aegis_set_warnings(aegis_llm_openai)

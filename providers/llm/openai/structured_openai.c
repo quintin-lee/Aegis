@@ -18,7 +18,7 @@
 #include "aegis/message/role.h"
 #include "aegis/message/tool_call.h"
 #include "aegis/tool/tool.h"
-#include <curl/curl.h>
+#include "llm_shared.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -27,12 +27,6 @@
 #define OPENAI_DEFAULT_URL   "https://api.openai.com/v1"
 #define OPENAI_DEFAULT_MODEL "gpt-4o-mini"
 #define OPENAI_MAX_RESPONSE  (16u * 1024u * 1024u)
-
-typedef struct {
-    char*  data;
-    size_t len;
-    size_t cap;
-} json_buf_t;
 
 typedef struct aegis_openai_model_ctx {
     char* api_key;
@@ -46,162 +40,73 @@ typedef struct {
     const aegis_cancellation_token_t* token;
     aegis_model_stream_callback_fn    callback;
     void*                             callback_user;
-    char*                             pending;
-    size_t                            pending_len;
-    size_t                            pending_cap;
+    aegis_sse_state_t                 sse;
     size_t                            response_bytes;
     bool                              saw_done;
     bool                              call_started[16];
     bool                              call_ended[16];
 } sse_state_t;
 
-static int checked_grow(json_buf_t* b, size_t extra)
-{
-    if (extra > SIZE_MAX - b->len - 1) {
-        return 0;
-    }
-    size_t need = b->len + extra + 1;
-    if (need <= b->cap) {
-        return 1;
-    }
-    size_t cap = b->cap ? b->cap : 256;
-    while (cap < need) {
-        if (cap > SIZE_MAX / 2) {
-            return 0;
-        }
-        cap *= 2;
-    }
-    char* p = realloc(b->data, cap);
-    if (!p) {
-        return 0;
-    }
-    b->data = p;
-    b->cap  = cap;
-    return 1;
-}
-
-static int append_raw(json_buf_t* b, const char* s, size_t n)
-{
-    if (!checked_grow(b, n)) {
-        return 0;
-    }
-    memcpy(b->data + b->len, s, n);
-    b->len += n;
-    b->data[b->len] = '\0';
-    return 1;
-}
-
-static int append_json_string(json_buf_t* b, const char* s)
-{
-    if (!s) {
-        s = "";
-    }
-    if (!append_raw(b, "\"", 1)) {
-        return 0;
-    }
-    for (const unsigned char* p = (const unsigned char*)s; *p; ++p) {
-        char   esc[7];
-        size_t n = 1;
-        switch (*p) {
-        case '"':
-            esc[0] = '\\';
-            esc[1] = '"';
-            n      = 2;
-            break;
-        case '\\':
-            esc[0] = '\\';
-            esc[1] = '\\';
-            n      = 2;
-            break;
-        case '\n':
-            esc[0] = '\\';
-            esc[1] = 'n';
-            n      = 2;
-            break;
-        case '\r':
-            esc[0] = '\\';
-            esc[1] = 'r';
-            n      = 2;
-            break;
-        case '\t':
-            esc[0] = '\\';
-            esc[1] = 't';
-            n      = 2;
-            break;
-        default:
-            if (*p < 0x20) {
-                int written = snprintf(esc, sizeof(esc), "\\u%04x", *p);
-                if (written != 6) {
-                    return 0;
-                }
-                n = 6;
-            } else {
-                esc[0] = (char)*p;
-            }
-            break;
-        }
-        if (!append_raw(b, esc, n)) {
-            return 0;
-        }
-    }
-    return append_raw(b, "\"", 1);
-}
-
-static int append_message(json_buf_t* b, const aegis_message_t* m)
+static int append_message(aegis_json_builder_t* b, const aegis_message_t* m)
 {
     const char* role = aegis_message_role_str(aegis_message_role(m));
-    if (!append_raw(b, "{\"role\":", strlen("{\"role\":")) || !append_json_string(b, role)) {
+    if (!aegis_json_append_raw(b, "{\"role\":", strlen("{\"role\":")) ||
+        !aegis_json_append_string(b, role)) {
         return 0;
     }
     const char* content = aegis_message_content(m);
     if (content) {
-        if (!append_raw(b, ",\"content\":", strlen(",\"content\":")) ||
-            !append_json_string(b, content)) {
+        if (!aegis_json_append_raw(b, ",\"content\":", strlen(",\"content\":")) ||
+            !aegis_json_append_string(b, content)) {
             return 0;
         }
     } else {
-        if (!append_raw(b, ",\"content\":null", strlen(",\"content\":null"))) {
+        if (!aegis_json_append_raw(b, ",\"content\":null", strlen(",\"content\":null"))) {
             return 0;
         }
     }
-    if (aegis_message_role(m) == AEGIS_MESSAGE_ASSISTANT && aegis_message_tool_call_count(m) > 0) {
-        if (!append_raw(b, ",\"tool_calls\":[", strlen(",\"tool_calls\":["))) {
+    if (aegis_message_role(m) == AEGIS_MESSAGE_ASSISTANT &&
+        aegis_message_tool_call_count(m) > 0) {
+        if (!aegis_json_append_raw(b, ",\"tool_calls\":[", strlen(",\"tool_calls\":["))) {
             return 0;
         }
 
         for (size_t i = 0; i < aegis_message_tool_call_count(m); ++i) {
             const aegis_tool_call_t* c = aegis_message_tool_call_at(m, i);
-            if (i && !append_raw(b, ",", 1)) {
+            if (i && !aegis_json_append_raw(b, ",", 1)) {
                 return 0;
             }
-            if (!append_raw(b, "{\"id\":", strlen("{\"id\":")) ||
-                !append_json_string(b, aegis_tool_call_id(c)) ||
-                !append_raw(b, ",\"type\":\"function\",\"function\":{\"name\":",
-                            strlen(",\"type\":\"function\",\"function\":{\"name\":")) ||
-                !append_json_string(b, aegis_tool_call_name(c)) ||
-                !append_raw(b, ",\"arguments\":", strlen(",\"arguments\":")) ||
-                !append_json_string(b, aegis_tool_call_arguments(c)) || !append_raw(b, "}}", 2)) {
+            if (!aegis_json_append_raw(b, "{\"id\":", strlen("{\"id\":")) ||
+                !aegis_json_append_string(b, aegis_tool_call_id(c)) ||
+                !aegis_json_append_raw(
+                    b, ",\"type\":\"function\",\"function\":{\"name\":",
+                    strlen(",\"type\":\"function\",\"function\":{\"name\":")) ||
+                !aegis_json_append_string(b, aegis_tool_call_name(c)) ||
+                !aegis_json_append_raw(b, ",\"arguments\":", strlen(",\"arguments\":")) ||
+                !aegis_json_append_string(b, aegis_tool_call_arguments(c)) ||
+                !aegis_json_append_raw(b, "}}", 2)) {
                 return 0;
             }
         }
-        if (!append_raw(b, "]", 1)) {
+        if (!aegis_json_append_raw(b, "]", 1)) {
             return 0;
         }
     }
     if (aegis_message_role(m) == AEGIS_MESSAGE_TOOL) {
         const char* id = aegis_message_tool_call_id(m);
-        if (id && (!append_raw(b, ",\"tool_call_id\":", strlen(",\"tool_call_id\":")) ||
-                   !append_json_string(b, id))) {
+        if (id &&
+            (!aegis_json_append_raw(b, ",\"tool_call_id\":", strlen(",\"tool_call_id\":")) ||
+             !aegis_json_append_string(b, id))) {
             return 0;
         }
     }
-    return append_raw(b, "}", 1);
+    return aegis_json_append_raw(b, "}", 1);
 }
 
 typedef struct {
-    json_buf_t*    buffer;
-    aegis_status_t status;
-    bool           first;
+    aegis_json_builder_t* builder;
+    aegis_status_t        status;
+    bool                  first;
 } tool_json_context_t;
 
 static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
@@ -210,52 +115,54 @@ static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
     if (!def || !ctx || ctx->status != AEGIS_OK) {
         return AEGIS_ERR_INVALID;
     }
-    json_buf_t* b = ctx->buffer;
-    if (!ctx->first && !append_raw(b, ",", 1)) {
+    aegis_json_builder_t* b = ctx->builder;
+    if (!ctx->first && !aegis_json_append_raw(b, ",", 1)) {
         ctx->status = AEGIS_ERR_NOMEM;
         return ctx->status;
     }
     ctx->first = false;
-    if (!append_raw(b, "{\"type\":\"function\",\"function\":{\"name\":",
-                    strlen("{\"type\":\"function\",\"function\":{\"name\":")) ||
-        !append_json_string(b, def->name) ||
-        append_raw(b, ",\"description\":", strlen(",\"description\":")) == 0 ||
-        !append_json_string(b, def->description ? def->description : "") ||
-        !append_raw(b, ",\"parameters\":{\"type\":\"object\",\"properties\":{",
-                    strlen(",\"parameters\":{\"type\":\"object\",\"properties\":{"))) {
+    if (!aegis_json_append_raw(
+            b, "{\"type\":\"function\",\"function\":{\"name\":",
+            strlen("{\"type\":\"function\",\"function\":{\"name\":")) ||
+        !aegis_json_append_string(b, def->name) ||
+        !aegis_json_append_raw(b, ",\"description\":", strlen(",\"description\":")) ||
+        !aegis_json_append_string(b, def->description ? def->description : "") ||
+        !aegis_json_append_raw(b, ",\"parameters\":{\"type\":\"object\",\"properties\":{",
+                                strlen(",\"parameters\":{\"type\":\"object\",\"properties\":{"))) {
         ctx->status = AEGIS_ERR_NOMEM;
         return ctx->status;
     }
     for (size_t i = 0; i < def->schema.param_count; ++i) {
         const aegis_tool_param_spec_t* p = &def->schema.params[i];
-        if (i && !append_raw(b, ",", 1)) {
+        if (i && !aegis_json_append_raw(b, ",", 1)) {
             ctx->status = AEGIS_ERR_NOMEM;
             return ctx->status;
         }
-        if (!append_json_string(b, p->name) ||
-            !append_raw(b, ":{\"type\":", strlen(":{\"type\":"))) {
+        if (!aegis_json_append_string(b, p->name) ||
+            !aegis_json_append_raw(b, ":{\"type\":", strlen(":{\"type\":"))) {
             ctx->status = AEGIS_ERR_NOMEM;
             return ctx->status;
         }
         const char* type = p->type == AEGIS_TOOL_VAL_BOOL    ? "boolean"
-                           : p->type == AEGIS_TOOL_VAL_INT   ? "integer"
-                           : p->type == AEGIS_TOOL_VAL_FLOAT ? "number"
-                                                             : "string";
-        if (!append_json_string(b, type)) {
+                            : p->type == AEGIS_TOOL_VAL_INT   ? "integer"
+                            : p->type == AEGIS_TOOL_VAL_FLOAT ? "number"
+                                                              : "string";
+        if (!aegis_json_append_string(b, type)) {
             ctx->status = AEGIS_ERR_NOMEM;
             return ctx->status;
         }
-        if (p->description && (!append_raw(b, ",\"description\":", strlen(",\"description\":")) ||
-                               !append_json_string(b, p->description))) {
+        if (p->description &&
+            (!aegis_json_append_raw(b, ",\"description\":", strlen(",\"description\":")) ||
+             !aegis_json_append_string(b, p->description))) {
             ctx->status = AEGIS_ERR_NOMEM;
             return ctx->status;
         }
-        if (!append_raw(b, "}", 1)) {
+        if (!aegis_json_append_raw(b, "}", 1)) {
             ctx->status = AEGIS_ERR_NOMEM;
             return ctx->status;
         }
     }
-    if (!append_raw(b, "},\"required\":[", strlen("},\"required\":["))) {
+    if (!aegis_json_append_raw(b, "},\"required\":[", strlen("},\"required\":["))) {
         ctx->status = AEGIS_ERR_NOMEM;
         return ctx->status;
     }
@@ -265,17 +172,17 @@ static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
         if (!p->required) {
             continue;
         }
-        if (!first && !append_raw(b, ",", 1)) {
+        if (!first && !aegis_json_append_raw(b, ",", 1)) {
             ctx->status = AEGIS_ERR_NOMEM;
             return ctx->status;
         }
         first = false;
-        if (!append_json_string(b, p->name)) {
+        if (!aegis_json_append_string(b, p->name)) {
             ctx->status = AEGIS_ERR_NOMEM;
             return ctx->status;
         }
     }
-    if (!append_raw(b, "]}}}", strlen("]}}}"))) {
+    if (!aegis_json_append_raw(b, "]}}}", strlen("]}}}"))) {
         ctx->status = AEGIS_ERR_NOMEM;
         return ctx->status;
     }
@@ -285,57 +192,59 @@ static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
 static char* build_body(const aegis_model_request_t* req, const char* fallback_model)
 {
     const char* model_name = req->model && *req->model ? req->model : fallback_model;
-    json_buf_t  b          = {0};
-    if (!append_raw(&b, "{\"model\":", strlen("{\"model\":")) ||
-        !append_json_string(&b, model_name) ||
-        !append_raw(&b, ",\"messages\":[", strlen(",\"messages\":["))) {
+    aegis_json_builder_t b;
+    aegis_json_builder_init(&b);
+    if (!aegis_json_append_raw(&b, "{\"model\":", strlen("{\"model\":")) ||
+        !aegis_json_append_string(&b, model_name) ||
+        !aegis_json_append_raw(&b, ",\"messages\":[", strlen(",\"messages\":["))) {
         goto fail;
     }
     size_t n = req->messages ? aegis_message_list_count(req->messages) : 0;
     for (size_t i = 0; i < n; ++i) {
-        if (i && !append_raw(&b, ",", 1)) {
+        if (i && !aegis_json_append_raw(&b, ",", 1)) {
             goto fail;
         }
         if (!append_message(&b, aegis_message_list_at(req->messages, i))) {
             goto fail;
         }
     }
-    if (!append_raw(&b, "]", 1)) {
+    if (!aegis_json_append_raw(&b, "]", 1)) {
         goto fail;
     }
     if (req->tools && aegis_tool_registry_count(req->tools) > 0) {
-        if (!append_raw(&b, ",\"tools\":[", strlen(",\"tools\":["))) {
+        if (!aegis_json_append_raw(&b, ",\"tools\":[", strlen(",\"tools\":["))) {
             goto fail;
         }
-        tool_json_context_t ctx = {.buffer = &b, .status = AEGIS_OK, .first = true};
+        tool_json_context_t ctx = {.builder = &b, .status = AEGIS_OK, .first = true};
         if (aegis_tool_registry_visit(req->tools, append_tool_json, &ctx) != AEGIS_OK ||
             ctx.status != AEGIS_OK) {
             goto fail;
         }
-        if (!append_raw(&b, "]", 1)) {
+        if (!aegis_json_append_raw(&b, "]", 1)) {
             goto fail;
         }
     }
-    if (req->stream && !append_raw(&b, ",\"stream\":true", strlen(",\"stream\":true"))) {
+    if (req->stream && !aegis_json_append_raw(&b, ",\"stream\":true", strlen(",\"stream\":true"))) {
         goto fail;
     }
-    if (req->stream && !append_raw(&b, ",\"stream_options\":{\"include_usage\":true}",
-                                   strlen(",\"stream_options\":{\"include_usage\":true}"))) {
+    if (req->stream &&
+        !aegis_json_append_raw(&b, ",\"stream_options\":{\"include_usage\":true}",
+                               strlen(",\"stream_options\":{\"include_usage\":true}"))) {
         goto fail;
     }
     if (req->max_tokens) {
         char tmp[64];
         int  k = snprintf(tmp, sizeof(tmp), ",\"max_tokens\":%u", req->max_tokens);
-        if (k < 0 || !append_raw(&b, tmp, (size_t)k)) {
+        if (k < 0 || !aegis_json_append_raw(&b, tmp, (size_t)k)) {
             goto fail;
         }
     }
-    if (!append_raw(&b, "}", 1)) {
+    if (!aegis_json_append_raw(&b, "}", 1)) {
         goto fail;
     }
     return b.data;
 fail:
-    free(b.data);
+    aegis_json_builder_free(&b);
     return NULL;
 }
 
@@ -569,8 +478,8 @@ static int emit_record(sse_state_t* s, const char* record, size_t len)
  * cancelled. libcurl polls this at least once per second while idle and
  * on every data event while streaming, so an interrupt takes effect at
  * the next chunk boundary (or within ~1s during a silent stall). */
-static int sse_progress(void* user, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal,
-                        curl_off_t ulnow)
+static int on_sse_progress(void* user, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal,
+                          curl_off_t ulnow)
 {
     (void)dltotal;
     (void)dlnow;
@@ -587,32 +496,14 @@ static size_t on_sse_write(void* ptr, size_t size, size_t nmemb, void* user)
 {
     sse_state_t* s     = user;
     size_t       total = size * nmemb;
-    if (!total || s->pending_len > SIZE_MAX - total - 1) {
+    if (aegis_sse_on_write(ptr, size, nmemb, &s->sse) != total) {
         return 0;
     }
-    if (s->pending_len + total + 1 > s->pending_cap) {
-        size_t cap = s->pending_cap ? s->pending_cap * 2 : 4096;
-        while (cap < s->pending_len + total + 1) {
-            if (cap > SIZE_MAX / 2) {
-                return 0;
-            }
-            cap *= 2;
-        }
-        char* p = realloc(s->pending, cap);
-        if (!p) {
-            return 0;
-        }
-        s->pending     = p;
-        s->pending_cap = cap;
-    }
-    memcpy(s->pending + s->pending_len, ptr, total);
-    s->pending_len += total;
-    s->pending[s->pending_len] = '\0';
-    size_t start               = 0;
-    for (size_t i = 0; i + 1 < s->pending_len; ++i) {
-        if (s->pending[i] == '\n' && s->pending[i + 1] == '\n') {
+    size_t start   = 0;
+    for (size_t i = 0; i + 1 < s->sse.pending_len; ++i) {
+        if (s->sse.pending[i] == '\n' && s->sse.pending[i + 1] == '\n') {
             size_t record_len = i - start;
-            if (!emit_record(s, s->pending + start, record_len)) {
+            if (!emit_record(s, s->sse.pending + start, record_len)) {
                 return 0;
             }
             start = i + 2;
@@ -620,9 +511,7 @@ static size_t on_sse_write(void* ptr, size_t size, size_t nmemb, void* user)
         }
     }
     if (start) {
-        memmove(s->pending, s->pending + start, s->pending_len - start);
-        s->pending_len -= start;
-        s->pending[s->pending_len] = '\0';
+        aegis_sse_compact(&s->sse, start);
     }
     return total;
 }
@@ -685,7 +574,7 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, on_sse_write);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &state);
     curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
-    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, sse_progress);
+    curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, on_sse_progress);
     curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &state);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 60000L);
@@ -694,12 +583,12 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
     CURLcode cr   = curl_easy_perform(curl);
     long     http = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http);
-    if (cr == CURLE_OK && state.pending_len) {
-        if (!emit_record(&state, state.pending, state.pending_len)) {
+    if (cr == CURLE_OK && state.sse.pending_len) {
+        if (!emit_record(&state, state.sse.pending, state.sse.pending_len)) {
             cr = CURLE_WRITE_ERROR;
         }
     }
-    free(state.pending);
+    aegis_sse_free(&state.sse);
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     free(body);
@@ -813,9 +702,9 @@ aegis_status_t aegis_openai_parse_complete_response(const char* json, size_t len
 
 static size_t on_complete_write(void* ptr, size_t size, size_t nmemb, void* user)
 {
-    json_buf_t* buffer = user;
-    size_t      total  = size * nmemb;
-    return append_raw(buffer, ptr, total) ? total : 0;
+    aegis_json_builder_t* buffer = user;
+    size_t                total  = size * nmemb;
+    return aegis_json_append_raw(buffer, ptr, total) ? total : 0;
 }
 
 static aegis_status_t structured_complete(void* user, const aegis_model_request_t* req,
@@ -861,7 +750,8 @@ static aegis_status_t structured_complete(void* user, const aegis_model_request_
     struct curl_slist* headers = NULL;
     headers                    = curl_slist_append(headers, "Content-Type: application/json");
     headers                    = curl_slist_append(headers, auth);
-    json_buf_t response        = {0};
+    aegis_json_builder_t response;
+    aegis_json_builder_init(&response);
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, body);
@@ -871,7 +761,7 @@ static aegis_status_t structured_complete(void* user, const aegis_model_request_
     {
         sse_state_t ps = {.ctx = ctx, .req = req, .token = token};
         curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0L);
-        curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, sse_progress);
+        curl_easy_setopt(curl, CURLOPT_XFERINFOFUNCTION, on_sse_progress);
         curl_easy_setopt(curl, CURLOPT_XFERINFODATA, &ps);
     }
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT_MS, 10000L);
@@ -889,7 +779,7 @@ static aegis_status_t structured_complete(void* user, const aegis_model_request_
     } else if (cr == CURLE_OK && http >= 200 && http < 300 && response.data) {
         status = parse_complete_response(response.data, response.len, out);
     }
-    free(response.data);
+    aegis_json_builder_free(&response);
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     free(body);
