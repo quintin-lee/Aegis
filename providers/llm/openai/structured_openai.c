@@ -65,8 +65,7 @@ static int append_message(aegis_json_builder_t* b, const aegis_message_t* m)
             return 0;
         }
     }
-    if (aegis_message_role(m) == AEGIS_MESSAGE_ASSISTANT &&
-        aegis_message_tool_call_count(m) > 0) {
+    if (aegis_message_role(m) == AEGIS_MESSAGE_ASSISTANT && aegis_message_tool_call_count(m) > 0) {
         if (!aegis_json_append_raw(b, ",\"tool_calls\":[", strlen(",\"tool_calls\":["))) {
             return 0;
         }
@@ -78,9 +77,8 @@ static int append_message(aegis_json_builder_t* b, const aegis_message_t* m)
             }
             if (!aegis_json_append_raw(b, "{\"id\":", strlen("{\"id\":")) ||
                 !aegis_json_append_string(b, aegis_tool_call_id(c)) ||
-                !aegis_json_append_raw(
-                    b, ",\"type\":\"function\",\"function\":{\"name\":",
-                    strlen(",\"type\":\"function\",\"function\":{\"name\":")) ||
+                !aegis_json_append_raw(b, ",\"type\":\"function\",\"function\":{\"name\":",
+                                       strlen(",\"type\":\"function\",\"function\":{\"name\":")) ||
                 !aegis_json_append_string(b, aegis_tool_call_name(c)) ||
                 !aegis_json_append_raw(b, ",\"arguments\":", strlen(",\"arguments\":")) ||
                 !aegis_json_append_string(b, aegis_tool_call_arguments(c)) ||
@@ -94,9 +92,8 @@ static int append_message(aegis_json_builder_t* b, const aegis_message_t* m)
     }
     if (aegis_message_role(m) == AEGIS_MESSAGE_TOOL) {
         const char* id = aegis_message_tool_call_id(m);
-        if (id &&
-            (!aegis_json_append_raw(b, ",\"tool_call_id\":", strlen(",\"tool_call_id\":")) ||
-             !aegis_json_append_string(b, id))) {
+        if (id && (!aegis_json_append_raw(b, ",\"tool_call_id\":", strlen(",\"tool_call_id\":")) ||
+                   !aegis_json_append_string(b, id))) {
             return 0;
         }
     }
@@ -121,14 +118,13 @@ static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
         return ctx->status;
     }
     ctx->first = false;
-    if (!aegis_json_append_raw(
-            b, "{\"type\":\"function\",\"function\":{\"name\":",
-            strlen("{\"type\":\"function\",\"function\":{\"name\":")) ||
+    if (!aegis_json_append_raw(b, "{\"type\":\"function\",\"function\":{\"name\":",
+                               strlen("{\"type\":\"function\",\"function\":{\"name\":")) ||
         !aegis_json_append_string(b, def->name) ||
         !aegis_json_append_raw(b, ",\"description\":", strlen(",\"description\":")) ||
         !aegis_json_append_string(b, def->description ? def->description : "") ||
         !aegis_json_append_raw(b, ",\"parameters\":{\"type\":\"object\",\"properties\":{",
-                                strlen(",\"parameters\":{\"type\":\"object\",\"properties\":{"))) {
+                               strlen(",\"parameters\":{\"type\":\"object\",\"properties\":{"))) {
         ctx->status = AEGIS_ERR_NOMEM;
         return ctx->status;
     }
@@ -144,9 +140,9 @@ static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
             return ctx->status;
         }
         const char* type = p->type == AEGIS_TOOL_VAL_BOOL    ? "boolean"
-                            : p->type == AEGIS_TOOL_VAL_INT   ? "integer"
-                            : p->type == AEGIS_TOOL_VAL_FLOAT ? "number"
-                                                              : "string";
+                           : p->type == AEGIS_TOOL_VAL_INT   ? "integer"
+                           : p->type == AEGIS_TOOL_VAL_FLOAT ? "number"
+                                                             : "string";
         if (!aegis_json_append_string(b, type)) {
             ctx->status = AEGIS_ERR_NOMEM;
             return ctx->status;
@@ -191,7 +187,7 @@ static aegis_status_t append_tool_json(const aegis_tool_def_t* def, void* user)
 
 static char* build_body(const aegis_model_request_t* req, const char* fallback_model)
 {
-    const char* model_name = req->model && *req->model ? req->model : fallback_model;
+    const char*          model_name = req->model && *req->model ? req->model : fallback_model;
     aegis_json_builder_t b;
     aegis_json_builder_init(&b);
     if (!aegis_json_append_raw(&b, "{\"model\":", strlen("{\"model\":")) ||
@@ -479,7 +475,7 @@ static int emit_record(sse_state_t* s, const char* record, size_t len)
  * on every data event while streaming, so an interrupt takes effect at
  * the next chunk boundary (or within ~1s during a silent stall). */
 static int on_sse_progress(void* user, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal,
-                          curl_off_t ulnow)
+                           curl_off_t ulnow)
 {
     (void)dltotal;
     (void)dlnow;
@@ -499,7 +495,7 @@ static size_t on_sse_write(void* ptr, size_t size, size_t nmemb, void* user)
     if (aegis_sse_on_write(ptr, size, nmemb, &s->sse) != total) {
         return 0;
     }
-    size_t start   = 0;
+    size_t start = 0;
     for (size_t i = 0; i + 1 < s->sse.pending_len; ++i) {
         if (s->sse.pending[i] == '\n' && s->sse.pending[i + 1] == '\n') {
             size_t record_len = i - start;

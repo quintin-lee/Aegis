@@ -28,7 +28,7 @@ extern "C" {
  * @return AEGIS_OK on success, otherwise the parse/provider error.
  */
 aegis_status_t aegis_anthropic_parse_complete_response(const char* json, size_t len,
-                                                        aegis_model_response_t** out);
+                                                       aegis_model_response_t** out);
 
 #ifdef __cplusplus
 }

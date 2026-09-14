@@ -25,7 +25,7 @@ void aegis_sse_free(aegis_sse_state_t* s)
 size_t aegis_sse_on_write(void* ptr, size_t size, size_t nmemb, void* user)
 {
     aegis_sse_state_t* s     = user;
-    size_t            total  = size * nmemb;
+    size_t             total = size * nmemb;
     if (!total || s->pending_len > SIZE_MAX - total - 1) {
         return 0;
     }
@@ -67,8 +67,8 @@ void aegis_sse_compact(aegis_sse_state_t* s, size_t consumed)
     s->pending[s->pending_len] = '\0';
 }
 
-int aegis_sse_progress(void* user, curl_off_t dltotal, curl_off_t dlnow,
-                       curl_off_t ultotal, curl_off_t ulnow)
+int aegis_sse_progress(void* user, curl_off_t dltotal, curl_off_t dlnow, curl_off_t ultotal,
+                       curl_off_t ulnow)
 {
     (void)dltotal;
     (void)dlnow;
