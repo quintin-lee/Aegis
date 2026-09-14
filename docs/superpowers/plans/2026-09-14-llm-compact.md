@@ -57,153 +57,159 @@ Reason: the new tests call `aegis_model_client_create` and `aegis_session_compac
 
 - [ ] **Step 2: Write the 5 failing test cases in `tests/unit/test_session.c`.**
 
-Append at the end of `tests/unit/test_session.c` (after the existing plain-compact tests):
+The test file `tests/unit/test_session.c` is **plain C** (no GTest) — it uses `static void` test functions, `assert()`, a local `expect_ok()` helper, and `printf` PASS markers, all driven from `main()`. Add the new tests in that exact style.
+
+**First, add the new includes** at the top of `tests/unit/test_session.c` (after the existing includes at lines 6-12):
 
 ```c
-/* ── aegis_session_compact_with_summary tests ──────────────────────── */
+#include "aegis/model/model.h"
+#include "aegis/common/cancellation/cancellation.h"
+```
 
-// Helper: build a session with `total` user/assistant messages, return it.
-static aegis_session_t* make_session_with_msgs(const char* root, size_t total)
+**Then append the test functions** before `int main(void)`:
+
+```c
+/* ── aegis_session_compact_with_summary tests (plain C, no GTest) ──── */
+
+static void add_user_msgs(aegis_session_t* s, size_t total)
 {
-    aegis_session_t* s = NULL;
-    if (aegis_session_create(root, &s) != AEGIS_OK) {
-        return NULL;
-    }
     for (size_t i = 0; i < total; ++i) {
         aegis_message_t* m = NULL;
-        aegis_message_create(AEGIS_MESSAGE_USER, &m);
-        char buf[32];
-        snprintf(buf, sizeof(buf), "msg %zu", i);
-        aegis_message_set_content(m, buf);
-        aegis_session_append_message(s, m);
+        expect_ok(aegis_message_create(AEGIS_MESSAGE_USER, &m), "msg");
+        char content[32];
+        snprintf(content, sizeof(content), "msg %zu", i);
+        expect_ok(aegis_message_set_content(m, content), "content");
+        expect_ok(aegis_session_append_message(s, m), "append");
         aegis_message_destroy(m);
     }
-    return s;
 }
 
-TEST(SessionCompactSummary, NullModel_Truncates_NoSummary)
+/* (i) NULL model + dropped msgs -> pure truncation, no summary. */
+static void test_compact_summary_null_model(void)
 {
-    char root[] = "/tmp/aegis_test_nulmodel";
-    rmdir(root);
-    aegis_session_t* s = make_session_with_msgs(root, 10);
-    ASSERT_NE(s, nullptr);
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/sum-null", &s), "create");
+    add_user_msgs(s, 10);
     aegis_message_t* summary = NULL;
-    aegis_status_t st = aegis_session_compact_with_summary(s, 3, /*model*/ NULL,
-                                                            /*token*/ NULL, &summary);
-    ASSERT_EQ(st, AEGIS_OK);
-    EXPECT_EQ(summary, nullptr);            // no model -> pure truncation
-    EXPECT_EQ(aegis_session_message_count(s), 3);
+    expect_ok(aegis_session_compact_with_summary(s, 3, NULL, NULL, &summary), "compact");
+    assert(summary == NULL);
+    assert(aegis_session_message_count(s) == 3);
     aegis_session_destroy(s);
+    printf("compact_summary_null_model PASS\n");
 }
 
-TEST(SessionCompactSummary, MockModel_SummaryPrepended)
+/* (ii) mock model -> summary prepended as head; count = kept + 1. */
+static void test_compact_summary_mock(void)
 {
-    char root[] = "/tmp/aegis_test_mocksum";
-    rmdir(root);
-    aegis_session_t* s = make_session_with_msgs(root, 5);
-    ASSERT_NE(s, nullptr);
-    // Last dropped USER message (index 2, since keep=2 -> dropped [0,3)) content
-    // is "msg 2"; the mock backend echoes "mock response to: <last user content>".
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/sum-mock", &s), "create");
+    add_user_msgs(s, 5);
     aegis_model_client_t* model = NULL;
-    ASSERT_EQ(aegis_model_client_create("mock", &model), AEGIS_OK);
+    expect_ok(aegis_model_client_create("mock", &model), "model");
     aegis_message_t* summary = NULL;
-    aegis_status_t st =
-        aegis_session_compact_with_summary(s, 2, model, /*token*/ NULL, &summary);
-    ASSERT_EQ(st, AEGIS_OK);
-    ASSERT_NE(summary, nullptr);
-    // Summary is prepended as the head of the retained list: 2 kept + 1 summary = 3.
-    EXPECT_EQ(aegis_session_message_count(s), 3);
-    // Head message is the summary (assistant role, "mock response to: msg 2").
-    aegis_message_t* head = aegis_session_message_at(s, 0);
-    ASSERT_NE(head, nullptr);
-    EXPECT_EQ(aegis_message_role(head), AEGIS_MESSAGE_ASSISTANT);
-    const char* content = aegis_message_content(head);
-    ASSERT_NE(content, nullptr);
-    EXPECT_STREQ(content, "mock response to: msg 2");
+    expect_ok(aegis_session_compact_with_summary(s, 2, model, NULL, &summary), "compact");
+    assert(summary != NULL);
+    assert(aegis_session_message_count(s) == 3); /* 2 kept + 1 summary */
+    const aegis_message_t* head = aegis_session_message_at(s, 0);
+    assert(head);
+    assert(aegis_message_role(head) == AEGIS_MESSAGE_ASSISTANT);
+    /* Mock echoes "mock response to: <last USER content in the request>".
+     * The summarization request's messages = [system, dropped...]; the LAST
+     * USER message in that list is the newest dropped msg ("msg 2"). */
+    assert(strcmp(aegis_message_content(head), "mock response to: msg 2") == 0);
     aegis_model_client_destroy(model);
     aegis_session_destroy(s);
+    printf("compact_summary_mock PASS\n");
 }
 
-TEST(SessionCompactSummary, ModelFails_TruncationFallsBack)
+/* (iii) model backend that always fails -> truncation still happens, no summary. */
+static aegis_status_t failing_complete(void* user, const aegis_model_request_t* req,
+                                       const aegis_cancellation_token_t* token,
+                                       aegis_model_response_t** out)
 {
-    char root[] = "/tmp/aegis_test_failsum";
-    rmdir(root);
-    aegis_session_t* s = make_session_with_msgs(root, 5);
-    ASSERT_NE(s, nullptr);
+    (void)user;
+    (void)req;
+    (void)token;
+    *out = NULL;
+    return AEGIS_ERR_PROVIDER;
+}
 
-    // Tiny local backend whose complete() always fails -> fallback to truncation.
-    static aegis_status_t failing_complete(void* user, const aegis_model_request_t* req,
-                                           const aegis_cancellation_token_t* token,
-                                           aegis_model_response_t** out)
-    {
-        (void)user;
-        (void)req;
-        (void)token;
-        *out = NULL;
-        return AEGIS_ERR_PROVIDER;
-    }
+static void test_compact_summary_model_fails(void)
+{
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/sum-fail", &s), "create");
+    add_user_msgs(s, 5);
     aegis_model_backend_t backend = {
-        .user = NULL, .complete = failing_complete, .stream = NULL,
+        .user         = NULL,
+        .complete     = failing_complete,
+        .stream       = NULL,
         .capabilities = AEGIS_MODEL_CAP_TEXT,
     };
     aegis_model_client_t* model = NULL;
-    ASSERT_EQ(aegis_model_client_create_with_backend("mock", &backend, &model), AEGIS_OK);
+    expect_ok(aegis_model_client_create_with_backend("mock", &backend, &model), "model");
     aegis_message_t* summary = NULL;
-    aegis_status_t st =
-        aegis_session_compact_with_summary(s, 2, model, /*token*/ NULL, &summary);
-    ASSERT_EQ(st, AEGIS_OK);                  // still OK — truncation succeeded
-    EXPECT_EQ(summary, nullptr);              // model failed -> no summary
-    EXPECT_EQ(aegis_session_message_count(s), 2); // pure truncation
+    expect_ok(aegis_session_compact_with_summary(s, 2, model, NULL, &summary), "compact");
+    assert(summary == NULL);
+    assert(aegis_session_message_count(s) == 2); /* pure truncation */
     aegis_model_client_destroy(model);
     aegis_session_destroy(s);
+    printf("compact_summary_model_fails PASS\n");
 }
 
-TEST(SessionCompactSummary, PreCancelledToken_NoModelCall)
+/* (iv) pre-cancelled token -> no model call, truncation, no summary. */
+static void test_compact_summary_cancelled(void)
 {
-    char root[] = "/tmp/aegis_test_cancel";
-    rmdir(root);
-    aegis_session_t* s = make_session_with_msgs(root, 5);
-    ASSERT_NE(s, nullptr);
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/sum-cancel", &s), "create");
+    add_user_msgs(s, 5);
     aegis_model_client_t* model = NULL;
-    ASSERT_EQ(aegis_model_client_create("mock", &model), AEGIS_OK);
+    expect_ok(aegis_model_client_create("mock", &model), "model");
     aegis_cancellation_token_t* token = NULL;
-    ASSERT_EQ(aegis_cancellation_token_create(&token), AEGIS_OK);
+    expect_ok(aegis_cancellation_token_create(&token), "token");
     aegis_cancellation_token_request_cancel(token);
-
     aegis_message_t* summary = NULL;
-    aegis_status_t st =
-        aegis_session_compact_with_summary(s, 2, model, token, &summary);
-    ASSERT_EQ(st, AEGIS_OK);
-    EXPECT_EQ(summary, nullptr);            // cancelled -> no model call, no summary
-    EXPECT_EQ(aegis_session_message_count(s), 2); // truncated
+    expect_ok(aegis_session_compact_with_summary(s, 2, model, token, &summary), "compact");
+    assert(summary == NULL);
+    assert(aegis_session_message_count(s) == 2);
     aegis_cancellation_token_destroy(token);
     aegis_model_client_destroy(model);
     aegis_session_destroy(s);
+    printf("compact_summary_cancelled PASS\n");
 }
 
-TEST(SessionCompactSummary, KeepGeCount_NoOp)
+/* (v) keep >= count -> no-op, list unchanged, no summary. */
+static void test_compact_summary_noop(void)
 {
-    char root[] = "/tmp/aegis_test_noop";
-    rmdir(root);
-    aegis_session_t* s = make_session_with_msgs(root, 3);
-    ASSERT_NE(s, nullptr);
+    aegis_session_t* s = NULL;
+    expect_ok(aegis_session_create("/tmp/sum-noop", &s), "create");
+    add_user_msgs(s, 3);
     aegis_model_client_t* model = NULL;
-    ASSERT_EQ(aegis_model_client_create("mock", &model), AEGIS_OK);
+    expect_ok(aegis_model_client_create("mock", &model), "model");
     aegis_message_t* summary = NULL;
-    aegis_status_t st =
-        aegis_session_compact_with_summary(s, 5, model, /*token*/ NULL, &summary);
-    ASSERT_EQ(st, AEGIS_OK);
-    EXPECT_EQ(summary, nullptr);            // nothing dropped -> no summary
-    EXPECT_EQ(aegis_session_message_count(s), 3); // unchanged
+    expect_ok(aegis_session_compact_with_summary(s, 5, model, NULL, &summary), "compact");
+    assert(summary == NULL);
+    assert(aegis_session_message_count(s) == 3);
     aegis_model_client_destroy(model);
     aegis_session_destroy(s);
+    printf("compact_summary_noop PASS\n");
 }
 ```
 
+**Finally, wire the 5 new tests into `main()`** (after `test_fork();` on line 288):
+
+```c
+    test_compact_summary_null_model();
+    test_compact_summary_mock();
+    test_compact_summary_model_fails();
+    test_compact_summary_cancelled();
+    test_compact_summary_noop();
+```
+
 Notes:
-- `aegis_session_append_message` and `aegis_session_message_at` / `aegis_session_message_count` are the existing session list API — confirm exact names in `include/aegis/session/session.h` before running; adjust the helper if the accessor is named differently (e.g. `aegis_session_messages` / `aegis_session_at`).
-- `AEGIS_MODEL_CAP_TEXT` is from `aegis/model/capability.h`.
-- The `failing_complete` static must be visible inside the test file (define it before use, or as a file-scope static).
+- `aegis_session_message_at` returns `const aegis_message_t*` (per `session.h`); `aegis_message_role`/`aegis_message_content` accept it.
+- `AEGIS_MODEL_CAP_TEXT` is from `aegis/model/capability.h` (pulled in via `aegis/model/model.h`).
+- `failing_complete` is a file-scope static — define it once before `test_compact_summary_model_fails`.
+- The mock summary content assertion in (ii) depends on the mock backend echoing the LAST USER message in the request. The summarization request prepends a SYSTEM message then the dropped USER msgs, so the last USER is the newest dropped msg. If the mock's last-USER search skips the system message, this holds; verify against `src/model/model.c` `aegis_model_complete` behavior.
 
 - [ ] **Step 3: Build the tests — confirm they FAIL (function not declared yet).**
 
