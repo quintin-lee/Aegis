@@ -187,6 +187,17 @@ aegis_status_t aegis_critic_create(aegis_critic_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Evaluate a plan against a goal, delegating to the built-in critic.
+ *
+ * @param[in]  critic  Critic instance (ignored; built-in is used).
+ * @param[in]  goal    Goal string.
+ * @param[in]  plan    Current plan (may be NULL).
+ * @param[in]  graph   Task graph (may be NULL).
+ * @param[in]  token   Cancellation token (may be NULL).
+ * @param[out] out     Result written here.
+ * @return AEGIS_OK on success.
+ */
 aegis_status_t aegis_critic_evaluate(const aegis_critic_t* critic, const char* goal,
                                      const aegis_plan_t* plan, const aegis_task_graph_t* graph,
                                      const aegis_cancellation_token_t* token, aegis_critique_t* out)
@@ -194,11 +205,17 @@ aegis_status_t aegis_critic_evaluate(const aegis_critic_t* critic, const char* g
     return aegis_critic_evaluate_builtin((aegis_critic_t*)critic, goal, plan, graph, token, out);
 }
 
+/**
+ * @brief Destroy a critic and free its memory.
+ */
 void aegis_critic_destroy(aegis_critic_t* critic)
 {
     free(critic);
 }
 
+/**
+ * @brief Return the string name of a critique result enum value.
+ */
 const char* aegis_critique_result_str(aegis_critique_result_t result)
 {
     switch (result) {

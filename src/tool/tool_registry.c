@@ -101,6 +101,22 @@ void aegis_tool_registry_destroy(aegis_tool_registry_t* reg)
     free(reg);
 }
 
+/**
+ * @brief Register a tool definition under its name.
+ *
+ * The registry takes a shallow copy of the definition; the strings inside
+ * remain borrowed and must outlive the registration. Duplicate names are
+ * rejected with AEGIS_ERR_BUSY so the existing def stays authoritative.
+ *
+ * @param[in] reg  Registry to register into.
+ * @param[in] def  Definition to store. Must have a non-empty name and a
+ *   non-NULL execute hook.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL/empty/missing
+ *   execute, AEGIS_ERR_BUSY on duplicate name, AEGIS_ERR_NOMEM on
+ *   allocation failure.
+ *
+ * Thread-safe: the registry lock is held for the whole operation.
+ */
 aegis_status_t aegis_tool_registry_register(aegis_tool_registry_t* reg, const aegis_tool_def_t* def)
 {
     if (!reg || !def || !def->name || def->name[0] == '\0' || !def->execute) {
@@ -148,6 +164,21 @@ out:
     return st;
 }
 
+/**
+ * @brief Look up a registered tool definition by name.
+ *
+ * Returns a value copy of the definition so the caller never holds
+ * interior pointers into the registry's map storage. Borrowed strings
+ * inside the copy remain the tool author's responsibility.
+ *
+ * @param[in]  reg     Registry to search.
+ * @param[in]  name    Tool name to look up.
+ * @param[out] out_def Receives the copied definition on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOT_FOUND when the name is unknown.
+ *
+ * Thread-safe: the registry lock is held during the lookup.
+ */
 aegis_status_t aegis_tool_registry_find(aegis_tool_registry_t* reg, const char* name,
                                         aegis_tool_def_t* out_def)
 {
@@ -168,6 +199,25 @@ aegis_status_t aegis_tool_registry_find(aegis_tool_registry_t* reg, const char* 
     return st;
 }
 
+/**
+ * @brief Visit every registered tool definition in insertion order.
+ *
+ * The callback receives a stable copy of each definition; it may stop
+ * the walk early by returning a status other than AEGIS_OK, in which
+ * case that status is propagated to the caller.
+ *
+ * @param[in] reg      Registry to iterate.
+ * @param[in] callback Visited-definition hook. Receives the def copy and
+ *   the user pointer.
+ * @param[in] user     Opaque pointer passed through to @p callback.
+ * @return The first non-OK status returned by the callback, or AEGIS_OK
+ *   if all definitions were visited. AEGIS_ERR_INVALID for NULL reg or
+ *   callback; AEGIS_ERR_NOMEM if the snapshot array cannot be allocated.
+ *
+ * Thread-safe: the lock is held only long enough to snapshot the pointer
+ * array; callbacks run outside the lock so they may call other
+ * registry methods without deadlocking.
+ */
 aegis_status_t aegis_tool_registry_visit(const aegis_tool_registry_t* reg,
                                          aegis_tool_registry_visit_fn callback, void* user)
 {
@@ -196,6 +246,14 @@ aegis_status_t aegis_tool_registry_visit(const aegis_tool_registry_t* reg,
     return st;
 }
 
+/**
+ * @brief Return the number of registered tool definitions.
+ *
+ * @param[in] reg Registry to count, or NULL (returns 0).
+ * @return Number of entries currently in the registry.
+ *
+ * Thread-safe: the lock is held only for the hashmap length query.
+ */
 size_t aegis_tool_registry_count(const aegis_tool_registry_t* reg)
 {
     if (!reg) {

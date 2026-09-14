@@ -15,6 +15,17 @@
 #include <string.h>
 #include <sys/stat.h>
 
+/**
+ * @brief Scan a directory for subdirectories containing SKILL.md and add
+ * each to the registry.
+ *
+ * Missing or empty directories return AEGIS_OK (best-effort scan).
+ * Subdirectories without a manifest are silently skipped.
+ *
+ * @param[in] reg  Target skill registry.
+ * @param[in] dir  Directory to scan for skill subdirectories.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args.
+ */
 aegis_status_t aegis_skill_loader_load_dir(aegis_skill_registry_t* reg, const char* dir)
 {
     if (!reg || !dir) {

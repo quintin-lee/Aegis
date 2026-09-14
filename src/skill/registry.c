@@ -12,6 +12,9 @@ struct aegis_skill_registry {
     aegis_vector_t* vec;
 };
 
+/**
+ * @brief Create an empty skill registry.
+ */
 aegis_status_t aegis_skill_registry_create(aegis_skill_registry_t** out)
 {
     if (!out) {
@@ -29,6 +32,9 @@ aegis_status_t aegis_skill_registry_create(aegis_skill_registry_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a skill registry, freeing all owned skills. NULL-safe.
+ */
 void aegis_skill_registry_destroy(aegis_skill_registry_t* r)
 {
     if (!r) {
@@ -44,6 +50,14 @@ void aegis_skill_registry_destroy(aegis_skill_registry_t* r)
     free(r);
 }
 
+/**
+ * @brief Add a skill to the registry, transferring ownership.
+ *
+ * @param[in] r  Registry (must be non-NULL).
+ * @param[in] s  Skill to add (ownership transferred; not destroyed on error).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_skill_registry_add(aegis_skill_registry_t* r, aegis_skill_t* s)
 {
     if (!r || !s) {
@@ -55,11 +69,22 @@ aegis_status_t aegis_skill_registry_add(aegis_skill_registry_t* r, aegis_skill_t
     return AEGIS_OK;
 }
 
+/**
+ * @brief Return the number of skills in the registry.
+ */
 size_t aegis_skill_registry_count(const aegis_skill_registry_t* r)
 {
     return r ? aegis_vector_len(r->vec) : 0;
 }
 
+/**
+ * @brief Get a borrowed skill pointer at the given index.
+ *
+ * @param[in] r    Registry.
+ * @param[in] idx  Zero-based index.
+ * @return A non-NULL borrowed skill on success, NULL if out of range or
+ *         the registry is NULL.
+ */
 const aegis_skill_t* aegis_skill_registry_get(const aegis_skill_registry_t* r, size_t idx)
 {
     if (!r) {

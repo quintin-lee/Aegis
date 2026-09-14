@@ -39,6 +39,14 @@ aegis_status_t aegis_tool_call_create(aegis_tool_call_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a tool call and all strings it owns.
+ *
+ * Frees @c call_id, @c tool_name, @c arguments and the struct. NULL is a
+ * no-op.
+ *
+ * @param[in] c Tool call to destroy, or NULL.
+ */
 void aegis_tool_call_destroy(aegis_tool_call_t* c)
 {
     if (!c) {

@@ -5,6 +5,13 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/model/stream.h"
 
+/**
+ * @brief Convert a stream-event type to its wire string.
+ *
+ * @param[in] t Event type to render.
+ * @return NUL-terminated uppercase tag; "UNKNOWN" for values outside
+ *   the known enum range.
+ */
 const char* aegis_model_stream_event_type_str(aegis_model_stream_event_type_t t)
 {
     switch (t) {

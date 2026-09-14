@@ -15,6 +15,18 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Parse a skill manifest from a directory.
+ *
+ * Expects SKILL.md (or skill.md) inside `dir_path`. The first line becomes
+ * the description; subsequent lines become the instructions. The directory
+ * basename is used as the skill name.
+ *
+ * @param[in]  dir_path  Path to the skill directory.
+ * @param[out] out       Receives the new skill (caller owns).
+ * @return AEGIS_OK on success, AEGIS_ERR_NOT_FOUND if no manifest file,
+ *         AEGIS_ERR_INVALID for bad args or trailing-slash paths.
+ */
 aegis_status_t aegis_skill_manifest_parse(const char* dir_path, aegis_skill_t** out)
 {
     if (!dir_path || !out) {

@@ -78,6 +78,19 @@ aegis_status_t aegis_trace_context_create(aegis_trace_context_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Clone a trace context including its current span set.
+ *
+ * The clone gets a fresh heap allocation with the same trace_id, agent_id
+ * and a memcpy of the span array (capped at AEGIS_TRACE_MAX_SPANS).
+ * The current_span index is preserved but clamped to the cloned span
+ * count.
+ *
+ * @param[in]  ctx Context to clone (must be non-NULL).
+ * @param[out] out Receives the new context; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_trace_context_clone(const aegis_trace_context_t* ctx,
                                          aegis_trace_context_t**      out)
 {
@@ -174,6 +187,15 @@ void aegis_trace_span_end(aegis_trace_span_t* span)
     span->ended  = 1;
 }
 
+/**
+ * @brief Destroy a trace span (no-op by design).
+ *
+ * Spans are stored inline in the owning trace context and are released
+ * when the context is destroyed. This function exists for API symmetry
+ * and is a safe no-op.
+ *
+ * @param[in] span Span pointer, or NULL.
+ */
 void aegis_trace_span_destroy(aegis_trace_span_t* span)
 {
     /* Spans are owned by the context; this is a no-op for safety. */

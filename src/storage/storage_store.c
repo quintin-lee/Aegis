@@ -59,6 +59,9 @@ struct aegis_storage_transaction {
     size_t n_ops;
 };
 
+/**
+ * @brief Create an empty storage transaction.
+ */
 aegis_status_t aegis_storage_transaction_create(aegis_storage_transaction_t** out)
 {
     AEGIS_CHECK_OUT(out);
@@ -85,6 +88,9 @@ aegis_status_t aegis_storage_transaction_create(aegis_storage_transaction_t** ou
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a storage transaction, freeing all staged operations.
+ */
 void aegis_storage_transaction_destroy(aegis_storage_transaction_t* txn)
 {
     if (!txn) {
@@ -133,6 +139,17 @@ static int txn_ensure_capacity(aegis_storage_transaction_t* txn, size_t needed)
     return 0;
 }
 
+/**
+ * @brief Stage a put operation in a transaction.
+ *
+ * @param[in]  txn      Transaction.
+ * @param[in]  key      Key bytes (copied).
+ * @param[in]  key_len  Key length.
+ * @param[in]  value    Value bytes (copied; may be NULL for zero-length).
+ * @param[in]  value_len Value length.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_storage_transaction_put(aegis_storage_transaction_t* txn, const void* key,
                                              size_t key_len, const void* value, size_t value_len)
 {
@@ -159,6 +176,15 @@ aegis_status_t aegis_storage_transaction_put(aegis_storage_transaction_t* txn, c
     return AEGIS_OK;
 }
 
+/**
+ * @brief Stage a delete operation in a transaction.
+ *
+ * @param[in]  txn      Transaction.
+ * @param[in]  key      Key bytes (copied).
+ * @param[in]  key_len  Key length.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_storage_transaction_delete(aegis_storage_transaction_t* txn, const void* key,
                                                 size_t key_len)
 {
@@ -180,6 +206,14 @@ aegis_status_t aegis_storage_transaction_delete(aegis_storage_transaction_t* txn
     return AEGIS_OK;
 }
 
+/**
+ * @brief Commit a transaction. At this layer it clears staged ops.
+ *
+ * @param[in]  txn    Transaction to commit.
+ * @param[in]  token  Cancellation token (may be NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL txn,
+ *         AEGIS_ERR_CANCELLED if token is cancelled.
+ */
 aegis_status_t aegis_storage_transaction_commit(aegis_storage_transaction_t*      txn,
                                                 const aegis_cancellation_token_t* token)
 {
@@ -208,6 +242,16 @@ struct aegis_storage_snapshot {
     size_t                 count;
 };
 
+/**
+ * @brief Take a snapshot of a storage store.
+ *
+ * @param[in]  reg         Provider registry.
+ * @param[in]  store_name  Store name.
+ * @param[in]  token       Cancellation token (may be NULL).
+ * @param[out] out         Receives the snapshot.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_storage_snapshot_take(const aegis_provider_registry_t*  reg,
                                            const char*                       store_name,
                                            const aegis_cancellation_token_t* token,
@@ -240,6 +284,16 @@ aegis_status_t aegis_storage_snapshot_take(const aegis_provider_registry_t*  reg
     return AEGIS_OK;
 }
 
+/**
+ * @brief Restore a snapshot into a storage store (no-op stub).
+ *
+ * @param[in]  reg         Provider registry.
+ * @param[in]  store_name  Store name.
+ * @param[in]  snapshot    Snapshot to restore.
+ * @param[in]  token       Cancellation token (may be NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *         AEGIS_ERR_CANCELLED if token is cancelled.
+ */
 aegis_status_t aegis_storage_snapshot_restore(const aegis_provider_registry_t*  reg,
                                               const char*                       store_name,
                                               const aegis_storage_snapshot_t*   snapshot,
@@ -259,6 +313,9 @@ aegis_status_t aegis_storage_snapshot_restore(const aegis_provider_registry_t*  
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a storage snapshot, freeing all its entries.
+ */
 void aegis_storage_snapshot_destroy(aegis_storage_snapshot_t* snapshot)
 {
     if (!snapshot) {
@@ -274,6 +331,9 @@ void aegis_storage_snapshot_destroy(aegis_storage_snapshot_t* snapshot)
     free(snapshot);
 }
 
+/**
+ * @brief Return the number of entries in a storage snapshot.
+ */
 size_t aegis_storage_snapshot_count(const aegis_storage_snapshot_t* snap)
 {
     return snap ? snap->count : 0;

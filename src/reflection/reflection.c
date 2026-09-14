@@ -182,6 +182,13 @@ size_t aegis_reflection_incomplete_count(const aegis_reflection_t* refl)
     return refl ? refl->incomplete : 0;
 }
 
+/**
+ * @brief Return the first captured task error message, if any.
+ *
+ * @param[in] refl Reflection, or NULL.
+ * @return Borrowed NUL-terminated error string, or NULL when no failure
+ *   was recorded (or when @p refl is NULL).
+ */
 const char* aegis_reflection_first_error(const aegis_reflection_t* refl)
 {
     if (!refl || refl->first_error[0] == '\0') {
@@ -190,6 +197,13 @@ const char* aegis_reflection_first_error(const aegis_reflection_t* refl)
     return refl->first_error;
 }
 
+/**
+ * @brief Return the synthesized feedback string for the replanner.
+ *
+ * @param[in] refl Reflection, or NULL.
+ * @return Borrowed NUL-terminated feedback; always non-NULL when @p
+ *   refl is non-NULL (returns an empty string for NULL).
+ */
 const char* aegis_reflection_feedback(const aegis_reflection_t* refl)
 {
     return refl ? refl->feedback : "";

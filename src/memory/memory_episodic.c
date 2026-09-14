@@ -19,6 +19,9 @@
 
 /* ── Episodic memory ───────────────────────────────────────────────────────── */
 
+/**
+ * @brief Create an empty episodic memory store.
+ */
 aegis_status_t aegis_episodic_memory_create(aegis_episodic_memory_t** out)
 {
     AEGIS_CHECK_OUT(out);
@@ -35,6 +38,9 @@ aegis_status_t aegis_episodic_memory_create(aegis_episodic_memory_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy an episodic memory store, freeing all items.
+ */
 void aegis_episodic_memory_destroy(aegis_episodic_memory_t* mem)
 {
     if (!mem) {
@@ -52,11 +58,22 @@ void aegis_episodic_memory_destroy(aegis_episodic_memory_t* mem)
     free(mem);
 }
 
+/**
+ * @brief Return the number of items in the episodic memory.
+ */
 size_t aegis_episodic_memory_count(const aegis_episodic_memory_t* mem)
 {
     return mem ? aegis_vector_len(mem->items) : 0;
 }
 
+/**
+ * @brief Append an item to episodic memory. The item is consumed on success.
+ *
+ * @param[in]  mem   Episodic memory store.
+ * @param[in]  item  Item to append (ownership transferred on success).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args or empty
+ *         id/content, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_episodic_memory_append(aegis_episodic_memory_t* mem, aegis_memory_item_t* item)
 {
     if (!mem || !item) {
@@ -78,6 +95,17 @@ aegis_status_t aegis_episodic_memory_append(aegis_episodic_memory_t* mem, aegis_
     return AEGIS_OK;
 }
 
+/**
+ * @brief Retrieve items in a half-open time range [start_ms, end_ms).
+ *
+ * @param[in]  mem       Episodic memory store.
+ * @param[in]  start_ms  Inclusive start (ms since epoch).
+ * @param[in]  end_ms    Exclusive end (ms since epoch).
+ * @param[out] out       Heap-allocated array of item pointers (caller frees).
+ * @param[out] out_count  Number of items in range.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_episodic_memory_range(const aegis_episodic_memory_t* mem, uint64_t start_ms,
                                            uint64_t end_ms, aegis_memory_item_t*** out,
                                            size_t* out_count)

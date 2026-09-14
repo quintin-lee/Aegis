@@ -784,6 +784,9 @@ aegis_status_t aegis_semantic_memory_get(const aegis_semantic_memory_t* mem, con
 
 /* ── Procedural memory ─────────────────────────────────────────────────────── */
 
+/**
+ * @brief Create an empty procedural memory store.
+ */
 aegis_status_t aegis_procedural_memory_create(aegis_procedural_memory_t** out)
 {
     AEGIS_CHECK_OUT(out);
@@ -800,6 +803,9 @@ aegis_status_t aegis_procedural_memory_create(aegis_procedural_memory_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a procedural memory store, freeing all items.
+ */
 void aegis_procedural_memory_destroy(aegis_procedural_memory_t* mem)
 {
     if (!mem) {
@@ -817,11 +823,25 @@ void aegis_procedural_memory_destroy(aegis_procedural_memory_t* mem)
     free(mem);
 }
 
+/**
+ * @brief Return the number of items in the procedural memory.
+ */
 size_t aegis_procedural_memory_count(const aegis_procedural_memory_t* mem)
 {
     return mem ? aegis_vector_len(mem->items) : 0;
 }
 
+/**
+ * @brief Insert or update a procedural memory item.
+ *
+ * If an item with the same id exists it is replaced; otherwise appended.
+ * The input item is consumed (freed) on success.
+ *
+ * @param[in]  mem   Procedural memory store.
+ * @param[in]  item  Item to insert (ownership transferred on success).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args or empty
+ *         id/content, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_procedural_memory_put(aegis_procedural_memory_t* mem,
                                            aegis_memory_item_t*       item)
 {
@@ -856,6 +876,18 @@ aegis_status_t aegis_procedural_memory_put(aegis_procedural_memory_t* mem,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Search procedural memory for items whose content contains a keyword.
+ *
+ * Performs a case-sensitive substring match against every item's content.
+ *
+ * @param[in]  mem        Procedural memory store.
+ * @param[in]  keyword    Substring to search for.
+ * @param[out] out        Heap-allocated array of item pointers (caller frees).
+ * @param[out] out_count  Number of matching items.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_procedural_memory_search(const aegis_procedural_memory_t* mem,
                                               const char* keyword, aegis_memory_item_t*** out,
                                               size_t* out_count)

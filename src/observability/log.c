@@ -84,6 +84,12 @@ void aegis_log_set_min_level(aegis_log_level_t level)
     pthread_mutex_unlock(&g_log_mutex);
 }
 
+/**
+ * @brief Return the current minimum log level.
+ *
+ * @return The level that @ref aegis_log_set_min_level last set;
+ *   AEGIS_LOG_INFO by default.
+ */
 aegis_log_level_t aegis_log_get_min_level(void)
 {
     return get_min_level();

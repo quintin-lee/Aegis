@@ -6,6 +6,13 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/message/role.h"
 
+/**
+ * @brief Convert a message-role enum to its wire string.
+ *
+ * @param[in] role Role to render.
+ * @return NUL-terminated lowercase tag; "unknown" for values outside
+ *   the known enum range.
+ */
 const char* aegis_message_role_str(aegis_message_role_t role)
 {
     switch (role) {

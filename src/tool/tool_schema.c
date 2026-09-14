@@ -11,6 +11,22 @@
 
 #include <string.h>
 
+/**
+ * @brief Validate a tool argument set against its schema.
+ *
+ * Validation order (first failure wins):
+ *   1. unknown argument names,
+ *   2. exact type match (no coercion),
+ *   3. required-parameter presence.
+ *
+ * A NULL schema is treated as an empty schema (no declared params),
+ * so only required-presence and type checks against the empty set apply.
+ *
+ * @param[in] schema Declared parameter specs, or NULL for an empty schema.
+ * @param[in] args   Supplied argument values; may be NULL (no args).
+ * @return AEGIS_OK when every supplied argument is declared, type-matched,
+ *   and every required parameter is present; AEGIS_ERR_INVALID otherwise.
+ */
 aegis_status_t aegis_tool_validate_args(const aegis_tool_schema_t* schema,
                                         const aegis_tool_args_t*   args)
 {

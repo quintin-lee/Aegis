@@ -19,6 +19,13 @@
 
 /* ── Working memory ────────────────────────────────────────────────────────── */
 
+/**
+ * @brief Create a working memory store with a capacity cap.
+ *
+ * @param[in]  out          Pointer to receive the new store.
+ * @param[in]  max_capacity  Maximum items; 0 means unbounded.
+ * @return AEGIS_OK on success, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_working_memory_create(aegis_working_memory_t** out, size_t max_capacity)
 {
     AEGIS_CHECK_OUT(out);
@@ -36,6 +43,9 @@ aegis_status_t aegis_working_memory_create(aegis_working_memory_t** out, size_t 
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a working memory store, freeing all items.
+ */
 void aegis_working_memory_destroy(aegis_working_memory_t* mem)
 {
     if (!mem) {
@@ -53,11 +63,23 @@ void aegis_working_memory_destroy(aegis_working_memory_t* mem)
     free(mem);
 }
 
+/**
+ * @brief Return the number of items in the working memory.
+ */
 size_t aegis_working_memory_count(const aegis_working_memory_t* mem)
 {
     return mem ? aegis_vector_len(mem->items) : 0;
 }
 
+/**
+ * @brief Insert or update a working memory item, evicting the lowest-priority
+ * item if the capacity cap is exceeded.
+ *
+ * @param[in]  mem   Working memory store.
+ * @param[in]  item  Item to insert (ownership transferred on success).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args or empty
+ *         id/content, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_working_memory_put(aegis_working_memory_t* mem, aegis_memory_item_t* item)
 {
     if (!mem || !item) {
@@ -125,6 +147,19 @@ aegis_status_t aegis_working_memory_put(aegis_working_memory_t* mem, aegis_memor
     return AEGIS_OK;
 }
 
+/**
+ * @brief Retrieve the top-N highest-priority items.
+ *
+ * Returns a heap-allocated array of up to `n` items sorted by descending
+ * priority. Items are not freed; caller owns the array.
+ *
+ * @param[in]  mem        Working memory store.
+ * @param[in]  n          Maximum items to return.
+ * @param[out] out        Receives the array of item pointers.
+ * @param[out] out_count  Number of items returned.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *         AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_working_memory_top(const aegis_working_memory_t* mem, size_t n,
                                         aegis_memory_item_t*** out, size_t* out_count)
 {

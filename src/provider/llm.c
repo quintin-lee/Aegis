@@ -10,6 +10,14 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * @brief Release the data buffer owned by an LLM response.
+ *
+ * Frees @c data and zeroes the struct. Safe to call on a zeroed or
+ * already-freed response (NULL is a no-op).
+ *
+ * @param[in] resp Response to destroy, or NULL.
+ */
 void aegis_llm_response_destroy(aegis_llm_response_t* resp)
 {
     if (!resp) {
@@ -20,6 +28,25 @@ void aegis_llm_response_destroy(aegis_llm_response_t* resp)
     resp->len  = 0;
 }
 
+/**
+ * @brief Send a non-streaming LLM completion request through a named
+ *        provider.
+ *
+ * Resolves the provider under the registry lock, then invokes the
+ * complete callback lock-free per the provider ABI. The output response
+ * is zeroed before the call; on success it owns a data buffer that the
+ * caller must release via @ref aegis_llm_response_destroy.
+ *
+ * @param[in]  reg   Provider registry.
+ * @param[in]  name  Registered LLM provider name.
+ * @param[in]  req   Completion request (messages, sampling params).
+ * @param[in]  token Cancellation token, or NULL to disable checks.
+ * @param[out] out   Receives the response on success.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOT_FOUND when the provider is unknown, AEGIS_ERR_PERM if
+ *   not yet initialised, AEGIS_ERR_CANCELLED when the token is tripped,
+ *   else the provider callback error.
+ */
 aegis_status_t aegis_llm_complete(const aegis_provider_registry_t* reg, const char* name,
                                   const aegis_llm_request_t*        req,
                                   const aegis_cancellation_token_t* token,
@@ -62,6 +89,24 @@ aegis_status_t aegis_llm_complete(const aegis_provider_registry_t* reg, const ch
     return ops->complete(ops->ctx, req, token, out);
 }
 
+/**
+ * @brief Stream an LLM completion through a named provider.
+ *
+ * Prefers the provider's native streaming hook when present. Providers
+ * that only implement @c complete are transparently adapted: the full
+ * response is fetched and yielded as a single chunk. In both paths the
+ * provider callback runs lock-free per the ABI.
+ *
+ * @param[in] reg        Provider registry.
+ * @param[in] name       Registered LLM provider name.
+ * @param[in] req        Completion request.
+ * @param[in] token      Cancellation token, or NULL to disable checks.
+ * @param[in] yield      Chunk callback; invoked outside the registry lock.
+ * @param[in] yield_user Opaque pointer passed to @p yield.
+ * @return AEGIS_OK when all chunks were yielded, AEGIS_ERR_INVALID for
+ *   NULL args, AEGIS_ERR_NOT_FOUND / AEGIS_ERR_PERM / AEGIS_ERR_PROVIDER
+ *   as in @ref aegis_llm_complete, AEGIS_ERR_CANCELLED when tripped.
+ */
 aegis_status_t aegis_llm_stream(const aegis_provider_registry_t* reg, const char* name,
                                 const aegis_llm_request_t*        req,
                                 const aegis_cancellation_token_t* token, aegis_llm_stream_fn yield,

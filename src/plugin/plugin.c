@@ -238,6 +238,13 @@ aegis_status_t aegis_plugin_unload(aegis_plugin_t* plugin)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Return the validated manifest of a loaded plugin.
+ *
+ * @param[in] plugin Plugin, or NULL.
+ * @return Borrowed pointer to the manifest copy, or NULL for a NULL
+ *   plugin.
+ */
 const aegis_plugin_manifest_t* aegis_plugin_manifest(const aegis_plugin_t* plugin)
 {
     return plugin ? &plugin->manifest : NULL;

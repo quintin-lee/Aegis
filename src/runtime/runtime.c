@@ -138,6 +138,22 @@ aegis_status_t aegis_runtime_start(aegis_runtime_t* rt)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Stop a running runtime: join all workers and release thread
+ *        handles.
+ *
+ * Idempotent when already stopped (returns AEGIS_OK). Transitions the
+ * state through STOPPING, signals the shutdown flag, joins and destroys
+ * every worker thread, then settles into STOPPED. The runtime can be
+ * restarted with aegis_runtime_start afterwards.
+ *
+ * @param[in] rt Runtime to stop (must be non-NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL rt or when
+ *   the runtime is not in a startable state.
+ *
+ * Thread-safe: the runtime lock is held for the state transition; the
+ * worker join runs lock-free.
+ */
 aegis_status_t aegis_runtime_stop(aegis_runtime_t* rt)
 {
     if (!rt) {
@@ -177,6 +193,16 @@ aegis_status_t aegis_runtime_stop(aegis_runtime_t* rt)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a runtime, stopping it first if necessary.
+ *
+ * If the runtime is still running, stop() is called first to join
+ * workers. Any residual thread handles (from a STOPPING state where
+ * join already ran) are cleaned up. The stop flag and lock are
+ * destroyed before the struct is freed. NULL is a no-op.
+ *
+ * @param[in] rt Runtime to destroy, or NULL.
+ */
 void aegis_runtime_destroy(aegis_runtime_t* rt)
 {
     if (!rt) {

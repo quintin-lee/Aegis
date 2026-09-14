@@ -7,6 +7,16 @@
 #include "aegis/model/response.h"
 #include <stdlib.h>
 
+/**
+ * @brief Allocate a zeroed model-response container.
+ *
+ * The container owns one assistant message (if set) and one raw provider
+ * payload buffer; both are released by @ref aegis_model_response_destroy.
+ *
+ * @param[out] out Receives the new response; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL @p out,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_model_response_create(aegis_model_response_t** out)
 {
     if (!out) {
@@ -20,6 +30,14 @@ aegis_status_t aegis_model_response_create(aegis_model_response_t** out)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Release a model-response container and all resources it owns.
+ *
+ * Destroys the owned assistant message (if any) and frees the raw
+ * payload buffer. NULL is a no-op.
+ *
+ * @param[in] r Response to destroy, or NULL.
+ */
 void aegis_model_response_destroy(aegis_model_response_t* r)
 {
     if (!r) {

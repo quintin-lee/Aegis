@@ -229,11 +229,17 @@ aegis_status_t aegis_checkpoint_set_goal(aegis_checkpoint_t* ckpt, const char* g
     return AEGIS_OK;
 }
 
+/**
+ * @brief Return the checkpoint schema version, or 0 for a NULL pointer.
+ */
 uint32_t aegis_checkpoint_version(const aegis_checkpoint_t* ckpt)
 {
     return ckpt ? ckpt->version : 0;
 }
 
+/**
+ * @brief Return the iteration counter, or 0 for a NULL pointer.
+ */
 uint64_t aegis_checkpoint_iteration(const aegis_checkpoint_t* ckpt)
 {
     return ckpt ? ckpt->iteration : 0;
@@ -787,6 +793,9 @@ aegis_status_t aegis_checkpoint_read(const char* path, aegis_checkpoint_t** out,
     return rc;
 }
 
+/**
+ * @brief Return the human-readable string for a checkpoint status code.
+ */
 const char* aegis_checkpoint_status_str(aegis_checkpoint_status_t status)
 {
     switch (status) {

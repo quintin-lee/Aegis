@@ -27,6 +27,16 @@ aegis_status_t aegis_provider_def_check(const aegis_provider_def_t* def)
     return AEGIS_OK;
 }
 
+/**
+ * @brief Populate a read-only view of a provider entry.
+ *
+ * Copies the entry's definition and lifecycle state into the view
+ * struct. The view holds no owned resources; it is a plain value the
+ * caller may keep after the entry is destroyed.
+ *
+ * @param[in]  entry Entry to read.
+ * @param[out] view  Receives the def and state.
+ */
 void aegis_provider_entry_view(const aegis_provider_entry_t* entry, aegis_provider_view_t* view)
 {
     view->def   = entry->def;

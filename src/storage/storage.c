@@ -45,6 +45,9 @@ static bool token_cancelled(const aegis_cancellation_token_t* token)
     return token && aegis_cancellation_token_is_cancelled(token);
 }
 
+/**
+ * @brief Destroy a storage blob, freeing its data buffer. NULL-safe.
+ */
 void aegis_storage_blob_destroy(aegis_storage_blob_t* blob)
 {
     if (!blob) {
@@ -55,6 +58,20 @@ void aegis_storage_blob_destroy(aegis_storage_blob_t* blob)
     blob->len  = 0;
 }
 
+/**
+ * @brief Store a key-value pair in a named storage provider.
+ *
+ * @param[in] reg     Provider registry.
+ * @param[in] name    Storage provider name.
+ * @param[in] key     Key bytes.
+ * @param[in] key_len Key length.
+ * @param[in] value   Value bytes (may be NULL when value_len is 0).
+ * @param[in] value_len Value length.
+ * @param[in] token   Cancellation token (may be NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL/bad args,
+ *         AEGIS_ERR_NOT_FOUND if provider missing, AEGIS_ERR_PERM if
+ *         not initialized, AEGIS_ERR_CANCELLED if token is cancelled.
+ */
 aegis_status_t aegis_storage_put(const aegis_provider_registry_t* reg, const char* name,
                                  const void* key, size_t key_len, const void* value,
                                  size_t value_len, const aegis_cancellation_token_t* token)
@@ -76,7 +93,18 @@ aegis_status_t aegis_storage_put(const aegis_provider_registry_t* reg, const cha
     }
     return ops->put(ops->ctx, key, key_len, value, value_len, token);
 }
-
+/**
+ * @brief Retrieve a value from a named storage provider.
+ *
+ * @param[in] reg     Provider registry.
+ * @param[in] name    Storage provider name.
+ * @param[in] key     Key bytes.
+ * @param[in] key_len Key length.
+ * @param[in] token   Cancellation token (may be NULL).
+ * @param[out] out    Receives the blob (call aegis_storage_blob_destroy to free).
+ * @return AEGIS_OK on success, AEGIS_ERR_NOT_FOUND if key missing,
+ *         other errors per provider.
+ */
 aegis_status_t aegis_storage_get(const aegis_provider_registry_t* reg, const char* name,
                                  const void* key, size_t key_len,
                                  const aegis_cancellation_token_t* token, aegis_storage_blob_t* out)
@@ -100,6 +128,17 @@ aegis_status_t aegis_storage_get(const aegis_provider_registry_t* reg, const cha
     return ops->get(ops->ctx, key, key_len, token, out);
 }
 
+/**
+ * @brief Delete a key from a named storage provider.
+ *
+ * @param[in] reg     Provider registry.
+ * @param[in] name    Storage provider name.
+ * @param[in] key     Key bytes.
+ * @param[in] key_len Key length.
+ * @param[in] token   Cancellation token (may be NULL).
+ * @return AEGIS_OK on success, AEGIS_ERR_NOT_FOUND if key missing,
+ *         other errors per provider.
+ */
 aegis_status_t aegis_storage_delete(const aegis_provider_registry_t* reg, const char* name,
                                     const void* key, size_t key_len,
                                     const aegis_cancellation_token_t* token)

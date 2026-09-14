@@ -125,6 +125,24 @@ static int owned_append(aegis_provider_registry_t* reg, aegis_provider_entry_t* 
     return 0;
 }
 
+/**
+ * @brief Register a provider under its name.
+ *
+ * Validates the definition via @ref aegis_provider_def_check, allocates
+ * an owned entry, and publishes it into the registry. Duplicate names
+ * are rejected with AEGIS_ERR_BUSY so the existing registration stays
+ * authoritative. The def's @c init hook is not called here; call
+ * @ref aegis_provider_init afterwards to transition to INITIALIZED.
+ *
+ * @param[in] reg Registry to register into.
+ * @param[in] def Provider definition to store (name, ABI version, hooks).
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID when the def is
+ *   missing or its ABI mismatches, AEGIS_ERR_BUSY on duplicate name,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ *
+ * Thread-safe: the registry lock is held from the duplicate check
+ * through the map insert.
+ */
 aegis_status_t aegis_provider_register(aegis_provider_registry_t*  reg,
                                        const aegis_provider_def_t* def)
 {
@@ -164,6 +182,17 @@ aegis_status_t aegis_provider_register(aegis_provider_registry_t*  reg,
     return AEGIS_OK;
 }
 
+/**
+ * @brief Look up a registered provider by name into a read-only view.
+ *
+ * @param[in]  reg  Registry to search.
+ * @param[in]  name Provider name to look up.
+ * @param[out] view Receives the def and current lifecycle state.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOT_FOUND when the provider is unknown.
+ *
+ * Thread-safe: the registry lock is held during the lookup.
+ */
 aegis_status_t aegis_provider_find(const aegis_provider_registry_t* reg, const char* name,
                                    aegis_provider_view_t* view)
 {
@@ -182,6 +211,23 @@ aegis_status_t aegis_provider_find(const aegis_provider_registry_t* reg, const c
     return AEGIS_OK;
 }
 
+/**
+ * @brief Remove a provider from the registry and tear it down.
+ *
+ * The entry is delinked from the map and the owned array (swap-remove),
+ * the shutdown hook is run lock-free when it was initialised, and the
+ * entry struct is freed. The def's borrowed strings remain the
+ * provider author's responsibility.
+ *
+ * @param[in] reg  Registry to unregister from.
+ * @param[in] name Provider name to remove.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOT_FOUND when the provider is unknown,
+ *   AEGIS_ERR_INTERNAL if the map remove unexpectedly fails.
+ *
+ * Thread-safe: the registry lock is held from the lookup through the
+ * array swap-remove; the shutdown hook runs after the unlock.
+ */
 aegis_status_t aegis_provider_unregister(aegis_provider_registry_t* reg, const char* name)
 {
     if (!reg || !name) {
@@ -221,6 +267,14 @@ aegis_status_t aegis_provider_unregister(aegis_provider_registry_t* reg, const c
     return AEGIS_OK;
 }
 
+/**
+ * @brief Return the number of registered providers.
+ *
+ * @param[in] reg Registry to count, or NULL (returns 0).
+ * @return Number of entries currently in the registry.
+ *
+ * Thread-safe: the lock is held only for the hashmap length query.
+ */
 size_t aegis_provider_count(const aegis_provider_registry_t* reg)
 {
     if (!reg || !reg->map) {

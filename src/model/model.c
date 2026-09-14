@@ -18,6 +18,19 @@ struct aegis_model_client {
     aegis_model_backend_t    backend;
 };
 
+/**
+ * @brief Create a model client that uses the built-in mock backend.
+ *
+ * The client is configured with the full capability set (text, tool
+ * calling, streaming) and no backend callbacks, so complete/stream calls
+ * fall back to the deterministic mock response derived from the last
+ * user message.
+ *
+ * @param[in]  model Model name; must be non-NULL.
+ * @param[out] out   Receives the new client; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args,
+ *   AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_model_client_create(const char* model, aegis_model_client_t** out)
 {
     if (!model || !out) {
@@ -37,6 +50,20 @@ aegis_status_t aegis_model_client_create(const char* model, aegis_model_client_t
     return AEGIS_OK;
 }
 
+/**
+ * @brief Create a model client with an explicit backend dispatch table.
+ *
+ * The backend struct is copied at creation; the caller's struct may be
+ * freed afterwards. At least one of @c complete or @c stream must be
+ * non-NULL, otherwise the client has no way to respond and creation is
+ * rejected. The capability mask is taken from the backend.
+ *
+ * @param[in]  model   Model name; must be non-NULL.
+ * @param[in]  backend Backend dispatch table; must have at least one hook.
+ * @param[out] out     Receives the new client; untouched on failure.
+ * @return AEGIS_OK on success, AEGIS_ERR_INVALID for NULL args or an
+ *   empty backend, AEGIS_ERR_NOMEM on allocation failure.
+ */
 aegis_status_t aegis_model_client_create_with_backend(const char*                  model,
                                                       const aegis_model_backend_t* backend,
                                                       aegis_model_client_t**       out)
@@ -56,6 +83,13 @@ aegis_status_t aegis_model_client_create_with_backend(const char*               
     return AEGIS_OK;
 }
 
+/**
+ * @brief Destroy a model client and free its owned resources.
+ *
+ * Frees the model name string and the client struct. NULL is a no-op.
+ *
+ * @param[in] c Client to destroy, or NULL.
+ */
 void aegis_model_client_destroy(aegis_model_client_t* c)
 {
     if (!c) {
@@ -65,6 +99,12 @@ void aegis_model_client_destroy(aegis_model_client_t* c)
     free(c);
 }
 
+/**
+ * @brief Return the capability mask advertised by a model client.
+ *
+ * @param[in] c Client to query, or NULL (returns 0).
+ * @return Capability bitmask; 0 when the client is NULL.
+ */
 aegis_model_capability_t aegis_model_capabilities(const aegis_model_client_t* c)
 {
     return c ? c->caps : 0;

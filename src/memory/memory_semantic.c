@@ -19,6 +19,9 @@
 
 /* ── Semantic memory ───────────────────────────────────────────────────────── */
 
+/**
+ * @brief Create an empty semantic memory store.
+ */
 aegis_status_t aegis_semantic_memory_create(aegis_semantic_memory_t** out)
 {
     AEGIS_CHECK_OUT(out);
