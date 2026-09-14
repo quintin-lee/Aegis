@@ -69,7 +69,7 @@ Ownership semantics are explicit on every pointer parameter/return value:
 
 ## Guidelines
 
-See [`AGENTS.md`](./AGENTS.md) for the complete AI-coding约束 enforced on all contributors (human or agent).
+See the [developer guide](./docs/refactor/target-architecture.md) for the complete AI-coding约束 enforced on all contributors (human or agent).
 
 ## Directory Layout
 

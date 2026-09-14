@@ -34,3 +34,5 @@ coverage/
 *.log
 *.vglog
 .aegis/
+/coverage-html/
+coverage.info

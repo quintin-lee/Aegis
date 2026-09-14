@@ -107,3 +107,11 @@ include(cmake/AegisTests.cmake)
 
 # ── Install ──────────────────────────────────────────────────────────────
 include(cmake/AegisInstall.cmake)
+include(cmake/AegisCoverage.cmake)
+# Enable coverage on all libraries and executables
+function(aegis_setup_coverage target)
+    if(AEGIS_ENABLE_COVERAGE)
+        target_compile_options(${target} PRIVATE --coverage -O0 -g)
+        target_link_options(${target} PRIVATE --coverage)
+    endif()
+endfunction()
