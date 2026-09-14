@@ -80,7 +80,7 @@ bool aegis_eq_bytes(const void* a, const void* b, size_t len)
  * @return 0 on success, -1 on NULL args or allocation failure.
  */
 int aegis_hashmap_create(aegis_hashmap_t** out, size_t capacity, aegis_hash_fn hash, aegis_eq_fn eq,
-                          uint64_t hash_seed)
+                         uint64_t hash_seed)
 {
     if (!out || !hash || !eq) {
         return -1;
@@ -226,7 +226,7 @@ int aegis_hashmap_insert(aegis_hashmap_t* map, const void* key, size_t key_len, 
  * @return true on hit, false on miss or NULL map.
  */
 bool aegis_hashmap_get(const aegis_hashmap_t* map, const void* key, size_t key_len,
-                        void** out_value)
+                       void** out_value)
 {
     if (!map) {
         return false;

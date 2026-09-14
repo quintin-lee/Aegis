@@ -448,7 +448,7 @@ aegis_status_t aegis_session_save(const aegis_session_t* s, const char* path)
     }
     return AEGIS_OK;
 }
-  // Loader restores session metadata, messages, and tool calls from JSONL
+// Loader restores session metadata, messages, and tool calls from JSONL
 /**
  * @brief Load a session previously written by aegis_session_save().
  *

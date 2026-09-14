@@ -24,21 +24,21 @@
  * indicate errors; 0 (AEGIS_OK) indicates success.
  */
 typedef enum aegis_status {
-    AEGIS_OK                 = 0,   /**< Operation succeeded.                              */
-    AEGIS_ERR_INTERNAL       = -1,  /**< Unexpected internal failure.                      */
-    AEGIS_ERR_NOMEM          = -2,  /**< Memory allocation failed.                         */
-    AEGIS_ERR_INVALID        = -3,  /**< Invalid argument supplied.                        */
-    AEGIS_ERR_NOT_FOUND      = -4,  /**< Requested resource was not found.                 */
-    AEGIS_ERR_BUSY           = -5,  /**< Resource is currently in use; try again later.    */
-    AEGIS_ERR_TIMEOUT        = -6,  /**< Operation did not complete within the timeout.    */
-    AEGIS_ERR_CANCELLED      = -7,  /**< Operation was cancelled by the caller.            */
-    AEGIS_ERR_PERM           = -8,  /**< Permission denied by policy.                      */
-    AEGIS_ERR_PROVIDER       = -9,  /**< Error originating from an external provider.      */
-    AEGIS_ERR_TOOL           = -10, /**< Error originating from a tool execution.          */
-    AEGIS_ERR_MAX_ITERATIONS = -11, /**< Max planning iterations reached.                  */
-    AEGIS_ERR_INVALID_STATE  = -12, /**< Invalid autonomous state transition.              */
+    AEGIS_OK                   = 0,   /**< Operation succeeded.                              */
+    AEGIS_ERR_INTERNAL         = -1,  /**< Unexpected internal failure.                      */
+    AEGIS_ERR_NOMEM            = -2,  /**< Memory allocation failed.                         */
+    AEGIS_ERR_INVALID          = -3,  /**< Invalid argument supplied.                        */
+    AEGIS_ERR_NOT_FOUND        = -4,  /**< Requested resource was not found.                 */
+    AEGIS_ERR_BUSY             = -5,  /**< Resource is currently in use; try again later.    */
+    AEGIS_ERR_TIMEOUT          = -6,  /**< Operation did not complete within the timeout.    */
+    AEGIS_ERR_CANCELLED        = -7,  /**< Operation was cancelled by the caller.            */
+    AEGIS_ERR_PERM             = -8,  /**< Permission denied by policy.                      */
+    AEGIS_ERR_PROVIDER         = -9,  /**< Error originating from an external provider.      */
+    AEGIS_ERR_TOOL             = -10, /**< Error originating from a tool execution.          */
+    AEGIS_ERR_MAX_ITERATIONS   = -11, /**< Max planning iterations reached.                  */
+    AEGIS_ERR_INVALID_STATE    = -12, /**< Invalid autonomous state transition.              */
     AEGIS_ERR_CONTEXT_OVERFLOW = -13, /**< Context exceeds budget; compact and retry.       */
-    AEGIS_ERR_TOOL_VALIDATION = -14, /**< Tool arguments failed schema validation.          */
+    AEGIS_ERR_TOOL_VALIDATION  = -14, /**< Tool arguments failed schema validation.          */
     AEGIS_ERR_MODEL_RATE_LIMIT = -15, /**< Model provider rate limited; back off and retry. */
 } aegis_status_t;
 /* ── Opaque handles ───────────────────────────────────────────────────────── */

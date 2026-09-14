@@ -24,7 +24,7 @@ aegis_status_t aegis_mutation_queue_create(aegis_mutation_queue_t** out);
  * @brief Destroy a mutation queue. NULL is a no-op. The queue must be
  *        fully released (no outstanding acquire) beforehand.
  */
-void           aegis_mutation_queue_destroy(aegis_mutation_queue_t* q);
+void aegis_mutation_queue_destroy(aegis_mutation_queue_t* q);
 
 /**
  * @brief Acquire exclusive mutation rights before touching @p path.
@@ -45,7 +45,7 @@ aegis_status_t aegis_mutation_queue_acquire(aegis_mutation_queue_t* q, const cha
  * @param[in] q    Queue, or NULL.
  * @param[in] path File path passed to the matching acquire() (informational).
  */
-void           aegis_mutation_queue_release(aegis_mutation_queue_t* q, const char* path);
+void aegis_mutation_queue_release(aegis_mutation_queue_t* q, const char* path);
 
 #ifdef __cplusplus
 }

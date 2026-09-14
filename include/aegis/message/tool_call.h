@@ -27,7 +27,7 @@ aegis_status_t aegis_tool_call_create(aegis_tool_call_t** out);
  * @brief Free a tool-call record and every owned string it holds.
  *        NULL is a no-op.
  */
-void           aegis_tool_call_destroy(aegis_tool_call_t* call);
+void aegis_tool_call_destroy(aegis_tool_call_t* call);
 /**
  * @brief Deep-copy a tool call, allocating fresh strings for id, name
  *        and JSON arguments. Caller owns the clone and must destroy it.
@@ -49,7 +49,7 @@ const char* aegis_tool_call_arguments(const aegis_tool_call_t* call);
  * Return the positional index of this call (-1 when unset or call is
  * NULL — used by the tool-result message to match back to the caller).
  */
-int         aegis_tool_call_index(const aegis_tool_call_t* call);
+int aegis_tool_call_index(const aegis_tool_call_t* call);
 
 /* ── Mutators ─────────────────────────────────────────────────────────── */
 

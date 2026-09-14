@@ -40,10 +40,10 @@ typedef struct cli_stream_ctx {
     size_t          allowed_count;
 } cli_stream_ctx_t;
 
-void cli_stream_prelude(cli_stream_ctx_t* cx);
-bool json_mode_env(void);
-void print_banner(const char* model);
-void cli_event_cb(const aegis_agent_event_t* ev, void* user);
+void           cli_stream_prelude(cli_stream_ctx_t* cx);
+bool           json_mode_env(void);
+void           print_banner(const char* model);
+void           cli_event_cb(const aegis_agent_event_t* ev, void* user);
 aegis_status_t cli_print_tool_def(const aegis_tool_def_t* def, void* user);
 
 /* ── stdin line queue (reader thread → consumers) ────────────────────────── */
@@ -61,15 +61,15 @@ typedef struct line_queue {
     pthread_cond_t  cv;
 } line_queue_t;
 
-void   lq_init(line_queue_t* q);
-void   lq_push(line_queue_t* q, char* text);
-char*  lq_pop(line_queue_t* q);
-void   lq_close(line_queue_t* q);
-void   raw_enable(void);
-void   raw_disable(void);
-void*  reader_main(void* arg);
+void  lq_init(line_queue_t* q);
+void  lq_push(line_queue_t* q, char* text);
+char* lq_pop(line_queue_t* q);
+void  lq_close(line_queue_t* q);
+void  raw_enable(void);
+void  raw_disable(void);
+void* reader_main(void* arg);
 
-extern line_queue_t        g_lines;
+extern line_queue_t          g_lines;
 extern volatile sig_atomic_t g_reader_shutdown;
 
 /* ── Approval gate + turn watcher ────────────────────────────────────────── */
@@ -82,10 +82,9 @@ typedef struct watcher_ctx {
     bool                  interrupted;
 } watcher_ctx_t;
 
-char*  gate_take(void);
-void*  watcher_main(void* arg);
-aegis_tool_approval_t cli_approval_cb(const char* tool_name, const char* args_json,
-                                      void* user);
+char*                 gate_take(void);
+void*                 watcher_main(void* arg);
+aegis_tool_approval_t cli_approval_cb(const char* tool_name, const char* args_json, void* user);
 
 extern watcher_ctx_t* g_gate_watcher;
 

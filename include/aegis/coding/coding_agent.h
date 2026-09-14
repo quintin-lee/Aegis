@@ -38,7 +38,7 @@ typedef struct aegis_coding_agent_config {
 aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
                                          aegis_coding_agent_t**             out);
 /** Destroy agent with its session, loop and owned tools. Safe with NULL. */
-void           aegis_coding_agent_destroy(aegis_coding_agent_t* agent);
+void aegis_coding_agent_destroy(aegis_coding_agent_t* agent);
 
 /** Borrowed session handle; NULL when agent is NULL. */
 aegis_session_t* aegis_coding_agent_session(aegis_coding_agent_t* agent);
@@ -46,10 +46,10 @@ aegis_session_t* aegis_coding_agent_session(aegis_coding_agent_t* agent);
  * Replace the session (ownership transferred; previous session destroyed,
  * loop rebuilt around the new one). NULL agent/session → INVALID.
  */
-aegis_status_t   aegis_coding_agent_replace_session(aegis_coding_agent_t* agent,
-                                                    aegis_session_t*      session);
+aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* agent,
+                                                  aegis_session_t*      session);
 /** Run one turn on @p user_input. NULL agent/input → INVALID. */
-aegis_status_t   aegis_coding_agent_run(aegis_coding_agent_t* agent, const char* user_input);
+aegis_status_t aegis_coding_agent_run(aegis_coding_agent_t* agent, const char* user_input);
 
 /**
  * @brief Current model name (owned by the agent; valid until set_model).

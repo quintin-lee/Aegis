@@ -24,7 +24,7 @@
  *         planner's error.
  */
 aegis_status_t aegis_autonomous_replan(aegis_autonomous_agent_t*   agent,
-                                 aegis_autonomous_runtime_t* runtime)
+                                       aegis_autonomous_runtime_t* runtime)
 {
     if (!agent || !runtime || !runtime->plan || !runtime->replan_feedback) {
         return AEGIS_ERR_INVALID;

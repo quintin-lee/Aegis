@@ -72,7 +72,8 @@ bool aegis_autonomous_transition_allowed(aegis_autonomous_state_t from, aegis_au
  *
  * Thread-safe: fully serialized by the agent mutex.
  */
-aegis_status_t aegis_autonomous_transition(aegis_autonomous_agent_t* aa, aegis_autonomous_state_t target)
+aegis_status_t aegis_autonomous_transition(aegis_autonomous_agent_t* aa,
+                                           aegis_autonomous_state_t  target)
 {
     if (!aa) {
         return AEGIS_ERR_INVALID;

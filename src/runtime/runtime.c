@@ -34,11 +34,11 @@ aegis_status_t aegis_runtime_create(aegis_runtime_t** out)
     }
 
     /* Copy defaults (single source in config.c) */
-    aegis_config_t d      = aegis_config_default();
-    rt->max_workers       = d.max_workers;
-    rt->event_queue_cap   = d.event_queue_cap;
-    rt->stop_timeout_ms   = d.stop_timeout_ms;
-    rt->name              = NULL;
+    aegis_config_t d    = aegis_config_default();
+    rt->max_workers     = d.max_workers;
+    rt->event_queue_cap = d.event_queue_cap;
+    rt->stop_timeout_ms = d.stop_timeout_ms;
+    rt->name            = NULL;
     rt->state           = AEGIS_RT_CREATED;
     rt->n_workers       = 0;
     rt->worker_threads  = NULL;

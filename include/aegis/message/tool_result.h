@@ -23,21 +23,21 @@ typedef struct aegis_message_tool_result aegis_message_tool_result_t;
 /** Create a zeroed result (status defaults to AEGIS_OK). NULL out → INVALID. */
 aegis_status_t aegis_message_tool_result_create(aegis_message_tool_result_t** out);
 /** Destroy and free owned strings. Safe with NULL. */
-void           aegis_message_tool_result_destroy(aegis_message_tool_result_t* res);
+void aegis_message_tool_result_destroy(aegis_message_tool_result_t* res);
 /** Deep-copy all fields. NULL src/out → INVALID. */
 aegis_status_t aegis_message_tool_result_clone(const aegis_message_tool_result_t* src,
                                                aegis_message_tool_result_t**      out);
 
 /** Borrowed call id, or NULL when unset/absent. */
-const char*    aegis_message_tool_result_call_id(const aegis_message_tool_result_t* res);
+const char* aegis_message_tool_result_call_id(const aegis_message_tool_result_t* res);
 /** Borrowed content, or NULL when unset/absent. */
-const char*    aegis_message_tool_result_content(const aegis_message_tool_result_t* res);
+const char* aegis_message_tool_result_content(const aegis_message_tool_result_t* res);
 /** Borrowed error text, or NULL when unset/absent. */
-const char*    aegis_message_tool_result_error(const aegis_message_tool_result_t* res);
+const char* aegis_message_tool_result_error(const aegis_message_tool_result_t* res);
 /** Stored status; AEGIS_ERR_INVALID when res is NULL. */
 aegis_status_t aegis_message_tool_result_status(const aegis_message_tool_result_t* res);
 /** Partial-delivery flag; false when res is NULL. */
-bool           aegis_message_tool_result_is_partial(const aegis_message_tool_result_t* res);
+bool aegis_message_tool_result_is_partial(const aegis_message_tool_result_t* res);
 
 /** Copy call_id (NULL clears). NULL res → INVALID. */
 aegis_status_t aegis_message_tool_result_set_call_id(aegis_message_tool_result_t* res,

@@ -16,7 +16,7 @@ extern "C" {
  */
 
 aegis_status_t aegis_openai_parse_complete_response(const char* json, size_t len,
-                                                     aegis_model_response_t** out);
+                                                    aegis_model_response_t** out);
 
 #ifdef __cplusplus
 }

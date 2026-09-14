@@ -21,7 +21,7 @@
  * @return AEGIS_OK on success, AEGIS_ERR_NOMEM on failure.
  */
 aegis_status_t aegis_event_create(aegis_event_t** out, aegis_event_type_t type,
-                                   const aegis_event_payload_t* payload)
+                                  const aegis_event_payload_t* payload)
 {
     AEGIS_CHECK_OUT(out);
 

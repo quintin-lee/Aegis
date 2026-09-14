@@ -25,8 +25,8 @@
  * Thread-safe: counter/state snapshot is lock-guarded; the write itself
  * honours the agent cancellation token.
  */
-void aegis_autonomous_checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal, aegis_plan_t* plan,
-                                aegis_task_graph_t* graph)
+void aegis_autonomous_checkpoint_save(aegis_autonomous_agent_t* aa, const char* goal,
+                                      aegis_plan_t* plan, aegis_task_graph_t* graph)
 {
     if (!aa) {
         return;

@@ -60,7 +60,7 @@ static aegis_status_t autonomous_default_work(aegis_task_t*                     
  *         the first fatal submit/wait error.
  */
 aegis_status_t aegis_autonomous_execute(aegis_autonomous_agent_t*   agent,
-                                  aegis_autonomous_runtime_t* runtime)
+                                        aegis_autonomous_runtime_t* runtime)
 {
     if (!agent || !runtime) {
         return AEGIS_ERR_INVALID;

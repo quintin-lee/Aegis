@@ -36,14 +36,14 @@ typedef struct openai_llm_ctx {
 /* ── curl write buffer ────────────────────────────────────────────────────── */
 
 typedef struct {
-    char* buf;
+    char*  buf;
     size_t len;
     size_t cap;
 } write_buf_t;
 
 static size_t on_write(void* ptr, size_t size, size_t nmemb, void* userdata)
 {
-    write_buf_t* w = (write_buf_t*)userdata;
+    write_buf_t* w     = (write_buf_t*)userdata;
     size_t       total = size * nmemb;
     if (total == 0) {
         return 0;
@@ -52,10 +52,10 @@ static size_t on_write(void* ptr, size_t size, size_t nmemb, void* userdata)
     if (!nb) {
         return 0;
     }
-    w->buf      = nb;
-    w->cap     += total;
+    w->buf = nb;
+    w->cap += total;
     memcpy(w->buf + w->len, ptr, total);
-    w->len     += total;
+    w->len += total;
     w->buf[w->len] = '\0';
     return total;
 }
@@ -96,7 +96,7 @@ static char* pull_content(const char* json, size_t json_len)
         limit = json + json_len;
     }
 
-    const char* msg   = strstr(p, "\"message\"");
+    const char* msg = strstr(p, "\"message\"");
     if (!msg || msg > limit) {
         return NULL;
     }
@@ -164,15 +164,14 @@ static char* pull_content(const char* json, size_t json_len)
 
 /* ── Request builder ─────────────────────────────────────────────────────── */
 
-static char* build_body(const openai_llm_ctx_t* ctx,
-                        const aegis_llm_request_t* req)
+static char* build_body(const openai_llm_ctx_t* ctx, const aegis_llm_request_t* req)
 {
-    size_t prompt_len = req ? req->prompt_len : 0;
-    const char* prompt = req ? (const char*)req->prompt : NULL;
+    size_t      prompt_len = req ? req->prompt_len : 0;
+    const char* prompt     = req ? (const char*)req->prompt : NULL;
 
     /* Estimate: fixed overhead ~200 bytes + prompt */
     size_t est = 256 + prompt_len;
-    char* buf = (char*)malloc(est);
+    char*  buf = (char*)malloc(est);
     if (!buf) {
         return NULL;
     }
@@ -193,42 +192,63 @@ static char* build_body(const openai_llm_ctx_t* ctx,
         model = OPENAI_DEFAULT_MODEL;
     }
     int n = snprintf(buf, est,
-        "{\"model\":\"%s\","
-         "\"messages\":[{\"role\":\"user\",\"content\":\"",
-        model);
+                     "{\"model\":\"%s\","
+                     "\"messages\":[{\"role\":\"user\",\"content\":\"",
+                     model);
     if (n < 0 || (size_t)n >= est) {
         free(buf);
         return NULL;
     }
 
     /* Escape and append prompt */
-    char* dst = buf + n;
+    char*  dst = buf + n;
     size_t rem = est - (size_t)n;
     for (size_t i = 0; i < prompt_len; i++) {
         unsigned char c = (unsigned char)prompt[i];
         if (c == '\\' || c == '"') {
-            if (rem < 3) { free(buf); return NULL; }
+            if (rem < 3) {
+                free(buf);
+                return NULL;
+            }
             *dst++ = '\\';
             *dst++ = (c == '"') ? '"' : '\\';
             rem -= 2;
         } else if (c == '\n') {
-            if (rem < 3) { free(buf); return NULL; }
-            *dst++ = '\\'; *dst++ = 'n';
+            if (rem < 3) {
+                free(buf);
+                return NULL;
+            }
+            *dst++ = '\\';
+            *dst++ = 'n';
             rem -= 2;
         } else if (c == '\r') {
-            if (rem < 3) { free(buf); return NULL; }
-            *dst++ = '\\'; *dst++ = 'r';
+            if (rem < 3) {
+                free(buf);
+                return NULL;
+            }
+            *dst++ = '\\';
+            *dst++ = 'r';
             rem -= 2;
         } else if (c == '\t') {
-            if (rem < 3) { free(buf); return NULL; }
-            *dst++ = '\\'; *dst++ = 't';
+            if (rem < 3) {
+                free(buf);
+                return NULL;
+            }
+            *dst++ = '\\';
+            *dst++ = 't';
             rem -= 2;
         } else if (c < 0x20) {
-            if (rem < 6) { free(buf); return NULL; }
+            if (rem < 6) {
+                free(buf);
+                return NULL;
+            }
             dst += (int)snprintf(dst, rem, "\\u00%02x", c);
             rem -= 6;
         } else {
-            if (rem < 1) { free(buf); return NULL; }
+            if (rem < 1) {
+                free(buf);
+                return NULL;
+            }
             *dst++ = (char)c;
             rem--;
         }
@@ -236,11 +256,11 @@ static char* build_body(const openai_llm_ctx_t* ctx,
 
     /* Suffix */
     int n2 = snprintf(dst, rem,
-        "\"}],"
-         "\"max_tokens\":%u,"
-         "\"temperature\":%.4f"
-         "}",
-        max_tokens, temp);
+                      "\"}],"
+                      "\"max_tokens\":%u,"
+                      "\"temperature\":%.4f"
+                      "}",
+                      max_tokens, temp);
     if (n2 < 0 || (size_t)n2 >= rem) {
         free(buf);
         return NULL;
@@ -268,10 +288,9 @@ static void openai_llm_shutdown(void* user)
 
 /* ── Completion callback ─────────────────────────────────────────────────── */
 
-static aegis_status_t openai_llm_complete(void* ctx_ptr,
-                                           const aegis_llm_request_t* req,
-                                           const aegis_cancellation_token_t* token,
-                                           aegis_llm_response_t* out)
+static aegis_status_t openai_llm_complete(void* ctx_ptr, const aegis_llm_request_t* req,
+                                          const aegis_cancellation_token_t* token,
+                                          aegis_llm_response_t*             out)
 {
     openai_llm_ctx_t* ctx = (openai_llm_ctx_t*)ctx_ptr;
     if (!ctx || !out) {
@@ -321,8 +340,8 @@ static aegis_status_t openai_llm_complete(void* ctx_ptr,
     }
 
     write_buf_t wbuf = {NULL, 0, 0};
-    wbuf.cap = OPENAI_INIT_BUF_SIZE;
-    wbuf.buf = (char*)malloc(wbuf.cap);
+    wbuf.cap         = OPENAI_INIT_BUF_SIZE;
+    wbuf.buf         = (char*)malloc(wbuf.cap);
     if (!wbuf.buf) {
         curl_easy_cleanup(curl);
         free(body);
@@ -333,8 +352,8 @@ static aegis_status_t openai_llm_complete(void* ctx_ptr,
     snprintf(auth_hdr, sizeof(auth_hdr), "Authorization: Bearer %s", api_key);
 
     struct curl_slist* headers = NULL;
-    headers = curl_slist_append(headers, "Content-Type: application/json");
-    headers = curl_slist_append(headers, auth_hdr);
+    headers                    = curl_slist_append(headers, "Content-Type: application/json");
+    headers                    = curl_slist_append(headers, auth_hdr);
 
     curl_easy_setopt(curl, CURLOPT_URL, url);
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
@@ -346,8 +365,8 @@ static aegis_status_t openai_llm_complete(void* ctx_ptr,
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 1L);
     curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 2L);
 
-    CURLcode res = curl_easy_perform(curl);
-    long http_code = 0;
+    CURLcode res       = curl_easy_perform(curl);
+    long     http_code = 0;
     curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
     curl_easy_cleanup(curl);
     curl_slist_free_all(headers);
@@ -363,11 +382,16 @@ static aegis_status_t openai_llm_complete(void* ctx_ptr,
         fprintf(stderr, "error: OpenAI-compatible endpoint returned HTTP %ld\n", http_code);
         aegis_status_t http_status = AEGIS_ERR_PROVIDER;
         if (http_code == 401 || http_code == 403) {
-            fprintf(stderr, "hint: authentication failed; verify --api-key and provider-specific token format\n");
+            fprintf(stderr,
+                    "hint: authentication failed; verify --api-key and provider-specific token "
+                    "format\n");
         } else if (http_code == 404) {
-            fprintf(stderr, "hint: verify --base-url includes the API version and that the model endpoint exists\n");
+            fprintf(stderr,
+                    "hint: verify --base-url includes the API version and that the model endpoint "
+                    "exists\n");
         } else if (http_code == 400) {
-            fprintf(stderr, "hint: verify --model and request compatibility with the selected endpoint\n");
+            fprintf(stderr,
+                    "hint: verify --model and request compatibility with the selected endpoint\n");
         } else if (http_code == 429) {
             fprintf(stderr, "hint: rate limited; back off and retry\n");
             http_status = AEGIS_ERR_MODEL_RATE_LIMIT;
@@ -396,11 +420,9 @@ static aegis_status_t openai_llm_complete(void* ctx_ptr,
 }
 /* ── Streaming callback ─────────────────────────────────────────────────── */
 
-static aegis_status_t openai_llm_stream(void* ctx_ptr,
-                                         const aegis_llm_request_t* req,
-                                         const aegis_cancellation_token_t* token,
-                                         aegis_llm_stream_fn yield,
-                                         void* yield_user)
+static aegis_status_t openai_llm_stream(void* ctx_ptr, const aegis_llm_request_t* req,
+                                        const aegis_cancellation_token_t* token,
+                                        aegis_llm_stream_fn yield, void* yield_user)
 {
     (void)yield_user;
     openai_llm_ctx_t* ctx = (openai_llm_ctx_t*)ctx_ptr;
@@ -450,7 +472,7 @@ static aegis_status_t openai_llm_stream(void* ctx_ptr,
     }
 
     struct curl_slist* headers = NULL;
-    char auth_hdr[1024];
+    char               auth_hdr[1024];
     snprintf(auth_hdr, sizeof(auth_hdr), "Authorization: Bearer %s", api_key);
     headers = curl_slist_append(headers, "Content-Type: application/json");
     headers = curl_slist_append(headers, auth_hdr);
@@ -479,16 +501,14 @@ static aegis_status_t openai_llm_stream(void* ctx_ptr,
 }
 /* ── Factory ─────────────────────────────────────────────────────────────── */
 
-aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx,
-                                       const aegis_llm_ops_t** out_ops,
+aegis_status_t aegis_openai_llm_create(openai_llm_ctx_t** out_ctx, const aegis_llm_ops_t** out_ops,
                                        aegis_provider_def_t* out_def)
 {
     if (!out_ctx || !out_ops || !out_def) {
         return AEGIS_ERR_INVALID;
     }
 
-    openai_llm_ctx_t* ctx =
-        (openai_llm_ctx_t*)calloc(1, sizeof(*ctx));
+    openai_llm_ctx_t* ctx = (openai_llm_ctx_t*)calloc(1, sizeof(*ctx));
     if (!ctx) {
         return AEGIS_ERR_NOMEM;
     }
@@ -530,9 +550,7 @@ void aegis_openai_llm_destroy(openai_llm_ctx_t* ctx, const aegis_llm_ops_t* ops)
     (void)ops;
 }
 
-void aegis_openai_llm_configure(openai_llm_ctx_t* ctx,
-                                const char* api_key,
-                                const char* base_url,
+void aegis_openai_llm_configure(openai_llm_ctx_t* ctx, const char* api_key, const char* base_url,
                                 const char* model)
 {
     if (!ctx) {
@@ -541,7 +559,7 @@ void aegis_openai_llm_configure(openai_llm_ctx_t* ctx,
     free(ctx->api_key);
     free(ctx->base_url);
     free(ctx->model);
-    ctx->api_key  = api_key  ? strdup(api_key)  : NULL;
+    ctx->api_key  = api_key ? strdup(api_key) : NULL;
     ctx->base_url = base_url ? strdup(base_url) : NULL;
-    ctx->model    = model    ? strdup(model)    : NULL;
+    ctx->model    = model ? strdup(model) : NULL;
 }

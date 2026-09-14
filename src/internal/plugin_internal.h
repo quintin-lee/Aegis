@@ -14,7 +14,7 @@
 
 /* ── Constants ─────────────────────────────────────────────────────────────── */
 
-#define AEGIS_PLUGIN_MAX_PATH 512
+#define AEGIS_PLUGIN_MAX_PATH    512
 #define AEGIS_PLUGIN_MAX_PLUGINS 64
 
 /* Manifest symbol name that every plugin must export. */

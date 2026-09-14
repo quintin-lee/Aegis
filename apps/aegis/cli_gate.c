@@ -119,8 +119,7 @@ void* watcher_main(void* arg)
 }
 
 /* Approval gate: interactive y/n/a unless disabled or tool allow-listed. */
-aegis_tool_approval_t cli_approval_cb(const char* tool_name, const char* args_json,
-                                      void* user)
+aegis_tool_approval_t cli_approval_cb(const char* tool_name, const char* args_json, void* user)
 {
     cli_stream_ctx_t* cx = (cli_stream_ctx_t*)user;
     if (!cx || !cx->approvals || !tool_name) {

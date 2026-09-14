@@ -28,7 +28,7 @@ aegis_status_t aegis_session_create(const char* project_root, aegis_session_t** 
 /**
  * @brief Free a session and all messages it owns. NULL is a no-op.
  */
-void           aegis_session_destroy(aegis_session_t* sess);
+void aegis_session_destroy(aegis_session_t* sess);
 
 /* ── Identity ────────────────────────────────────────────────────────── */
 
@@ -41,12 +41,12 @@ const char* aegis_session_id(const aegis_session_t* sess);
  * Return the wall-clock creation timestamp in milliseconds since epoch.
  * Refreshed on append and compact.
  */
-uint64_t    aegis_session_created_at(const aegis_session_t* sess);
+uint64_t aegis_session_created_at(const aegis_session_t* sess);
 /**
  * Return the last-update timestamp (ms since epoch). Refreshed on every
  * message append and compaction.
  */
-uint64_t    aegis_session_updated_at(const aegis_session_t* sess);
+uint64_t aegis_session_updated_at(const aegis_session_t* sess);
 
 /* ── Messages ────────────────────────────────────────────────────────── */
 
@@ -59,12 +59,12 @@ aegis_status_t aegis_session_append_message(aegis_session_t* sess, const aegis_m
 /**
  * Return the total number of messages in the history. NULL-safe.
  */
-size_t         aegis_session_message_count(const aegis_session_t* sess);
+size_t aegis_session_message_count(const aegis_session_t* sess);
 /**
  * Borrow the message at zero-based index @p idx. Returns NULL when
  * index is out of range or sess is NULL. Valid until the next mutation.
  */
-const aegis_message_t*      aegis_session_message_at(const aegis_session_t* sess, size_t idx);
+const aegis_message_t* aegis_session_message_at(const aegis_session_t* sess, size_t idx);
 /**
  * Borrow the owned message list. Valid until destruction or compaction.
  */
@@ -105,12 +105,12 @@ aegis_status_t aegis_session_fork(const aegis_session_t* src, aegis_session_t** 
  * Borrow the branch UUID (fresh at fork time; empty-string-root for
  * root sessions). Valid until destruction.
  */
-const char*    aegis_session_branch_id(const aegis_session_t* sess);
+const char* aegis_session_branch_id(const aegis_session_t* sess);
 /**
  * Borrow the id of the parent session this one was forked from, or NULL
  * when there is no parent (root session) or sess is NULL.
  */
-const char*    aegis_session_parent_id(const aegis_session_t* sess);
+const char* aegis_session_parent_id(const aegis_session_t* sess);
 
 #ifdef __cplusplus
 }

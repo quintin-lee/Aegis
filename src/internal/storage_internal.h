@@ -25,7 +25,7 @@ typedef enum aegis_storage_txn_op {
 /** One staged operation in a transaction. */
 typedef struct aegis_storage_txn_op_entry {
     aegis_storage_txn_op_t op;
-    void*                  key;       /**< Owned. */
+    void*                  key; /**< Owned. */
     size_t                 key_len;
     void*                  value;     /**< Owned (PUT only). */
     size_t                 value_len; /**< Owned (PUT only). */

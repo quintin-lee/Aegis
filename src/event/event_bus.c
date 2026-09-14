@@ -75,7 +75,7 @@ void aegis_event_bus_destroy(aegis_event_bus_t* bus)
  * @return AEGIS_OK on success, AEGIS_ERR_INVALID on NULL bus/handler, AEGIS_ERR_BUSY when full.
  */
 aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus, aegis_event_type_t type,
-                                          aegis_event_handler_fn handler, void* ctx)
+                                         aegis_event_handler_fn handler, void* ctx)
 {
     if (!bus || !handler) {
         return AEGIS_ERR_INVALID;
@@ -110,7 +110,7 @@ aegis_status_t aegis_event_bus_subscribe(aegis_event_bus_t* bus, aegis_event_typ
  * @param ctx     Context used at subscribe time.
  */
 void aegis_event_bus_unsubscribe(aegis_event_bus_t* bus, aegis_event_type_t type,
-                                  aegis_event_handler_fn handler, void* ctx)
+                                 aegis_event_handler_fn handler, void* ctx)
 {
     if (!bus || !handler) {
         return;

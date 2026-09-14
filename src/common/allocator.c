@@ -55,7 +55,7 @@ static void sys_free(aegis_allocator_t* self, void* ptr, void* ctx)
  * @return Resized block, or NULL on failure.
  */
 static void* sys_realloc(aegis_allocator_t* self, void* ptr, size_t old_size, size_t new_size,
-                          void* ctx)
+                         void* ctx)
 {
     (void)self;
     (void)ctx;
@@ -244,7 +244,7 @@ static void track_free(aegis_allocator_t* self, void* ptr, void* ctx)
  * @return Resized block (ownership: transferred), or NULL on failure.
  */
 static void* track_realloc(aegis_allocator_t* self, void* ptr, size_t old_size, size_t new_size,
-                            void* ctx)
+                           void* ctx)
 {
     tracking_ctx_t* tc = (tracking_ctx_t*)ctx;
     (void)self;

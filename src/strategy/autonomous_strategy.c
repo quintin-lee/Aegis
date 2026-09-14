@@ -23,9 +23,9 @@
 #include <stdio.h>
 
 struct aegis_autonomous_strategy {
-    aegis_autonomous_agent_t*    agent;
-    aegis_autonomous_runtime_t*  runtime;
-    aegis_agent_strategy_def_t   def;
+    aegis_autonomous_agent_t*   agent;
+    aegis_autonomous_runtime_t* runtime;
+    aegis_agent_strategy_def_t  def;
 };
 
 /**
@@ -107,7 +107,7 @@ static const char* find_goal(aegis_agent_loop_t* loop)
  * @param[in] runtime  Private runtime receiving the iteration sync.
  * @return Always AEGIS_OK.
  */
-static aegis_status_t ensure_ready(aegis_autonomous_agent_t* agent,
+static aegis_status_t ensure_ready(aegis_autonomous_agent_t*   agent,
                                    aegis_autonomous_runtime_t* runtime)
 {
     pthread_mutex_lock(&agent->lock);
@@ -229,7 +229,7 @@ static aegis_status_t strat_should_continue(void* user, int* out_continue)
     if (!s || !s->agent || !s->runtime || !out_continue) {
         return AEGIS_ERR_INVALID;
     }
-    *out_continue = 0;
+    *out_continue                     = 0;
     aegis_cancellation_token_t* token = aegis_autonomous_get_token(s->agent);
     if (token && aegis_cancellation_token_is_cancelled(token)) {
         (void)aegis_autonomous_transition(s->agent, AEGIS_AUTO_CANCELLING);
@@ -245,8 +245,8 @@ static aegis_status_t strat_should_continue(void* user, int* out_continue)
     s->agent->iteration = (uint32_t)s->runtime->iteration;
     pthread_mutex_unlock(&s->agent->lock);
 
-    const char* goal = s->runtime->goal;
-    aegis_status_t rc = aegis_autonomous_execute(s->agent, s->runtime);
+    const char*    goal = s->runtime->goal;
+    aegis_status_t rc   = aegis_autonomous_execute(s->agent, s->runtime);
     if (rc != AEGIS_OK) {
         (void)aegis_autonomous_transition(
             s->agent, rc == AEGIS_ERR_CANCELLED ? AEGIS_AUTO_CANCELLING : AEGIS_AUTO_FAILED);

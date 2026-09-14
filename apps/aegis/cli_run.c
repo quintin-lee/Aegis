@@ -166,8 +166,8 @@ int cmd_run(int argc, char** argv)
     // ensure parent dir for checkpoint
     ensure_parent_dir(cfg.checkpoint_path);
 
-    if (strcmp(cfg.llm_provider, "llm-mock") != 0 &&
-        strcmp(cfg.llm_provider, "llm-openai") != 0 && cfg.llm_provider[0] != '\0') {
+    if (strcmp(cfg.llm_provider, "llm-mock") != 0 && strcmp(cfg.llm_provider, "llm-openai") != 0 &&
+        cfg.llm_provider[0] != '\0') {
         fprintf(stderr, "error: unknown llm provider '%s' (supported: llm-mock, llm-openai)\n",
                 cfg.llm_provider);
         return 1;
@@ -181,12 +181,12 @@ int cmd_run(int argc, char** argv)
 
     aegis_coding_agent_config_t acfg;
     memset(&acfg, 0, sizeof(acfg));
-    acfg.project_root = ".";
-    acfg.model        = model_name;
-    acfg.provider     = cfg.llm_provider;
-    acfg.api_key      = api_key;
-    acfg.base_url     = base_url;
-    acfg.tools        = NULL;
+    acfg.project_root        = ".";
+    acfg.model               = model_name;
+    acfg.provider            = cfg.llm_provider;
+    acfg.api_key             = api_key;
+    acfg.base_url            = base_url;
+    acfg.tools               = NULL;
     aegis_coding_agent_t* ca = NULL;
     aegis_status_t        rc = aegis_coding_agent_create(&acfg, &ca);
     if (rc != AEGIS_OK) {
@@ -202,7 +202,7 @@ int cmd_run(int argc, char** argv)
         fclose(pf);
     }
 
-    rc = aegis_coding_agent_run(ca, cfg.goal);
+    rc                  = aegis_coding_agent_run(ca, cfg.goal);
     aegis_usage_t total = {0};
     aegis_usage_t last  = {0};
     aegis_coding_agent_usage(ca, &last, &total);

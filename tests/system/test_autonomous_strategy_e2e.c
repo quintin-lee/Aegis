@@ -47,7 +47,7 @@ static aegis_model_backend_t text_backend = {
 int main(void)
 {
     /* Provider side: canned computational plan, one task. */
-    const char*                resp = "STEP|-1|computational||compute|perform computation\n";
+    const char*                resp   = "STEP|-1|computational||compute|perform computation\n";
     const char*                seq[1] = {resp};
     aegis_provider_registry_t* preg   = NULL;
     llm_mock_ctx_t*            pctx   = NULL;
@@ -77,10 +77,10 @@ int main(void)
     assert(aegis_model_client_create_with_backend("fixture-auto-strat", &text_backend, &model) ==
            AEGIS_OK);
     aegis_agent_loop_config_t lcfg = {
-        .session       = session,
-        .model         = model,
-        .tools         = NULL,
-        .strategy      = def,
+        .session  = session,
+        .model    = model,
+        .tools    = NULL,
+        .strategy = def,
     };
     assert(aegis_agent_loop_create(&lcfg, &loop) == AEGIS_OK);
 

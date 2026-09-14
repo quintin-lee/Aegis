@@ -20,7 +20,7 @@ aegis_status_t aegis_skill_manifest_parse(const char* dir_path, aegis_skill_t** 
     if (!dir_path || !out) {
         return AEGIS_ERR_INVALID;
     }
-    *out = NULL;
+    *out             = NULL;
     const char* base = strrchr(dir_path, '/');
     base             = base ? base + 1 : dir_path;
     if (base[0] == '\0') {
@@ -52,9 +52,9 @@ aegis_status_t aegis_skill_manifest_parse(const char* dir_path, aegis_skill_t** 
         }
     }
     fclose(f);
-    aegis_skill_t* s  = NULL;
-    aegis_status_t st = aegis_skill_create(base, desc[0] ? desc : NULL,
-                                           instr[0] ? instr : NULL, &s);
+    aegis_skill_t* s = NULL;
+    aegis_status_t st =
+        aegis_skill_create(base, desc[0] ? desc : NULL, instr[0] ? instr : NULL, &s);
     if (st != AEGIS_OK) {
         return st;
     }

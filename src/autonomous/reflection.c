@@ -23,7 +23,7 @@
  *         missing inputs, NOMEM when the feedback copy fails.
  */
 aegis_status_t aegis_autonomous_reflect(aegis_autonomous_agent_t*   agent,
-                                  aegis_autonomous_runtime_t* runtime)
+                                        aegis_autonomous_runtime_t* runtime)
 {
     if (!agent || !runtime || !runtime->graph) {
         return AEGIS_ERR_INVALID;

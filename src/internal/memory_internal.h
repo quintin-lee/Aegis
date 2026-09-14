@@ -22,7 +22,7 @@ struct aegis_memory {
 /* ── Working memory ────────────────────────────────────────────────────────── */
 
 struct aegis_working_memory {
-    aegis_vector_t* items;       /**< Vector of aegis_memory_item_t*. */
+    aegis_vector_t* items;        /**< Vector of aegis_memory_item_t*. */
     size_t          max_capacity; /**< 0 = unlimited. */
 };
 

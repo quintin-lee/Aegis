@@ -18,7 +18,7 @@
 
 /** Immutable error object: code plus message plus borrowed cause link. */
 struct aegis_error {
-    aegis_err_t          code;  /**< Machine-readable error code. */
+    aegis_err_t          code;                     /**< Machine-readable error code. */
     char                 msg[AEGIS_ERROR_MSG_MAX]; /**< Human-readable message (NUL-terminated). */
     const aegis_error_t* cause; /**< Borrowed cause, NULL when none (not owned). */
 };
@@ -72,7 +72,7 @@ aegis_err_t aegis_error_new(aegis_error_t** out, aegis_err_t code, const char* f
  * @return AEGIS_OK on success.
  */
 aegis_err_t aegis_error_new_cause(aegis_error_t** out, aegis_err_t code, const aegis_error_t* cause,
-                                   const char* fmt, ...)
+                                  const char* fmt, ...)
 {
     if (!out) {
         return (aegis_err_t)-1;
@@ -200,7 +200,8 @@ const aegis_error_t* aegis_error_last(void)
  * @param buf    Output buffer (must hold at least @p maxlen bytes).
  * @param maxlen Size of @p buf in bytes.
  * @param err    Root error (borrowed; may be NULL).
- * @return Characters that would have been written excluding the NUL, or 0 on NULL buf / zero maxlen.
+ * @return Characters that would have been written excluding the NUL, or 0 on NULL buf / zero
+ * maxlen.
  */
 int aegis_error_chain_snprintf(char* buf, size_t maxlen, const aegis_error_t* err)
 {

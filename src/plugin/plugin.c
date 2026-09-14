@@ -91,7 +91,7 @@ void aegis_plugin_table_remove(aegis_plugin_t* p)
     pthread_mutex_lock(&aegis_plugins_lock);
     for (int i = 0; i < aegis_n_plugins; i++) {
         if (aegis_plugins[i] == p) {
-            aegis_plugins[i]               = aegis_plugins[aegis_n_plugins - 1];
+            aegis_plugins[i]                   = aegis_plugins[aegis_n_plugins - 1];
             aegis_plugins[aegis_n_plugins - 1] = NULL;
             aegis_n_plugins--;
             break;

@@ -65,17 +65,17 @@ typedef aegis_tool_approval_t (*aegis_tool_approval_fn)(const char* tool_name,
                                                         const char* arguments_json, void* user);
 
 typedef struct aegis_agent_loop_config {
-    aegis_session_t*            session;        // borrowed
-    aegis_model_client_t*       model;          // borrowed
-    aegis_tool_registry_t*      tools;          // borrowed
-    const char*                 system_prompt;  // borrowed
-    aegis_cancellation_token_t* token;          // borrowed
-    aegis_agent_event_fn        on_event;       // optional observer, may be NULL
-    void*                       event_user;     // borrowed, passed to on_event
-    aegis_tool_approval_fn      tool_approval;  // optional gate, NULL = allow all
-    void*                       approval_user;  // borrowed, passed to tool_approval
-    const aegis_agent_strategy_def_t* strategy; // borrowed, NULL = reactive coding flow
-    uint32_t max_strategy_turns; // cap on strategy-continued turns, 0 = default 10
+    aegis_session_t*                  session;        // borrowed
+    aegis_model_client_t*             model;          // borrowed
+    aegis_tool_registry_t*            tools;          // borrowed
+    const char*                       system_prompt;  // borrowed
+    aegis_cancellation_token_t*       token;          // borrowed
+    aegis_agent_event_fn              on_event;       // optional observer, may be NULL
+    void*                             event_user;     // borrowed, passed to on_event
+    aegis_tool_approval_fn            tool_approval;  // optional gate, NULL = allow all
+    void*                             approval_user;  // borrowed, passed to tool_approval
+    const aegis_agent_strategy_def_t* strategy;       // borrowed, NULL = reactive coding flow
+    uint32_t max_strategy_turns;  // cap on strategy-continued turns, 0 = default 10
 } aegis_agent_loop_config_t;
 
 /**

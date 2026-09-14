@@ -23,7 +23,8 @@ struct aegis_mutex {
  *
  * @param[out] out Receives the handle (ownership: transferred).
  * @param kind AEGIS_MUTEX_RECURSIVE for re-entrant locking, plain otherwise.
- * @return 0 on success, -1 on NULL out / allocation failure, or negated errno from pthread_mutex_init.
+ * @return 0 on success, -1 on NULL out / allocation failure, or negated errno from
+ * pthread_mutex_init.
  */
 int aegis_mutex_create(aegis_mutex_t** out, aegis_mutex_kind_t kind)
 {

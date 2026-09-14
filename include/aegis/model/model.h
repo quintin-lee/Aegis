@@ -33,10 +33,10 @@ typedef aegis_status_t (*aegis_model_stream_fn)(void* user, const aegis_model_re
                                                 void*                             callback_user);
 
 typedef struct aegis_model_backend {
-    void*                    user;          /**< Borrowed provider context. */
-    aegis_model_complete_fn  complete;      /**< May be NULL if stream set. */
-    aegis_model_stream_fn    stream;        /**< May be NULL if complete set. */
-    aegis_model_capability_t capabilities;  /**< Advertised capability bitmask. */
+    void*                    user;         /**< Borrowed provider context. */
+    aegis_model_complete_fn  complete;     /**< May be NULL if stream set. */
+    aegis_model_stream_fn    stream;       /**< May be NULL if complete set. */
+    aegis_model_capability_t capabilities; /**< Advertised capability bitmask. */
 } aegis_model_backend_t;
 
 /* ── Client lifecycle ───────────────────────────────────────────────── */
@@ -55,7 +55,7 @@ aegis_status_t aegis_model_client_create_with_backend(const char*               
                                                       const aegis_model_backend_t* backend,
                                                       aegis_model_client_t**       out);
 /** Destroy client. Safe with NULL. */
-void           aegis_model_client_destroy(aegis_model_client_t* client);
+void aegis_model_client_destroy(aegis_model_client_t* client);
 
 /* ── Structured calls ───────────────────────────────────────────────── */
 

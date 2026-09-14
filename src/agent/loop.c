@@ -26,22 +26,22 @@
 #include <stdint.h>
 
 struct aegis_agent_loop {
-    aegis_session_t*            session;
-    aegis_model_client_t*       model;
-    aegis_tool_registry_t*      tools;
-    char*                       system_prompt;
-    aegis_cancellation_token_t* token;
-    aegis_agent_loop_state_t    state;
-    aegis_agent_event_fn        on_event;
-    void*                       event_user;
-    aegis_tool_approval_fn      tool_approval;
-    void*                       approval_user;
-    const aegis_agent_strategy_def_t* strategy; /**< Borrowed, NULL = reactive flow. */
-    uint32_t max_strategy_turns; /**< Cap on strategy-continued turns. */
-    aegis_usage_t               last_usage;  /**< usage of the most recent completed turn */
-    aegis_usage_t               total_usage; /**< lifetime usage across all turns       */
-    size_t                    last_dropped; /**< session msgs excluded from last context */
-    pthread_mutex_t             lock;
+    aegis_session_t*                  session;
+    aegis_model_client_t*             model;
+    aegis_tool_registry_t*            tools;
+    char*                             system_prompt;
+    aegis_cancellation_token_t*       token;
+    aegis_agent_loop_state_t          state;
+    aegis_agent_event_fn              on_event;
+    void*                             event_user;
+    aegis_tool_approval_fn            tool_approval;
+    void*                             approval_user;
+    const aegis_agent_strategy_def_t* strategy;           /**< Borrowed, NULL = reactive flow. */
+    uint32_t                          max_strategy_turns; /**< Cap on strategy-continued turns. */
+    aegis_usage_t                     last_usage;   /**< usage of the most recent completed turn */
+    aegis_usage_t                     total_usage;  /**< lifetime usage across all turns       */
+    size_t                            last_dropped; /**< session msgs excluded from last context */
+    pthread_mutex_t                   lock;
 };
 
 static void set_state(aegis_agent_loop_t* l, aegis_agent_loop_state_t ns)
@@ -83,17 +83,17 @@ aegis_status_t aegis_agent_loop_create(const aegis_agent_loop_config_t* cfg,
     if (!l) {
         return AEGIS_ERR_NOMEM;
     }
-    l->session       = cfg->session;
-    l->model         = cfg->model;
-    l->tools         = cfg->tools;
-    l->token         = cfg->token;
-    l->on_event      = cfg->on_event;
-    l->event_user    = cfg->event_user;
-    l->tool_approval = cfg->tool_approval;
-    l->approval_user = cfg->approval_user;
-    l->strategy      = cfg->strategy;
+    l->session            = cfg->session;
+    l->model              = cfg->model;
+    l->tools              = cfg->tools;
+    l->token              = cfg->token;
+    l->on_event           = cfg->on_event;
+    l->event_user         = cfg->event_user;
+    l->tool_approval      = cfg->tool_approval;
+    l->approval_user      = cfg->approval_user;
+    l->strategy           = cfg->strategy;
     l->max_strategy_turns = cfg->max_strategy_turns ? cfg->max_strategy_turns : 10;
-    l->state         = AEGIS_AGENT_LOOP_IDLE;
+    l->state              = AEGIS_AGENT_LOOP_IDLE;
     if (cfg->system_prompt) {
         l->system_prompt = strdup(cfg->system_prompt);
     }
@@ -833,7 +833,7 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
         set_state(l, AEGIS_AGENT_LOOP_WAITING_MODEL);
         aegis_message_list_t* ctx_msgs = NULL;
         size_t                dropped  = 0;
-        st = build_context_messages(l, &ctx_msgs, &dropped);
+        st                             = build_context_messages(l, &ctx_msgs, &dropped);
         pthread_mutex_lock(&l->lock);
         l->last_dropped = dropped;
         pthread_mutex_unlock(&l->lock);
@@ -1000,8 +1000,8 @@ aegis_status_t aegis_agent_loop_run_turn(aegis_agent_loop_t* l, const char* user
             if (!json_parse_args(raw_args ? raw_args : "{}", &args)) {
                 aegis_error_t* detail = NULL;
                 if (aegis_error_new(&detail, AEGIS_ERROR_FORMAT,
-                                    "tool '%s' got malformed arguments", name) ==
-                    AEGIS_ERROR_NONE) {
+                                    "tool '%s' got malformed arguments",
+                                    name) == AEGIS_ERROR_NONE) {
                     aegis_error_set_last(detail);
                 }
                 aegis_message_destroy(am);

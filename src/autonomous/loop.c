@@ -31,8 +31,8 @@
  * synchronously on the caller's thread.
  */
 aegis_status_t aegis_autonomous_loop_run(aegis_autonomous_agent_t*   agent,
-                                   aegis_autonomous_runtime_t* runtime, const char* goal,
-                                   aegis_autonomous_result_t* out_result)
+                                         aegis_autonomous_runtime_t* runtime, const char* goal,
+                                         aegis_autonomous_result_t* out_result)
 {
     if (!agent || !runtime || !goal) {
         return AEGIS_ERR_INVALID;

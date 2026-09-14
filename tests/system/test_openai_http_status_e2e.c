@@ -26,11 +26,10 @@ typedef struct {
 static void serve_status(int client, int code, const char* reason, const char* body)
 {
     char header[256];
-    int  header_len =
-        snprintf(header, sizeof(header),
-                 "HTTP/1.1 %d %s\r\nContent-Type: application/json\r\nContent-Length: "
-                 "%zu\r\nConnection: close\r\n\r\n",
-                 code, reason, strlen(body));
+    int header_len = snprintf(header, sizeof(header),
+                              "HTTP/1.1 %d %s\r\nContent-Type: application/json\r\nContent-Length: "
+                              "%zu\r\nConnection: close\r\n\r\n",
+                              code, reason, strlen(body));
     assert(send(client, header, (size_t)header_len, 0) == header_len);
     assert(send(client, body, strlen(body), 0) == (ssize_t)strlen(body));
 }

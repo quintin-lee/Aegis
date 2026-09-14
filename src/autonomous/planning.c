@@ -22,8 +22,8 @@
  * @return AEGIS_OK with runtime->plan set; INVALID/CANCELLED/INTERNAL or the
  *         planner's error otherwise.
  */
-aegis_status_t aegis_autonomous_plan(aegis_autonomous_agent_t* agent, aegis_autonomous_runtime_t* runtime,
-                               const char* goal)
+aegis_status_t aegis_autonomous_plan(aegis_autonomous_agent_t*   agent,
+                                     aegis_autonomous_runtime_t* runtime, const char* goal)
 {
     if (!agent || !runtime || !goal) {
         return AEGIS_ERR_INVALID;

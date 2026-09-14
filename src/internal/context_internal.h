@@ -18,19 +18,19 @@
 /* ── Builder internals ─────────────────────────────────────────────────────── */
 
 struct aegis_context_builder {
-    aegis_vector_t*       sections;              /**< Vector of aegis_context_item_t*. */
-    size_t                token_budget;          /**< 0 = unlimited.                  */
-    aegis_context_compress_fn compress_fn;       /**< May be NULL.                    */
-    void*                 compress_user;         /**< Passed to compress_fn.          */
-    size_t                max_compress_len;      /**< Content length that triggers compression. */
+    aegis_vector_t*           sections;         /**< Vector of aegis_context_item_t*. */
+    size_t                    token_budget;     /**< 0 = unlimited.                  */
+    aegis_context_compress_fn compress_fn;      /**< May be NULL.                    */
+    void*                     compress_user;    /**< Passed to compress_fn.          */
+    size_t                    max_compress_len; /**< Content length that triggers compression. */
 };
 
 /* ── Built context internals ───────────────────────────────────────────────── */
 
 struct aegis_context {
-    char*           content;        /**< Owned assembled prompt.            */
-    size_t          token_estimate; /**< Total estimated tokens.            */
-    bool            truncated;      /**< True if budget was exceeded.       */
+    char*  content;        /**< Owned assembled prompt.            */
+    size_t token_estimate; /**< Total estimated tokens.            */
+    bool   truncated;      /**< True if budget was exceeded.       */
 };
 
 #endif /* AEGIS_CONTEXT_INTERNAL_H */

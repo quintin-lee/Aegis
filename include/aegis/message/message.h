@@ -33,28 +33,28 @@ typedef struct aegis_message_list aegis_message_list_t;
 /** Create message with role; NULL out → INVALID. */
 aegis_status_t aegis_message_create(aegis_message_role_t role, aegis_message_t** out);
 /** Destroy and free owned strings. Safe with NULL. */
-void           aegis_message_destroy(aegis_message_t* msg);
+void aegis_message_destroy(aegis_message_t* msg);
 /** Deep-copy a message. NULL src/out → INVALID. */
 aegis_status_t aegis_message_clone(const aegis_message_t* src, aegis_message_t** out);
 
 /* ── Message accessors ───────────────────────────────────────────────── */
 
 /** Borrowed id, or NULL when unset. */
-const char*              aegis_message_id(const aegis_message_t* msg);
+const char* aegis_message_id(const aegis_message_t* msg);
 /** Message role. */
-aegis_message_role_t     aegis_message_role(const aegis_message_t* msg);
+aegis_message_role_t aegis_message_role(const aegis_message_t* msg);
 /** Creation timestamp (ms since epoch). */
-uint64_t                 aegis_message_timestamp(const aegis_message_t* msg);
+uint64_t aegis_message_timestamp(const aegis_message_t* msg);
 /** Borrowed text content, or NULL when unset. */
-const char*              aegis_message_content(const aegis_message_t* msg);
+const char* aegis_message_content(const aegis_message_t* msg);
 /** Borrowed reasoning text, or NULL when unset. */
-const char*              aegis_message_reasoning(const aegis_message_t* msg);
+const char* aegis_message_reasoning(const aegis_message_t* msg);
 /** Borrowed tool-call id this message answers, or NULL. */
-const char*              aegis_message_tool_call_id(const aegis_message_t* msg);
+const char* aegis_message_tool_call_id(const aegis_message_t* msg);
 /** Borrowed parent message id, or NULL. */
-const char*              aegis_message_parent_id(const aegis_message_t* msg);
+const char* aegis_message_parent_id(const aegis_message_t* msg);
 /** Number of attached tool calls. */
-size_t                   aegis_message_tool_call_count(const aegis_message_t* msg);
+size_t aegis_message_tool_call_count(const aegis_message_t* msg);
 /** Borrowed tool call at idx. */
 const aegis_tool_call_t* aegis_message_tool_call_at(const aegis_message_t* msg, size_t idx);
 
@@ -78,13 +78,13 @@ aegis_status_t aegis_message_add_tool_call(aegis_message_t* msg, const aegis_too
 /** Create empty list. NULL out → INVALID. */
 aegis_status_t aegis_message_list_create(aegis_message_list_t** out);
 /** Destroy list and contained messages. Safe with NULL. */
-void           aegis_message_list_destroy(aegis_message_list_t* list);
+void aegis_message_list_destroy(aegis_message_list_t* list);
 /** Deep-copy a list. NULL src/out → INVALID. */
 aegis_status_t aegis_message_list_clone(const aegis_message_list_t* src,
                                         aegis_message_list_t**      out);
 
 /** Number of messages in the list. */
-size_t                 aegis_message_list_count(const aegis_message_list_t* list);
+size_t aegis_message_list_count(const aegis_message_list_t* list);
 /** Borrowed message at idx. */
 const aegis_message_t* aegis_message_list_at(const aegis_message_list_t* list, size_t idx);
 /** Append a copy of @p msg. NULL list/msg → INVALID. */
