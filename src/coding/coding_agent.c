@@ -3,7 +3,7 @@
  * @brief Pi-like coding agent implementation: owns session, agent loop,
  * model client, tool registry and skill set. Entry points for create/
  * destroy/run/interrupt plus model hot-switch and session replacement;
- * mock model by default, OpenAI backend when configured.
+ * mock model by default, OpenAI or Anthropic backend when configured.
  */
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/coding_agent.h"
@@ -18,6 +18,9 @@
 #include "aegis/tool/tool.h"
 #ifdef AEGIS_OPENAI_PROVIDER
 #include "structured_openai.h"
+#endif
+#ifdef AEGIS_ANTHROPIC_PROVIDER
+#include "structured_anthropic.h"
 #endif
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,9 +37,8 @@ struct aegis_coding_agent {
     char*                 provider;
     char*                 api_key;
     char*                 base_url;
-#ifdef AEGIS_OPENAI_PROVIDER
-    aegis_openai_model_ctx_t* openai_model;
-#endif
+    void*                  provider_ctx;    /**< Opaque backend ctx (OpenAI/Anthropic). */
+    void (*provider_destroy)(void*);        /**< Matching destroy fn; NULL when unset. */
     aegis_tool_registry_t*      tools;
     aegis_mutation_queue_t*     mq;
     aegis_agent_loop_t*         loop;
@@ -76,21 +78,67 @@ static char* dup_or_null(const char* s)
  * @return AEGIS_OK on success, otherwise the provider/client error.
  */
 static aegis_status_t build_openai_model(aegis_coding_agent_t* a, const char* model_name,
-                                         aegis_openai_model_ctx_t** out_ctx,
-                                         aegis_model_client_t**     out_client)
+                                         void**                 out_ctx,
+                                         aegis_model_client_t** out_client)
 {
-    aegis_model_backend_t backend = {0};
-    aegis_status_t        st =
-        aegis_openai_model_create(a->api_key, a->base_url, model_name, out_ctx, &backend);
+    aegis_model_backend_t     backend = {0};
+    aegis_openai_model_ctx_t* ctx    = NULL;
+    aegis_status_t            st =
+        aegis_openai_model_create(a->api_key, a->base_url, model_name, &ctx, &backend);
     if (st != AEGIS_OK) {
         return st;
     }
-    st = aegis_model_client_create_with_backend(model_name, &backend, out_client);
+    *out_ctx = ctx;
+    st        = aegis_model_client_create_with_backend(model_name, &backend, out_client);
     if (st != AEGIS_OK) {
-        aegis_openai_model_destroy(*out_ctx);
+        aegis_openai_model_destroy(ctx);
         *out_ctx = NULL;
     }
     return st;
+}
+
+void destroy_openai_ctx(void* ctx)
+{
+    aegis_openai_model_destroy((aegis_openai_model_ctx_t*)ctx);
+}
+#endif
+
+#ifdef AEGIS_ANTHROPIC_PROVIDER
+/**
+ * @brief Build the Anthropic-backed model client for the coding agent.
+ *
+ * Mirrors build_openai_model: creates the provider context, wraps it in a
+ * model client, and resets the ctx on client-creation failure.
+ *
+ * @param[in]  a          Agent holding the API key / base URL configuration.
+ * @param[in]  model_name Model identifier passed to the provider.
+ * @param[out] out_ctx    Receives the new provider context (NULL on failure).
+ * @param[out] out_client Receives the new model client (untouched on failure).
+ * @return AEGIS_OK on success, otherwise the provider/client error.
+ */
+static aegis_status_t build_anthropic_model(aegis_coding_agent_t* a, const char* model_name,
+                                            void**                 out_ctx,
+                                            aegis_model_client_t** out_client)
+{
+    aegis_model_backend_t       backend = {0};
+    aegis_anthropic_model_ctx_t* ctx    = NULL;
+    aegis_status_t              st =
+        aegis_anthropic_model_create(a->api_key, a->base_url, model_name, &ctx, &backend);
+    if (st != AEGIS_OK) {
+        return st;
+    }
+    *out_ctx = ctx;
+    st        = aegis_model_client_create_with_backend(model_name, &backend, out_client);
+    if (st != AEGIS_OK) {
+        aegis_anthropic_model_destroy(ctx);
+        *out_ctx = NULL;
+    }
+    return st;
+}
+
+void destroy_anthropic_ctx(void* ctx)
+{
+    aegis_anthropic_model_destroy((aegis_anthropic_model_ctx_t*)ctx);
 }
 #endif
 
@@ -140,15 +188,26 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
         free(a);
         return AEGIS_ERR_NOMEM;
     }
+    a->provider_destroy = NULL;
 #ifdef AEGIS_OPENAI_PROVIDER
     if (a->provider && strcmp(a->provider, "llm-openai") == 0) {
-        st = build_openai_model(a, model_name, &a->openai_model, &a->model);
+        st = build_openai_model(a, model_name, &a->provider_ctx, &a->model);
+        a->provider_destroy = destroy_openai_ctx;
+    } else
+#endif
+#ifdef AEGIS_ANTHROPIC_PROVIDER
+    if (a->provider && strcmp(a->provider, "llm-anthropic") == 0) {
+        st = build_anthropic_model(a, model_name, &a->provider_ctx, &a->model);
+        a->provider_destroy = destroy_anthropic_ctx;
     } else
 #endif
     {
         st = aegis_model_client_create(model_name, &a->model);
     }
     if (st != AEGIS_OK) {
+        if (a->provider_destroy) {
+            a->provider_destroy(a->provider_ctx);
+        }
         free(a->model_name);
         free(a->provider);
         free(a->api_key);
@@ -265,11 +324,9 @@ void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
     if (a->model) {
         aegis_model_client_destroy(a->model);
     }
-#ifdef AEGIS_OPENAI_PROVIDER
-    if (a->openai_model) {
-        aegis_openai_model_destroy(a->openai_model);
+    if (a->provider_destroy) {
+        a->provider_destroy(a->provider_ctx);
     }
-#endif
     if (a->session) {
         aegis_session_destroy(a->session);
     }
@@ -540,7 +597,8 @@ aegis_status_t aegis_coding_agent_set_tool_approval(aegis_coding_agent_t*  a,
  * @brief Switch the model by name, rebuilding client and loop atomically.
  *
  * Creates the new client (OpenAI backend when the stored provider is
- * "llm-openai", plain client otherwise) and a fresh loop bound to it, then
+ * "llm-openai", Anthropic when "llm-anthropic", plain mock client otherwise)
+ * and a fresh loop bound to it, then
  * swaps all three (loop, client, name) at once and destroys the old ones.
  * NOMEM after a successful build keeps everything old and discards the
  * replacement, so the agent is never left half-swapped. The session, tools
@@ -556,12 +614,17 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char*
     if (!a || !model || model[0] == '\0') {
         return AEGIS_ERR_INVALID;
     }
+    void*            new_ctx    = NULL;
+    aegis_model_client_t* new_client = NULL;
+    aegis_status_t   st;
 #ifdef AEGIS_OPENAI_PROVIDER
-    aegis_openai_model_ctx_t* new_ctx    = NULL;
-    aegis_model_client_t*     new_client = NULL;
-    aegis_status_t            st;
     if (a->provider && strcmp(a->provider, "llm-openai") == 0) {
         st = build_openai_model(a, model, &new_ctx, &new_client);
+    } else
+#endif
+#ifdef AEGIS_ANTHROPIC_PROVIDER
+    if (a->provider && strcmp(a->provider, "llm-anthropic") == 0) {
+        st = build_anthropic_model(a, model, &new_ctx, &new_client);
     } else
 #endif
     {
@@ -587,11 +650,14 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char*
     st = aegis_agent_loop_create(&lcfg, &replacement);
     if (st != AEGIS_OK) {
         aegis_model_client_destroy(new_client);
-#ifdef AEGIS_OPENAI_PROVIDER
         if (new_ctx) {
-            aegis_openai_model_destroy(new_ctx);
+            // Destroy via the provider-specific destroy fn captured on the agent
+            // for the CURRENT provider (new_ctx was just built with that fn).
+            void (*destroy_fn)(void*) = a->provider_destroy;
+            if (destroy_fn) {
+                destroy_fn(new_ctx);
+            }
         }
-#endif
         return st;
     }
 
@@ -599,34 +665,33 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char*
     aegis_agent_loop_t*   old_loop   = a->loop;
     aegis_model_client_t* old_client = a->model;
     char*                 old_name   = a->model_name;
-#ifdef AEGIS_OPENAI_PROVIDER
-    aegis_openai_model_ctx_t* old_ctx = a->openai_model;
-#endif
+    void*                 old_ctx    = a->provider_ctx;
+    void (*old_destroy_fn)(void*)    = a->provider_destroy;
     char* new_name = strdup(model);
     if (!new_name) {
         // Out of memory: keep everything old, discard the replacement.
         aegis_agent_loop_destroy(replacement);
         aegis_model_client_destroy(new_client);
-#ifdef AEGIS_OPENAI_PROVIDER
         if (new_ctx) {
-            aegis_openai_model_destroy(new_ctx);
+            void (*destroy_fn)(void*) = a->provider_destroy;
+            if (destroy_fn) {
+                destroy_fn(new_ctx);
+            }
         }
-#endif
         return AEGIS_ERR_NOMEM;
     }
     a->loop       = replacement;
     a->model      = new_client;
     a->model_name = new_name;
-#ifdef AEGIS_OPENAI_PROVIDER
-    a->openai_model = new_ctx;
-#endif
+    a->provider_ctx = new_ctx;
+    // provider_destroy stays bound to the provider string (unchanged by set_model)
     aegis_agent_loop_destroy(old_loop);
     aegis_model_client_destroy(old_client);
-#ifdef AEGIS_OPENAI_PROVIDER
     if (old_ctx) {
-        aegis_openai_model_destroy(old_ctx);
+        if (old_destroy_fn) {
+            old_destroy_fn(old_ctx);
+        }
     }
-#endif
     free(old_name);
     return AEGIS_OK;
 }
