@@ -7,6 +7,9 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/session/session.h"
 #include "aegis/common/uuid.h"
+#include "aegis/model/model.h"
+#include "aegis/model/request.h"
+#include "aegis/model/response.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -298,6 +301,132 @@ aegis_status_t aegis_session_compact(aegis_session_t* s, size_t keep_messages)
         if (st != AEGIS_OK) {
             aegis_message_list_destroy(retained);
             return st;
+        }
+    }
+    aegis_message_list_destroy(s->messages);
+    s->messages   = retained;
+    s->updated_at = now_ms();
+    return AEGIS_OK;
+}
+
+/**
+ * @brief Compact the session, optionally replacing the dropped prefix with a
+ *        single LLM-generated summary message.
+ *
+ * Mirrors aegis_session_compact() exactly for the truncation step, then
+ * (when a model client is supplied and the token is not cancelled) issues one
+ * aegis_model_complete() call to summarize the dropped messages and prepends
+ * the result as a single assistant message. On any model failure, a NULL
+ * model, or a pre-cancelled token, the function degrades to plain
+ * truncation and leaves *out_summary NULL.
+ *
+ * @param[in]  s           Session (non-NULL).
+ * @param[in]  keep        Number of newest messages to retain.
+ * @param[in]  model       Model client for summarization; NULL disables it.
+ * @param[in]  token       Cancellation token; pre-cancelled skips summarization.
+ * @param[out] out_summary Receives the prepended summary (owned by the
+ *                         session's message list) or NULL; must be non-NULL.
+ * @return AEGIS_OK on success (including the truncation fallback),
+ *   AEGIS_ERR_INVALID for NULL @p s/@p out_summary, AEGIS_ERR_NOMEM on
+ *   allocation failure.
+ */
+aegis_status_t aegis_session_compact_with_summary(aegis_session_t* s, size_t keep,
+                                                  aegis_model_client_t* model,
+                                                  const aegis_cancellation_token_t* token,
+                                                  aegis_message_t** out_summary)
+{
+    if (!s || !out_summary) {
+        return AEGIS_ERR_INVALID;
+    }
+    *out_summary = NULL;
+    if (!s->messages) {
+        return AEGIS_OK;
+    }
+    size_t count = aegis_message_list_count(s->messages);
+    if (keep >= count) {
+        return AEGIS_OK;
+    }
+    /* Truncation: identical boundary logic to aegis_session_compact. */
+    size_t start = count - keep;
+    size_t end   = count;
+    if (start < count &&
+        aegis_message_role(aegis_message_list_at(s->messages, start)) == AEGIS_MESSAGE_TOOL) {
+        const char* call_id = aegis_message_tool_call_id(aegis_message_list_at(s->messages, start));
+        while (start > 0) {
+            const aegis_message_t* prev      = aegis_message_list_at(s->messages, start - 1);
+            bool                   owns_call = false;
+            for (size_t j = 0; j < aegis_message_tool_call_count(prev); ++j) {
+                const aegis_tool_call_t* c = aegis_message_tool_call_at(prev, j);
+                if (call_id && c && strcmp(call_id, aegis_tool_call_id(c)) == 0) {
+                    owns_call = true;
+                    break;
+                }
+            }
+            if (owns_call) {
+                --start;
+                break;
+            }
+            --start;
+        }
+    }
+    if (start < count &&
+        aegis_message_tool_call_count(aegis_message_list_at(s->messages, start)) > 0 &&
+        start + 1 < count &&
+        aegis_message_role(aegis_message_list_at(s->messages, start + 1)) == AEGIS_MESSAGE_TOOL) {
+        end = start + 1;
+        while (end < count &&
+               aegis_message_role(aegis_message_list_at(s->messages, end)) == AEGIS_MESSAGE_TOOL) {
+            ++end;
+        }
+    }
+    aegis_message_list_t* retained = NULL;
+    if (aegis_message_list_create(&retained) != AEGIS_OK) {
+        return AEGIS_ERR_NOMEM;
+    }
+    for (size_t i = start; i < end; ++i) {
+        aegis_status_t st =
+            aegis_message_list_append(retained, aegis_message_list_at(s->messages, i));
+        if (st != AEGIS_OK) {
+            aegis_message_list_destroy(retained);
+            return st;
+        }
+    }
+    /* Optional summarization of the dropped prefix [0, start). Degrades to
+     * plain truncation on any failure; the summary step must run before the
+     * original list is destroyed below (it borrows messages from it). */
+    if (model && start > 0 &&
+        !(token && aegis_cancellation_token_is_cancelled(token))) {
+        aegis_message_list_t* dropped = NULL;
+        if (aegis_message_list_create(&dropped) == AEGIS_OK) {
+            aegis_message_t* sys = NULL;
+            if (aegis_message_create(AEGIS_MESSAGE_SYSTEM, &sys) == AEGIS_OK) {
+                aegis_message_set_content(sys,
+                                          "Summarize the following conversation concisely, "
+                                          "preserving decisions, findings, file paths, and "
+                                          "next steps.");
+                aegis_message_list_append(dropped, sys);
+                aegis_message_destroy(sys);
+            }
+            for (size_t i = 0; i < start; ++i) {
+                aegis_message_list_append(dropped, aegis_message_list_at(s->messages, i));
+            }
+            aegis_model_request_t req = {0};
+            req.messages = dropped;
+            aegis_model_response_t* resp = NULL;
+            aegis_status_t mst = aegis_model_complete(model, &req, token, &resp);
+            if (mst == AEGIS_OK && resp && resp->message &&
+                aegis_message_content(resp->message)) {
+                aegis_message_t* sum = NULL;
+                if (aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &sum) == AEGIS_OK) {
+                    aegis_message_set_content(sum, aegis_message_content(resp->message));
+                    if (aegis_message_list_prepend(retained, sum) == AEGIS_OK) {
+                        *out_summary = (aegis_message_t*)aegis_message_list_at(retained, 0);
+                    }
+                    aegis_message_destroy(sum); /* list owns the prepended clone */
+                }
+            }
+            aegis_model_response_destroy(resp);
+            aegis_message_list_destroy(dropped);
         }
     }
     aegis_message_list_destroy(s->messages);

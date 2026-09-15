@@ -2,6 +2,7 @@
 #define AEGIS_SESSION_H
 
 #include "aegis/message/message.h"
+#include "aegis/model/model.h"
 #include "aegis/types.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -76,6 +77,31 @@ const aegis_message_list_t* aegis_session_messages(const aegis_session_t* sess);
  *        split. Requesting >= current count is a no-op success.
  */
 aegis_status_t aegis_session_compact(aegis_session_t* sess, size_t keep_messages);
+/**
+ * @brief Compact the session, optionally replacing the dropped prefix with a
+ *        single LLM-generated summary message.
+ *
+ * Mirrors aegis_session_compact() exactly (tool-pair-preserving truncation to
+ * the newest @p keep messages). When @p model is non-NULL, @p token is not
+ * cancelled, and there are dropped messages, a one-shot aegis_model_complete()
+ * call summarizes the dropped prefix; the summary is prepended to the retained
+ * list as a single assistant message. On any model failure, NULL model, or
+ * pre-cancelled token the function degrades to plain truncation.
+ *
+ * @param[in]  s           Session (non-NULL).
+ * @param[in]  keep        Number of newest messages to retain.
+ * @param[in]  model       Model client used for summarization; NULL disables it.
+ * @param[in]  token       Cancellation token; pre-cancelled skips summarization.
+ * @param[out] out_summary Receives the prepended summary message (owned by the
+ *                         session's message list) on success, or NULL when no
+ *                         summary was generated. Initialized to NULL on entry.
+ * @return AEGIS_OK on success (including the truncation fallback),
+ *   AEGIS_ERR_INVALID on NULL @p s, AEGIS_ERR_NOMEM on allocation failure.
+ */
+aegis_status_t aegis_session_compact_with_summary(aegis_session_t* s, size_t keep,
+                                                  aegis_model_client_t* model,
+                                                  const aegis_cancellation_token_t* token,
+                                                  aegis_message_t** out_summary);
 
 /* ── Persistence (JSONL) ─────────────────────────────────────────────── */
 
