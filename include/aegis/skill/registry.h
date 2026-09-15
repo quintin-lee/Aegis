@@ -16,6 +16,9 @@ void                                aegis_skill_registry_destroy(aegis_skill_reg
 aegis_status_t       aegis_skill_registry_add(aegis_skill_registry_t* reg, aegis_skill_t* skill);
 size_t               aegis_skill_registry_count(const aegis_skill_registry_t* reg);
 const aegis_skill_t* aegis_skill_registry_get(const aegis_skill_registry_t* reg, size_t idx);
+aegis_status_t       aegis_skill_registry_find(const aegis_skill_registry_t* reg,
+                                               const char* name,
+                                               const aegis_skill_t** out);
 #ifdef __cplusplus
 }
 #endif

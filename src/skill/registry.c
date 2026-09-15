@@ -7,6 +7,7 @@
 #include "aegis/skill/registry.h"
 #include "aegis/common/vector.h"
 #include <stdlib.h>
+#include <string.h>
 
 struct aegis_skill_registry {
     aegis_vector_t* vec;
@@ -95,4 +96,31 @@ const aegis_skill_t* aegis_skill_registry_get(const aegis_skill_registry_t* r, s
         return NULL;
     }
     return s;
+}
+
+/**
+ * @brief Find a skill by name (linear scan).
+ *
+ * @param[in]  reg  Registry (NULL → INVALID).
+ * @param[in]  name Skill name to match (NULL → INVALID).
+ * @param[out] out  Receives a borrowed pointer to the stored skill on match.
+ * @return AEGIS_OK on match, AEGIS_ERR_NOT_FOUND if absent,
+ *   AEGIS_ERR_INVALID for NULL args.
+ */
+aegis_status_t aegis_skill_registry_find(const aegis_skill_registry_t* reg,
+                                         const char* name, const aegis_skill_t** out)
+{
+    if (!reg || !name || !out) {
+        return AEGIS_ERR_INVALID;
+    }
+    *out = NULL;
+    size_t n = aegis_skill_registry_count(reg);
+    for (size_t i = 0; i < n; ++i) {
+        const aegis_skill_t* s = aegis_skill_registry_get(reg, i);
+        if (s && s->name && strcmp(s->name, name) == 0) {
+            *out = s;
+            return AEGIS_OK;
+        }
+    }
+    return AEGIS_ERR_NOT_FOUND;
 }
