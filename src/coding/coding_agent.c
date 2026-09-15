@@ -9,6 +9,7 @@
 #include "aegis/coding/coding_agent.h"
 #include "aegis/coding/coding_tools.h"
 #include "aegis/coding/delegate_tools.h"
+#include "aegis/coding/skill_tools.h"
 #include "aegis/coding/mutations.h"
 #include "aegis/skill/registry.h"
 #include "aegis/skill/loader.h"
@@ -55,6 +56,9 @@ struct aegis_coding_agent {
     bool                        owns_tools;
     aegis_tool_def_t*           task_tool; /**< Heap "task" tool def; NULL when unset. */
     subagent_ctx_t*             subagent;  /**< Owned ctx blob backing task_tool. */
+    char*                       system_prompt_owned; /**< Skill-aware system prompt (heap). */
+    aegis_tool_def_t*           skill_tool;          /**< Heap "use_skill" tool def. */
+    skill_tools_ctx_t*          skill_ctx;           /**< Owned ctx blob backing skill_tool. */
 #ifdef AEGIS_MCP
     aegis_mcp_client_t* mcp_client; /**< Owns the MCP server subprocess. */
 #endif
@@ -303,6 +307,24 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     }
 #endif
 
+    st = build_coding_system_prompt(a->skills, &a->system_prompt_owned);
+    if (st != AEGIS_OK) {
+        goto fail;
+    }
+
+    a->skill_ctx = calloc(1, sizeof(*a->skill_ctx));
+    if (!a->skill_ctx) {
+        st = AEGIS_ERR_NOMEM;
+        goto fail;
+    }
+    a->skill_ctx->skills = a->skills;
+    st = aegis_coding_skill_tools_register(a->tools, a->skill_ctx, &a->skill_tool);
+    if (st != AEGIS_OK) {
+        free(a->skill_ctx);
+        a->skill_ctx = NULL;
+        goto fail;
+    }
+
     a->subagent = calloc(1, sizeof(*a->subagent));
     if (!a->subagent) {
         st = AEGIS_ERR_NOMEM;
@@ -310,7 +332,7 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     }
     a->subagent->model         = a->model;
     a->subagent->parent_tools  = a->tools;
-    a->subagent->system_prompt = CODING_AGENT_SYSTEM_PROMPT;
+    a->subagent->system_prompt = a->system_prompt_owned;
     st = aegis_coding_delegate_tools_register(a->tools, a->subagent, &a->task_tool);
     if (st != AEGIS_OK) {
         free(a->subagent);
@@ -323,7 +345,7 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     lcfg.session       = a->session;
     lcfg.model         = a->model;
     lcfg.tools         = a->tools;
-    lcfg.system_prompt = CODING_AGENT_SYSTEM_PROMPT;
+    lcfg.system_prompt = a->system_prompt_owned;
     lcfg.on_event      = a->ev_fn;
     lcfg.event_user    = a->ev_user;
     lcfg.token         = a->token;
@@ -338,6 +360,11 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     return AEGIS_OK;
 
 fail:
+    aegis_coding_skill_tools_free(a->skill_tool, a->skill_ctx);
+    a->skill_tool = NULL;
+    a->skill_ctx  = NULL;
+    free(a->system_prompt_owned);
+    a->system_prompt_owned = NULL;
     aegis_coding_delegate_tools_free(a->task_tool, a->subagent);
     a->task_tool = NULL;
     a->subagent  = NULL;
@@ -399,6 +426,11 @@ void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
         aegis_mcp_client_destroy(a->mcp_client);
     }
 #endif
+    aegis_coding_skill_tools_free(a->skill_tool, a->skill_ctx);
+    a->skill_tool = NULL;
+    a->skill_ctx  = NULL;
+    free(a->system_prompt_owned);
+    a->system_prompt_owned = NULL;
     aegis_coding_delegate_tools_free(a->task_tool, a->subagent);
     a->task_tool = NULL;
     a->subagent  = NULL;
@@ -450,7 +482,7 @@ aegis_status_t aegis_coding_agent_replace_session(aegis_coding_agent_t* a, aegis
         .session       = session,
         .model         = a->model,
         .tools         = a->tools,
-        .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
+        .system_prompt = a->system_prompt_owned,
         .on_event      = a->ev_fn,
         .event_user    = a->ev_user,
         .token         = a->token,
@@ -554,7 +586,7 @@ aegis_status_t aegis_coding_agent_set_model_client(aegis_coding_agent_t* a,
         .session       = a->session,
         .model         = client,
         .tools         = a->tools,
-        .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
+        .system_prompt = a->system_prompt_owned,
         .on_event      = a->ev_fn,
         .event_user    = a->ev_user,
         .token         = a->token,
@@ -717,7 +749,7 @@ aegis_status_t aegis_coding_agent_set_model(aegis_coding_agent_t* a, const char*
         .session       = a->session,
         .model         = new_client,
         .tools         = a->tools,
-        .system_prompt = CODING_AGENT_SYSTEM_PROMPT,
+        .system_prompt = a->system_prompt_owned,
         .on_event      = a->ev_fn,
         .event_user    = a->ev_user,
         .token         = a->token,
