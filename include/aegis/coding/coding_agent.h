@@ -28,6 +28,8 @@ typedef struct aegis_coding_agent_config {
     const char*            api_key;
     const char*            base_url;
     aegis_tool_registry_t* tools;  // borrowed, if NULL creates default coding tools
+    const char*            mcp_cmd;  // MCP server command; NULL disables MCP
+    const char* const*     mcp_argv; // MCP server argv (argv[0]=cmd); NULL when no MCP
 } aegis_coding_agent_config_t;
 
 /**

@@ -22,6 +22,9 @@
 #ifdef AEGIS_ANTHROPIC_PROVIDER
 #include "structured_anthropic.h"
 #endif
+#ifdef AEGIS_MCP
+#include "mcp_client.h"
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -49,6 +52,9 @@ struct aegis_coding_agent {
     aegis_tool_approval_fn      ap_fn;   /**< Borrowed gate; NULL = allow all.  */
     void*                       ap_user; /**< Borrowed, passed to ap_fn.        */
     bool                        owns_tools;
+#ifdef AEGIS_MCP
+    aegis_mcp_client_t* mcp_client; /**< Owns the MCP server subprocess. */
+#endif
 };
 
 /**
@@ -260,6 +266,40 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
         }
     }
 
+#ifdef AEGIS_MCP
+    if (cfg->mcp_cmd) {
+        st = aegis_mcp_client_create(cfg->mcp_cmd, cfg->mcp_argv, &a->mcp_client);
+        if (st != AEGIS_OK) {
+            if (a->owns_tools) {
+                if (a->skills) {
+                    aegis_skill_registry_destroy(a->skills);
+                }
+                aegis_mutation_queue_destroy(a->mq);
+                aegis_tool_registry_destroy(a->tools);
+            }
+            aegis_model_client_destroy(a->model);
+            aegis_session_destroy(a->session);
+            free(a);
+            return st;
+        }
+        st = aegis_mcp_register_tools(a->mcp_client, a->tools);
+        if (st != AEGIS_OK) {
+            aegis_mcp_client_destroy(a->mcp_client);
+            if (a->owns_tools) {
+                if (a->skills) {
+                    aegis_skill_registry_destroy(a->skills);
+                }
+                aegis_mutation_queue_destroy(a->mq);
+                aegis_tool_registry_destroy(a->tools);
+            }
+            aegis_model_client_destroy(a->model);
+            aegis_session_destroy(a->session);
+            free(a);
+            return st;
+        }
+    }
+#endif
+
     aegis_agent_loop_config_t lcfg;
     memset(&lcfg, 0, sizeof(lcfg));
     lcfg.session       = a->session;
@@ -273,6 +313,11 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     lcfg.approval_user = a->ap_user;
     st                 = aegis_agent_loop_create(&lcfg, &a->loop);
     if (st != AEGIS_OK) {
+#ifdef AEGIS_MCP
+        if (a->mcp_client) {
+            aegis_mcp_client_destroy(a->mcp_client);
+        }
+#endif
         if (a->owns_tools) {
             if (a->skills) {
                 aegis_skill_registry_destroy(a->skills);
@@ -325,6 +370,11 @@ void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
     if (a->provider_destroy) {
         a->provider_destroy(a->provider_ctx);
     }
+#ifdef AEGIS_MCP
+    if (a->mcp_client) {
+        aegis_mcp_client_destroy(a->mcp_client);
+    }
+#endif
     if (a->session) {
         aegis_session_destroy(a->session);
     }

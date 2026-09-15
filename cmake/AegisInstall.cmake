@@ -29,6 +29,9 @@ endif()
 if(AEGIS_ANTHROPIC_PROVIDER)
     list(APPEND _aegis_libs aegis_llm_shared aegis_llm_anthropic)
 endif()
+if(AEGIS_MCP)
+    list(APPEND _aegis_libs aegis_mcp)
+endif()
 list(REMOVE_DUPLICATES _aegis_libs)
 
 install(TARGETS ${_aegis_libs}
