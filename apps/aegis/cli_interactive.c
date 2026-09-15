@@ -239,10 +239,10 @@ int cmd_interactive(const char* project_root, const char* model, const char* res
             continue;
         }
         if (strcmp(line, "/compact") == 0) {
-            aegis_session_t* sess   = aegis_coding_agent_session(agent);
-            size_t           before = aegis_session_message_count(sess);
+            aegis_session_t* sess    = aegis_coding_agent_session(agent);
+            size_t           before  = aegis_session_message_count(sess);
             aegis_message_t* summary = NULL;
-            st                      = aegis_session_compact_with_summary(sess, 32, NULL, NULL, &summary);
+            st = aegis_session_compact_with_summary(sess, 32, NULL, NULL, &summary);
             if (st == AEGIS_OK) {
                 printf("compacted session: %zu -> %zu messages\n", before,
                        aegis_session_message_count(sess));

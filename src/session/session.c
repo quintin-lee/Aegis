@@ -331,9 +331,9 @@ aegis_status_t aegis_session_compact(aegis_session_t* s, size_t keep_messages)
  *   allocation failure.
  */
 aegis_status_t aegis_session_compact_with_summary(aegis_session_t* s, size_t keep,
-                                                  aegis_model_client_t* model,
+                                                  aegis_model_client_t*             model,
                                                   const aegis_cancellation_token_t* token,
-                                                  aegis_message_t** out_summary)
+                                                  aegis_message_t**                 out_summary)
 {
     if (!s || !out_summary) {
         return AEGIS_ERR_INVALID;
@@ -394,8 +394,7 @@ aegis_status_t aegis_session_compact_with_summary(aegis_session_t* s, size_t kee
     /* Optional summarization of the dropped prefix [0, start). Degrades to
      * plain truncation on any failure; the summary step must run before the
      * original list is destroyed below (it borrows messages from it). */
-    if (model && start > 0 &&
-        !(token && aegis_cancellation_token_is_cancelled(token))) {
+    if (model && start > 0 && !(token && aegis_cancellation_token_is_cancelled(token))) {
         aegis_message_list_t* dropped = NULL;
         if (aegis_message_list_create(&dropped) == AEGIS_OK) {
             aegis_message_t* sys = NULL;
@@ -410,12 +409,11 @@ aegis_status_t aegis_session_compact_with_summary(aegis_session_t* s, size_t kee
             for (size_t i = 0; i < start; ++i) {
                 aegis_message_list_append(dropped, aegis_message_list_at(s->messages, i));
             }
-            aegis_model_request_t req = {0};
-            req.messages = dropped;
+            aegis_model_request_t req    = {0};
+            req.messages                 = dropped;
             aegis_model_response_t* resp = NULL;
-            aegis_status_t mst = aegis_model_complete(model, &req, token, &resp);
-            if (mst == AEGIS_OK && resp && resp->message &&
-                aegis_message_content(resp->message)) {
+            aegis_status_t          mst  = aegis_model_complete(model, &req, token, &resp);
+            if (mst == AEGIS_OK && resp && resp->message && aegis_message_content(resp->message)) {
                 aegis_message_t* sum = NULL;
                 if (aegis_message_create(AEGIS_MESSAGE_ASSISTANT, &sum) == AEGIS_OK) {
                     aegis_message_set_content(sum, aegis_message_content(resp->message));

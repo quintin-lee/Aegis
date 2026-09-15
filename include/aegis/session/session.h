@@ -99,9 +99,9 @@ aegis_status_t aegis_session_compact(aegis_session_t* sess, size_t keep_messages
  *   AEGIS_ERR_INVALID on NULL @p s, AEGIS_ERR_NOMEM on allocation failure.
  */
 aegis_status_t aegis_session_compact_with_summary(aegis_session_t* s, size_t keep,
-                                                  aegis_model_client_t* model,
+                                                  aegis_model_client_t*             model,
                                                   const aegis_cancellation_token_t* token,
-                                                  aegis_message_t** out_summary);
+                                                  aegis_message_t**                 out_summary);
 
 /* ── Persistence (JSONL) ─────────────────────────────────────────────── */
 
