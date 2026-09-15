@@ -53,8 +53,8 @@ struct aegis_coding_agent {
     aegis_tool_approval_fn      ap_fn;   /**< Borrowed gate; NULL = allow all.  */
     void*                       ap_user; /**< Borrowed, passed to ap_fn.        */
     bool                        owns_tools;
-    aegis_tool_def_t* task_tool;  /**< Heap "task" tool def; NULL when unset. */
-    subagent_ctx_t*   subagent;   /**< Owned ctx blob backing task_tool. */
+    aegis_tool_def_t*           task_tool; /**< Heap "task" tool def; NULL when unset. */
+    subagent_ctx_t*             subagent;  /**< Owned ctx blob backing task_tool. */
 #ifdef AEGIS_MCP
     aegis_mcp_client_t* mcp_client; /**< Owns the MCP server subprocess. */
 #endif
@@ -334,6 +334,9 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
         goto fail;
     }
 
+    *out = a;
+    return AEGIS_OK;
+
 fail:
     aegis_coding_delegate_tools_free(a->task_tool, a->subagent);
     a->task_tool = NULL;
@@ -354,9 +357,6 @@ fail:
     aegis_session_destroy(a->session);
     free(a);
     return st;
-
-    *out = a;
-    return AEGIS_OK;
 }
 
 /**

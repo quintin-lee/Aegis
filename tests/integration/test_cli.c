@@ -625,7 +625,7 @@ static void test_interactive_commands(void)
 
     /* 4b. /tools lists every registered coding tool with a description */
     assert(run_cli_stdin("/tools\n/quit\n", out, sizeof(out), &ec) == 0);
-    assert_contains(out, "registered tools (12):", "tools header");
+    assert_contains(out, "registered tools (13):", "tools header");
     assert_contains(out, "read —", "read tool");
     assert_contains(out, "write —", "write tool");
     assert_contains(out, "edit —", "edit tool");
