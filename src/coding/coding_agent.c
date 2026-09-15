@@ -8,6 +8,7 @@
 #define _POSIX_C_SOURCE 200809L
 #include "aegis/coding/coding_agent.h"
 #include "aegis/coding/coding_tools.h"
+#include "aegis/coding/delegate_tools.h"
 #include "aegis/coding/mutations.h"
 #include "aegis/skill/registry.h"
 #include "aegis/skill/loader.h"
@@ -52,6 +53,8 @@ struct aegis_coding_agent {
     aegis_tool_approval_fn      ap_fn;   /**< Borrowed gate; NULL = allow all.  */
     void*                       ap_user; /**< Borrowed, passed to ap_fn.        */
     bool                        owns_tools;
+    aegis_tool_def_t* task_tool;  /**< Heap "task" tool def; NULL when unset. */
+    subagent_ctx_t*   subagent;   /**< Owned ctx blob backing task_tool. */
 #ifdef AEGIS_MCP
     aegis_mcp_client_t* mcp_client; /**< Owns the MCP server subprocess. */
 #endif
@@ -300,6 +303,21 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     }
 #endif
 
+    a->subagent = calloc(1, sizeof(*a->subagent));
+    if (!a->subagent) {
+        st = AEGIS_ERR_NOMEM;
+        goto fail;
+    }
+    a->subagent->model         = a->model;
+    a->subagent->parent_tools  = a->tools;
+    a->subagent->system_prompt = CODING_AGENT_SYSTEM_PROMPT;
+    st = aegis_coding_delegate_tools_register(a->tools, a->subagent, &a->task_tool);
+    if (st != AEGIS_OK) {
+        free(a->subagent);
+        a->subagent = NULL;
+        goto fail;
+    }
+
     aegis_agent_loop_config_t lcfg;
     memset(&lcfg, 0, sizeof(lcfg));
     lcfg.session       = a->session;
@@ -313,23 +331,29 @@ aegis_status_t aegis_coding_agent_create(const aegis_coding_agent_config_t* cfg,
     lcfg.approval_user = a->ap_user;
     st                 = aegis_agent_loop_create(&lcfg, &a->loop);
     if (st != AEGIS_OK) {
-#ifdef AEGIS_MCP
-        if (a->mcp_client) {
-            aegis_mcp_client_destroy(a->mcp_client);
-        }
-#endif
-        if (a->owns_tools) {
-            if (a->skills) {
-                aegis_skill_registry_destroy(a->skills);
-            }
-            aegis_mutation_queue_destroy(a->mq);
-            aegis_tool_registry_destroy(a->tools);
-        }
-        aegis_model_client_destroy(a->model);
-        aegis_session_destroy(a->session);
-        free(a);
-        return st;
+        goto fail;
     }
+
+fail:
+    aegis_coding_delegate_tools_free(a->task_tool, a->subagent);
+    a->task_tool = NULL;
+    a->subagent  = NULL;
+#ifdef AEGIS_MCP
+    if (a->mcp_client) {
+        aegis_mcp_client_destroy(a->mcp_client);
+    }
+#endif
+    if (a->owns_tools) {
+        if (a->skills) {
+            aegis_skill_registry_destroy(a->skills);
+        }
+        aegis_mutation_queue_destroy(a->mq);
+        aegis_tool_registry_destroy(a->tools);
+    }
+    aegis_model_client_destroy(a->model);
+    aegis_session_destroy(a->session);
+    free(a);
+    return st;
 
     *out = a;
     return AEGIS_OK;
@@ -375,6 +399,9 @@ void aegis_coding_agent_destroy(aegis_coding_agent_t* a)
         aegis_mcp_client_destroy(a->mcp_client);
     }
 #endif
+    aegis_coding_delegate_tools_free(a->task_tool, a->subagent);
+    a->task_tool = NULL;
+    a->subagent  = NULL;
     if (a->session) {
         aegis_session_destroy(a->session);
     }
