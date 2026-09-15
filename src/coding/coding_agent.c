@@ -428,7 +428,9 @@ aegis_status_t aegis_coding_agent_run(aegis_coding_agent_t* a, const char* user_
     aegis_agent_loop_set_token(a->loop, tok);
     st = aegis_agent_loop_run(a->loop, user_input);
     if (aegis_agent_loop_context_dropped(a->loop) > 0) {
-        (void)aegis_session_compact(a->session, AEGIS_LOOP_CONTEXT_WINDOW);
+        aegis_message_t* summary = NULL;
+        (void)aegis_session_compact_with_summary(a->session, AEGIS_LOOP_CONTEXT_WINDOW,
+                                                 a->model, a->token, &summary);
     }
     return st;
 }
