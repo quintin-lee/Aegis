@@ -35,7 +35,7 @@ static void test_nested_object_array(void)
 {
     const char* text =
         "{\"tools\":[{\"name\":\"echo\",\"inputSchema\":{\"type\":\"object\"}},null]}";
-    aegis_json_value_t* v = parse(text);
+    aegis_json_value_t*       v     = parse(text);
     const aegis_json_value_t* tools = aegis_json_object_get(v, "tools");
     assert(aegis_json_array_len(tools) == 2);
     const aegis_json_value_t* first = aegis_json_array_at(tools, 0);
