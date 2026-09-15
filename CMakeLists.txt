@@ -65,6 +65,7 @@ add_subdirectory(src/autonomous)
 add_subdirectory(src/agent)
 add_subdirectory(src/coding)
 add_subdirectory(src/skill)
+add_subdirectory(src/mcp)
 # ── Optional providers ───────────────────────────────────────────────────
 if(AEGIS_OPENAI_PROVIDER OR AEGIS_ANTHROPIC_PROVIDER)
     find_package(CURL REQUIRED)

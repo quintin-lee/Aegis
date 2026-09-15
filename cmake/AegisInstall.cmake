@@ -21,7 +21,7 @@ set(_aegis_libs
     aegis_planner aegis_memory aegis_checkpoint aegis_security
     aegis_observability aegis_plugin aegis_storage
     aegis_critic aegis_autonomous aegis_agent aegis_coding
-    aegis_skill aegis_workflow aegis_core
+    aegis_skill aegis_workflow aegis_core aegis_json
 )
 if(AEGIS_OPENAI_PROVIDER)
     list(APPEND _aegis_libs aegis_llm_shared aegis_llm_openai)

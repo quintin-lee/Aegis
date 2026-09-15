@@ -16,6 +16,7 @@
 #include "aegis/common/error.h"
 #include "aegis/message/message.h"
 #include "aegis/context/context.h"
+#include "mcp_json.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -469,178 +470,60 @@ static int append_call_args(stream_call_accum_t* c, const void* data, size_t len
     return 1;
 }
 
-static int json_skip_ws(const char** p, const char* end)
-{
-    while (*p < end && isspace((unsigned char)**p)) {
-        ++*p;
-    }
-    return *p < end;
-}
-
-static int json_parse_string(const char** p, const char* end, char** out)
-{
-    if (!json_skip_ws(p, end) || **p != '"') {
-        return 0;
-    }
-    ++*p;
-    size_t cap = 32, len = 0;
-    char*  s = malloc(cap);
-    if (!s) {
-        return 0;
-    }
-    while (*p < end && **p != '"') {
-        unsigned char ch = (unsigned char)*(*p)++;
-        if (ch == '\\') {
-            if (*p >= end) {
-                free(s);
-                return 0;
-            }
-            ch = (unsigned char)*(*p)++;
-            if (ch == 'n') {
-                ch = '\n';
-            } else if (ch == 'r') {
-                ch = '\r';
-            } else if (ch == 't') {
-                ch = '\t';
-            } else if (ch != '"' && ch != '\\' && ch != '/') {
-                free(s);
-                return 0;
-            }
-        }
-        if (len + 1 >= cap) {
-            cap *= 2;
-            char* n = realloc(s, cap);
-            if (!n) {
-                free(s);
-                return 0;
-            }
-            s = n;
-        }
-        s[len++] = (char)ch;
-    }
-    if (*p >= end || **p != '"') {
-        free(s);
-        return 0;
-    }
-    ++*p;
-    s[len] = '\0';
-    *out   = s;
-    return 1;
-}
-
 static int json_parse_args(const char* json, aegis_tool_args_t** out)
 {
     if (!json || !out) {
         return 0;
     }
-    *out            = NULL;
-    const char* p   = json;
-    const char* end = json + strlen(json);
-    while (p < end && isspace((unsigned char)*p)) {
-        ++p;
+    *out = NULL;
+    aegis_json_value_t* dom = NULL;
+    if (aegis_json_parse(json, &dom) != AEGIS_OK) {
+        return 0;
     }
-    if (p >= end || *p++ != '{') {
+    if (dom->type != AEGIS_JSON_OBJECT) {
+        aegis_json_value_destroy(dom);
         return 0;
     }
     aegis_tool_args_t* args = NULL;
     if (aegis_tool_args_create(&args) != AEGIS_OK) {
+        aegis_json_value_destroy(dom);
         return 0;
     }
-    while (1) {
-        while (p < end && isspace((unsigned char)*p)) {
-            ++p;
-        }
-        if (p >= end) {
-            aegis_tool_args_destroy(args);
-            return 0;
-        }
-        if (*p == '}') {
-            ++p;
+    /* Map scalar members onto aegis_tool_args_t. Nested arrays/objects are
+     * rejected, matching the historical flat-object behavior. */
+    for (size_t i = 0; i < dom->obj.count; ++i) {
+        const char*             key = dom->obj.keys[i];
+        const aegis_json_value_t* val = dom->obj.vals[i];
+        aegis_status_t          st  = AEGIS_OK;
+        switch (val->type) {
+        case AEGIS_JSON_STRING:
+            st = aegis_tool_args_add_string(args, key, val->str);
+            break;
+        case AEGIS_JSON_INT:
+            st = aegis_tool_args_add_int(args, key, val->i);
+            break;
+        case AEGIS_JSON_FLOAT:
+            st = aegis_tool_args_add_float(args, key, val->f);
+            break;
+        case AEGIS_JSON_BOOL:
+            st = aegis_tool_args_add_bool(args, key, val->b);
+            break;
+        case AEGIS_JSON_NULL:
+            st = AEGIS_OK; /* skip null members */
+            break;
+        case AEGIS_JSON_ARRAY:
+        case AEGIS_JSON_OBJECT:
+        default:
+            st = AEGIS_ERR_INVALID; /* nested values unsupported */
             break;
         }
-        char* key = NULL;
-        if (!json_parse_string(&p, end, &key)) {
-            free(key);
+        if (st != AEGIS_OK) {
             aegis_tool_args_destroy(args);
+            aegis_json_value_destroy(dom);
             return 0;
         }
-        while (p < end && isspace((unsigned char)*p)) {
-            ++p;
-        }
-        if (p >= end || *p++ != ':') {
-            free(key);
-            aegis_tool_args_destroy(args);
-            return 0;
-        }
-        while (p < end && isspace((unsigned char)*p)) {
-            ++p;
-        }
-        if (p >= end) {
-            free(key);
-            aegis_tool_args_destroy(args);
-            return 0;
-        }
-        aegis_status_t st = AEGIS_ERR_INVALID;
-        if (*p == '"') {
-            char* value = NULL;
-            if (json_parse_string(&p, end, &value)) {
-                st = aegis_tool_args_add_string(args, key, value);
-            }
-            free(value);
-        } else if (*p == 't' && end - p >= 4 && strncmp(p, "true", 4) == 0) {
-            p += 4;
-            st = aegis_tool_args_add_bool(args, key, true);
-        } else if (*p == 'f' && end - p >= 5 && strncmp(p, "false", 5) == 0) {
-            p += 5;
-            st = aegis_tool_args_add_bool(args, key, false);
-        } else {
-            errno             = 0;
-            char*  number_end = NULL;
-            double number     = strtod(p, &number_end);
-            if (number_end == p || errno == ERANGE || number != number) {
-                st = AEGIS_ERR_INVALID;
-            } else {
-                bool is_float = false;
-                for (const char* q = p; q < number_end; ++q) {
-                    if (*q == '.' || *q == 'e' || *q == 'E') {
-                        is_float = true;
-                        break;
-                    }
-                }
-                if (is_float) {
-                    st = aegis_tool_args_add_float(args, key, number);
-                } else {
-                    st = aegis_tool_args_add_int(args, key, (int64_t)number);
-                }
-            }
-            p = number_end;
-        }
-        free(key);
-        while (p < end && isspace((unsigned char)*p)) {
-            ++p;
-        }
-        if (st != AEGIS_OK || p >= end) {
-            aegis_tool_args_destroy(args);
-            return 0;
-        }
-        if (*p == ',') {
-            ++p;
-            continue;
-        }
-        if (*p == '}') {
-            ++p;
-            break;
-        }
-        aegis_tool_args_destroy(args);
-        return 0;
     }
-    while (p < end && isspace((unsigned char)*p)) {
-        ++p;
-    }
-    if (p != end) {
-        aegis_tool_args_destroy(args);
-        return 0;
-    }
+    aegis_json_value_destroy(dom);
     *out = args;
     return 1;
 }
