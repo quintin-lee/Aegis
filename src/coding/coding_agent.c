@@ -54,8 +54,8 @@ struct aegis_coding_agent {
     aegis_tool_approval_fn      ap_fn;   /**< Borrowed gate; NULL = allow all.  */
     void*                       ap_user; /**< Borrowed, passed to ap_fn.        */
     bool                        owns_tools;
-    aegis_tool_def_t*           task_tool; /**< Heap "task" tool def; NULL when unset. */
-    subagent_ctx_t*             subagent;  /**< Owned ctx blob backing task_tool. */
+    aegis_tool_def_t*           task_tool;           /**< Heap "task" tool def; NULL when unset. */
+    subagent_ctx_t*             subagent;            /**< Owned ctx blob backing task_tool. */
     char*                       system_prompt_owned; /**< Skill-aware system prompt (heap). */
     aegis_tool_def_t*           skill_tool;          /**< Heap "use_skill" tool def. */
     skill_tools_ctx_t*          skill_ctx;           /**< Owned ctx blob backing skill_tool. */

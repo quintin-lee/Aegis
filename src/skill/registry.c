@@ -107,13 +107,13 @@ const aegis_skill_t* aegis_skill_registry_get(const aegis_skill_registry_t* r, s
  * @return AEGIS_OK on match, AEGIS_ERR_NOT_FOUND if absent,
  *   AEGIS_ERR_INVALID for NULL args.
  */
-aegis_status_t aegis_skill_registry_find(const aegis_skill_registry_t* reg,
-                                         const char* name, const aegis_skill_t** out)
+aegis_status_t aegis_skill_registry_find(const aegis_skill_registry_t* reg, const char* name,
+                                         const aegis_skill_t** out)
 {
     if (!reg || !name || !out) {
         return AEGIS_ERR_INVALID;
     }
-    *out = NULL;
+    *out     = NULL;
     size_t n = aegis_skill_registry_count(reg);
     for (size_t i = 0; i < n; ++i) {
         const aegis_skill_t* s = aegis_skill_registry_get(reg, i);
