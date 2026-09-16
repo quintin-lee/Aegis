@@ -23,7 +23,7 @@
 
 static aegis_status_t use_skill_tool_execute(void* user, const aegis_tool_args_t* args,
                                              const aegis_cancellation_token_t* token,
-                                             aegis_tool_result_t* out)
+                                             aegis_tool_result_t*              out)
 {
     (void)token;
     skill_tools_ctx_t* ctx = user;
@@ -31,21 +31,20 @@ static aegis_status_t use_skill_tool_execute(void* user, const aegis_tool_args_t
         return AEGIS_ERR_INVALID;
     }
     const aegis_tool_value_t* nv = NULL;
-    if (!aegis_tool_args_find(args, "name", &nv) || !nv ||
-        nv->type != AEGIS_TOOL_VAL_STRING || !nv->as.str.ptr) {
+    if (!aegis_tool_args_find(args, "name", &nv) || !nv || nv->type != AEGIS_TOOL_VAL_STRING ||
+        !nv->as.str.ptr) {
         return AEGIS_ERR_INVALID;
     }
     const aegis_skill_t* sk = NULL;
-    aegis_status_t st = aegis_skill_registry_find(ctx->skills, nv->as.str.ptr, &sk);
+    aegis_status_t       st = aegis_skill_registry_find(ctx->skills, nv->as.str.ptr, &sk);
     if (st != AEGIS_OK) {
         return st; /* AEGIS_ERR_NOT_FOUND for an unknown skill */
     }
     return aegis_tool_result_set_string(out, sk->instructions ? sk->instructions : "");
 }
 
-aegis_status_t aegis_coding_skill_tools_register(aegis_tool_registry_t* reg,
-                                                 skill_tools_ctx_t*     ctx,
-                                                 aegis_tool_def_t**     out_def)
+aegis_status_t aegis_coding_skill_tools_register(aegis_tool_registry_t* reg, skill_tools_ctx_t* ctx,
+                                                 aegis_tool_def_t** out_def)
 {
     if (!reg || !out_def) {
         return AEGIS_ERR_INVALID;
@@ -53,9 +52,10 @@ aegis_status_t aegis_coding_skill_tools_register(aegis_tool_registry_t* reg,
     *out_def = NULL;
 
     char* name = strdup(SKILL_TOOL_NAME);
-    char* desc = strdup("Load the full instructions for a named skill. "
-                        "Returns the skill's instruction text, or NOT_FOUND "
-                        "if the skill does not exist.");
+    char* desc = strdup(
+        "Load the full instructions for a named skill. "
+        "Returns the skill's instruction text, or NOT_FOUND "
+        "if the skill does not exist.");
     if (!name || !desc) {
         free(name);
         free(desc);
@@ -93,12 +93,12 @@ aegis_status_t aegis_coding_skill_tools_register(aegis_tool_registry_t* reg,
         free(desc);
         return AEGIS_ERR_NOMEM;
     }
-    def->name            = name;
-    def->description     = desc;
-    def->schema.params   = params;
+    def->name               = name;
+    def->description        = desc;
+    def->schema.params      = params;
     def->schema.param_count = 1;
-    def->execute         = use_skill_tool_execute;
-    def->user            = ctx;
+    def->execute            = use_skill_tool_execute;
+    def->user               = ctx;
 
     aegis_status_t st = aegis_tool_registry_register(reg, def);
     if (st != AEGIS_OK) {
@@ -141,9 +141,8 @@ aegis_status_t build_coding_system_prompt(aegis_skill_registry_t* skills, char**
 
     /* Assemble: base prompt, then the disclosure header, then one line per
      * skill. Grow the buffer as needed. */
-    const char* header =
-        "\nAvailable skills (load full instructions with the \"use_skill\" tool):";
-    size_t cap = 512 + strlen(header);
+    const char* header = "\nAvailable skills (load full instructions with the \"use_skill\" tool):";
+    size_t      cap    = 512 + strlen(header);
     for (size_t i = 0; i < count; ++i) {
         const aegis_skill_t* sk = aegis_skill_registry_get(skills, i);
         if (!sk || !sk->name) {
@@ -151,12 +150,14 @@ aegis_status_t build_coding_system_prompt(aegis_skill_registry_t* skills, char**
         }
         cap += 64 + strlen(sk->name) + (sk->description ? strlen(sk->description) : 0);
     }
+    /* +16 per skill covers the "\n- name: desc" framing overhead. */
+    cap += count * 16 + 1;
     char* buf = malloc(cap);
     if (!buf) {
         return AEGIS_ERR_NOMEM;
     }
     size_t len = 0;
-    int w = snprintf(buf + len, cap - len, "%s", CODING_SYSTEM_PROMPT_BASE);
+    int    w   = snprintf(buf + len, cap - len, "%s", CODING_SYSTEM_PROMPT_BASE);
     if (w < 0 || (size_t)w >= cap - len) {
         free(buf);
         return AEGIS_ERR_NOMEM;
@@ -167,8 +168,10 @@ aegis_status_t build_coding_system_prompt(aegis_skill_registry_t* skills, char**
         free(buf);
         return AEGIS_ERR_NOMEM;
     }
-    memcpy(buf + len, header, hd + 1);
-    len += hd + 1;
+    /* Copy only the header bytes (no embedded NUL) so the base and header
+     * concatenate without an internal terminator. */
+    memcpy(buf + len, header, hd);
+    len += hd;
 
     for (size_t i = 0; i < count; ++i) {
         const aegis_skill_t* sk = aegis_skill_registry_get(skills, i);
@@ -176,8 +179,8 @@ aegis_status_t build_coding_system_prompt(aegis_skill_registry_t* skills, char**
             continue;
         }
         const char* desc = sk->description ? sk->description : "";
-        char  line[1024];
-        int   lw = snprintf(line, sizeof(line), "\n- %s: %s", sk->name, desc);
+        char        line[1024];
+        int         lw = snprintf(line, sizeof(line), "\n- %s: %s", sk->name, desc);
         if (lw <= 0) {
             lw = (int)snprintf(line, sizeof(line), "\n- %s", sk->name);
         }
@@ -185,7 +188,7 @@ aegis_status_t build_coding_system_prompt(aegis_skill_registry_t* skills, char**
             continue; /* drop an overlong line rather than overflow */
         }
         if (len + (size_t)lw + 1 > cap) {
-            cap = len + (size_t)lw + 1;
+            cap      = len + (size_t)lw + 1;
             char* nb = realloc(buf, cap);
             if (!nb) {
                 free(buf);
@@ -193,9 +196,10 @@ aegis_status_t build_coding_system_prompt(aegis_skill_registry_t* skills, char**
             }
             buf = nb;
         }
-        memcpy(buf + len, line, (size_t)lw + 1);
-        len += (size_t)lw + 1;
+        memcpy(buf + len, line, (size_t)lw);
+        len += (size_t)lw;
     }
+    buf[len] = '\0';
 
     *out = buf;
     return AEGIS_OK;
