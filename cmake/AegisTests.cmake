@@ -410,7 +410,9 @@ set_target_properties(mock_plugin PROPERTIES
 )
 
 # ── Benchmarks ──────────────────────────────────────────────────────────
-if(AEGIS_BUILD_BENCH)
+if(AEGIS_BUILD_BENCH AND NOT EXISTS "${PROJECT_SOURCE_DIR}/benchmarks/bench_scheduler.c")
+    message(STATUS "Benchmark sources not found (benchmarks/); skipping benchmarks")
+elseif(AEGIS_BUILD_BENCH)
     find_package(benchmark QUIET)
     if(NOT benchmark_FOUND)
         message(STATUS "google/benchmark not found; skipping benchmarks")
