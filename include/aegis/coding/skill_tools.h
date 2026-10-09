@@ -35,8 +35,8 @@ typedef struct {
  * @param[out] out_def Receives the owned tool def on success.
  * @return AEGIS_OK, or AEGIS_ERR_NOMEM / AEGIS_ERR_BUSY / AEGIS_ERR_INVALID.
  */
-aegis_status_t aegis_coding_skill_tools_register(aegis_tool_registry_t* reg,
-                                                 skill_tools_ctx_t* ctx, aegis_tool_def_t** out_def);
+aegis_status_t aegis_coding_skill_tools_register(aegis_tool_registry_t* reg, skill_tools_ctx_t* ctx,
+                                                 aegis_tool_def_t** out_def);
 
 /**
  * @brief Free a def + ctx created by @ref aegis_coding_skill_tools_register.

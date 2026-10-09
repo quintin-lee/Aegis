@@ -24,9 +24,9 @@ extern "C" {
  * lifetime of the registered tool.
  */
 typedef struct {
-    aegis_model_client_t* model;           /**< Model client shared with the parent. */
-    aegis_tool_registry_t* parent_tools;   /**< Tools copied into the child (minus "task"). */
-    const char*           system_prompt;   /**< Child system prompt (borrowed). */
+    aegis_model_client_t*  model;         /**< Model client shared with the parent. */
+    aegis_tool_registry_t* parent_tools;  /**< Tools copied into the child (minus "task"). */
+    const char*            system_prompt; /**< Child system prompt (borrowed). */
 } subagent_ctx_t;
 
 /**
@@ -42,9 +42,8 @@ typedef struct {
  * @param[out] out_def Receives the owned tool def on success.
  * @return AEGIS_OK, or AEGIS_ERR_NOMEM / AEGIS_ERR_BUSY / AEGIS_ERR_INVALID.
  */
-aegis_status_t aegis_coding_delegate_tools_register(aegis_tool_registry_t* reg,
-                                                    subagent_ctx_t*        ctx,
-                                                    aegis_tool_def_t**    out_def);
+aegis_status_t aegis_coding_delegate_tools_register(aegis_tool_registry_t* reg, subagent_ctx_t* ctx,
+                                                    aegis_tool_def_t** out_def);
 
 /**
  * @brief Free a def + ctx previously created by

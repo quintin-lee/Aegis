@@ -17,7 +17,7 @@
 /* Forward decl of the execute fn (static, wired into the def). */
 static aegis_status_t task_tool_execute(void* user, const aegis_tool_args_t* args,
                                         const aegis_cancellation_token_t* token,
-                                        aegis_tool_result_t* out);
+                                        aegis_tool_result_t*              out);
 
 /* Visitor: re-register every parent tool EXCEPT "task" into the child registry. */
 struct copy_ctx {
@@ -33,9 +33,8 @@ static aegis_status_t copy_tool_visitor(const aegis_tool_def_t* def, void* user)
     return AEGIS_OK; /* skip "task" (recursion guard) */
 }
 
-aegis_status_t aegis_coding_delegate_tools_register(aegis_tool_registry_t* reg,
-                                                    subagent_ctx_t*        ctx,
-                                                    aegis_tool_def_t**    out_def)
+aegis_status_t aegis_coding_delegate_tools_register(aegis_tool_registry_t* reg, subagent_ctx_t* ctx,
+                                                    aegis_tool_def_t** out_def)
 {
     if (!reg || !out_def) {
         return AEGIS_ERR_INVALID;
@@ -44,9 +43,10 @@ aegis_status_t aegis_coding_delegate_tools_register(aegis_tool_registry_t* reg,
 
     /* Owned name/description/params arrays (registry is shallow). */
     char* name = strdup(TASK_TOOL_NAME);
-    char* desc = strdup("Delegate a focused sub-goal to a child agent. "
-                        "The child has the same tools (except task) "
-                        "and an isolated context. Returns its final answer.");
+    char* desc = strdup(
+        "Delegate a focused sub-goal to a child agent. "
+        "The child has the same tools (except task) "
+        "and an isolated context. Returns its final answer.");
     if (!name || !desc) {
         free(name);
         free(desc);
@@ -96,12 +96,12 @@ aegis_status_t aegis_coding_delegate_tools_register(aegis_tool_registry_t* reg,
         free(desc);
         return AEGIS_ERR_NOMEM;
     }
-    def->name            = name;
-    def->description     = desc;
-    def->schema.params   = params;
+    def->name               = name;
+    def->description        = desc;
+    def->schema.params      = params;
     def->schema.param_count = 2;
-    def->execute         = task_tool_execute;
-    def->user            = ctx;
+    def->execute            = task_tool_execute;
+    def->user               = ctx;
 
     aegis_status_t st = aegis_tool_registry_register(reg, def);
     if (st != AEGIS_OK) {
@@ -133,7 +133,7 @@ void aegis_coding_delegate_tools_free(aegis_tool_def_t* def, subagent_ctx_t* ctx
 
 static aegis_status_t task_tool_execute(void* user, const aegis_tool_args_t* args,
                                         const aegis_cancellation_token_t* token,
-                                        aegis_tool_result_t* out)
+                                        aegis_tool_result_t*              out)
 {
     (void)token;
     subagent_ctx_t* ctx = user;
@@ -142,29 +142,28 @@ static aegis_status_t task_tool_execute(void* user, const aegis_tool_args_t* arg
     }
     /* Read "goal" (required). */
     const aegis_tool_value_t* gv = NULL;
-    if (!aegis_tool_args_find(args, "goal", &gv) || !gv ||
-        gv->type != AEGIS_TOOL_VAL_STRING) {
+    if (!aegis_tool_args_find(args, "goal", &gv) || !gv || gv->type != AEGIS_TOOL_VAL_STRING) {
         return AEGIS_ERR_INVALID;
     }
     const char* goal = gv->as.str.ptr;
 
     /* (2) Fresh isolated child session. */
     aegis_session_t* child_session = NULL;
-    aegis_status_t   st = aegis_session_create("/tmp", &child_session);
+    aegis_status_t   st            = aegis_session_create("/tmp", &child_session);
     if (st != AEGIS_OK) {
         return st;
     }
 
     /* (3) Child tool registry = parent tools minus "task". */
     aegis_tool_registry_t* child_tools = NULL;
-    st = aegis_tool_registry_create(&child_tools);
+    st                                 = aegis_tool_registry_create(&child_tools);
     if (st != AEGIS_OK) {
         aegis_session_destroy(child_session);
         return st;
     }
     if (ctx->parent_tools) {
         struct copy_ctx cc = {.child = child_tools};
-        st = aegis_tool_registry_visit(ctx->parent_tools, copy_tool_visitor, &cc);
+        st                 = aegis_tool_registry_visit(ctx->parent_tools, copy_tool_visitor, &cc);
         if (st != AEGIS_OK) {
             aegis_tool_registry_destroy(child_tools);
             aegis_session_destroy(child_session);
@@ -174,7 +173,7 @@ static aegis_status_t task_tool_execute(void* user, const aegis_tool_args_t* arg
 
     /* (4) Child loop with a fresh token, reactive strategy, capped turns. */
     aegis_cancellation_token_t* child_token = NULL;
-    st = aegis_cancellation_token_create(&child_token);
+    st                                      = aegis_cancellation_token_create(&child_token);
     if (st != AEGIS_OK) {
         aegis_tool_registry_destroy(child_tools);
         aegis_session_destroy(child_session);
@@ -191,7 +190,7 @@ static aegis_status_t task_tool_execute(void* user, const aegis_tool_args_t* arg
     ccfg.max_strategy_turns = TASK_MAX_TURNS;
 
     aegis_agent_loop_t* child_loop = NULL;
-    st = aegis_agent_loop_create(&ccfg, &child_loop);
+    st                             = aegis_agent_loop_create(&ccfg, &child_loop);
     if (st != AEGIS_OK) {
         aegis_cancellation_token_destroy(child_token);
         aegis_tool_registry_destroy(child_tools);
@@ -203,7 +202,7 @@ static aegis_status_t task_tool_execute(void* user, const aegis_tool_args_t* arg
     aegis_status_t run_st = aegis_agent_loop_run_turn(child_loop, goal);
 
     /* (6) Read the child's last message content as the answer. */
-    size_t n = aegis_session_message_count(child_session);
+    size_t      n      = aegis_session_message_count(child_session);
     const char* answer = "";
     if (n > 0) {
         const aegis_message_t* last = aegis_session_message_at(child_session, n - 1);

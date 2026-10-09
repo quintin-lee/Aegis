@@ -475,7 +475,7 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
     if (!json || !out) {
         return 0;
     }
-    *out = NULL;
+    *out                    = NULL;
     aegis_json_value_t* dom = NULL;
     if (aegis_json_parse(json, &dom) != AEGIS_OK) {
         return 0;
@@ -492,9 +492,9 @@ static int json_parse_args(const char* json, aegis_tool_args_t** out)
     /* Map scalar members onto aegis_tool_args_t. Nested arrays/objects are
      * rejected, matching the historical flat-object behavior. */
     for (size_t i = 0; i < dom->obj.count; ++i) {
-        const char*             key = dom->obj.keys[i];
+        const char*               key = dom->obj.keys[i];
         const aegis_json_value_t* val = dom->obj.vals[i];
-        aegis_status_t          st  = AEGIS_OK;
+        aegis_status_t            st  = AEGIS_OK;
         switch (val->type) {
         case AEGIS_JSON_STRING:
             st = aegis_tool_args_add_string(args, key, val->str);
