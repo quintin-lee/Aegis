@@ -31,10 +31,10 @@ cmake --build build
 
 | Variable               | Default | Description                          |
 |------------------------|---------|--------------------------------------|
-| `AEGIS_BUILD_TESTS`    | ON      | Build test suite (requires GTest)    |
-| `AEGIS_BUILD_BENCH`    | OFF     | Build benchmark targets              |
+| `AEGIS_BUILD_TESTS`    | ON      | Build test suite (assert-based C tests) |
+| `AEGIS_BUILD_BENCH`    | OFF     | Build benchmark targets (placeholder — sources not yet added) |
 | `AEGIS_BUILD_DOCS`     | OFF     | Generate Doxygen documentation       |
-| `AEGIS_WARNINGS_AS_ERRORS` | ON  | Warnings promoted to errors          |
+| `AEGIS_WARNINGS_AS_ERRORS` | OFF | Warnings promoted to errors          |
 
 ### Tests
 
@@ -79,7 +79,6 @@ src/             ← Implementation
 src/internal/    ← Internal headers (not exposed)
 tests/unit/      ← Fast isolated tests
 tests/integration/ ← End-to-end flow tests
-benchmarks/      ← Performance benchmarks
 docs/            ← Design docs, ADRs
 cmake/           ← CMake modules and package config template
 .github/workflows/ ← CI pipelines
