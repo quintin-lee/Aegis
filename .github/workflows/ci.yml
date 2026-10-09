@@ -26,18 +26,25 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake gcc g++ clang valgrind libcurl4-openssl-dev
+          sudo apt-get install -y cmake gcc g++ clang valgrind libcurl4-openssl-dev libgtest-dev
 
       - name: Configure
         env:
           CC: ${{ matrix.compiler }}
         run: |
           mkdir -p build
+          # GCC/Clang expect -fsanitize=address / -fsanitize=thread,
+          # not the matrix labels asan/tsan
+          if [ "${{ matrix.sanitize }}" = "asan" ]; then
+            SANITIZER=address
+          elif [ "${{ matrix.sanitize }}" = "tsan" ]; then
+            SANITIZER=thread
+          fi
           if [ "${{ matrix.sanitize }}" != "none" ]; then
             cmake -S . -B build \
               -DCMAKE_BUILD_TYPE=Release \
               -DAEGIS_BUILD_TESTS=ON \
-              -DCMAKE_C_FLAGS="-fsanitize=${{ matrix.sanitize }} -g"
+              -DCMAKE_C_FLAGS="-fsanitize=${SANITIZER} -g"
           else
             cmake -S . -B build \
               -DCMAKE_BUILD_TYPE=Release \
