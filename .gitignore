@@ -33,6 +33,9 @@ Thumbs.db
 lcov.info
 coverage/
 
+# Local config (copy from aegis.conf.example; `aegis init` generates one)
+aegis.conf
+
 # Valgrind
 *.log
 *.vglog

@@ -5,5 +5,5 @@ model = gpt-4o-mini
 max_iterations = 5
 
 # OpenAI 配置
-api_key = sk-...
+api_key = <your-openai-api-key>
 base_url = https://api.openai.com/v1
