@@ -26,43 +26,43 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake gcc g++ clang valgrind libcurl4-openssl-dev libgtest-dev
+          sudo apt-get install -y cmake gcc g++ clang valgrind libcurl4-openssl-dev libgtest-dev libsqlite3-dev
 
       - name: Configure
         env:
           CC: ${{ matrix.compiler }}
         run: |
           mkdir -p build
-          # GCC/Clang expect -fsanitize=address / -fsanitize=thread,
-          # not the matrix labels asan/tsan
+          # Use the project's sanitizer options: cmake/AegisSanitizers.cmake
+          # applies -fsanitize via add_compile_options + add_link_options, so the
+          # flag survives CXX-linked test targets (raw CMAKE_C_FLAGS does not).
           if [ "${{ matrix.sanitize }}" = "asan" ]; then
-            SANITIZER=address
+            SAN_OPT=-DAEGIS_ENABLE_ASAN=ON
           elif [ "${{ matrix.sanitize }}" = "tsan" ]; then
-            SANITIZER=thread
-          fi
-          if [ "${{ matrix.sanitize }}" != "none" ]; then
-            cmake -S . -B build \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DAEGIS_BUILD_TESTS=ON \
-              -DCMAKE_C_FLAGS="-fsanitize=${SANITIZER} -g"
+            SAN_OPT=-DAEGIS_ENABLE_TSAN=ON
           else
-            cmake -S . -B build \
-              -DCMAKE_BUILD_TYPE=Release \
-              -DAEGIS_BUILD_TESTS=ON
+            SAN_OPT=
           fi
+          cmake -S . -B build \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DAEGIS_BUILD_TESTS=ON \
+            $SAN_OPT
 
       - name: Build
         run: cmake --build build -j$(nproc)
 
       - name: Test (ASan)
         if: matrix.sanitize == 'asan'
-        run: |
-          LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libasan.so.8 \
-            ctest --test-dir build --output-on-failure -E bench_
+        # Per-test ASAN env (LD_PRELOAD=, ASAN_OPTIONS=verify_asan_link_order=0)
+        # is set by cmake/AegisTests.cmake; a shell-level preload would be
+        # overridden for listed tests and harmful for unlisted ones.
+        run: ctest --test-dir build --output-on-failure -E bench_
       - name: Test (TSan)
         if: matrix.sanitize == 'tsan'
         run: |
-          LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libtsan.so.0 \
+          TSAN_LIB=$(ldconfig -p | awk '/libtsan\.so/{print $NF; exit}')
+          echo "TSAN_LIB=$TSAN_LIB"
+          LD_PRELOAD="$TSAN_LIB" \
             ctest --test-dir build --output-on-failure -E bench_
       - name: Test (native)
         if: matrix.sanitize == 'none'
