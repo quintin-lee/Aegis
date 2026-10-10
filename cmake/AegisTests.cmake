@@ -409,6 +409,22 @@ set_target_properties(mock_plugin PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/tests/plugin"
 )
 
+# Tests use assert() as their check framework, including side-effecting setup
+# calls inside assert() (create/init/thread spawn). Release builds define
+# NDEBUG, which would compile the checks — and their setup — away, leaving
+# NULL handles and unset callbacks behind. Keep asserts enabled on every
+# test-scope target regardless of build type (-UNDEBUG comes after
+# -DNDEBUG on the command line and wins).
+get_property(_aegis_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+foreach(_aegis_test_target IN LISTS _aegis_test_targets)
+    get_target_property(_aegis_test_type ${_aegis_test_target} TYPE)
+    if(_aegis_test_type STREQUAL "EXECUTABLE"
+       OR _aegis_test_type STREQUAL "STATIC_LIBRARY"
+       OR _aegis_test_type STREQUAL "SHARED_LIBRARY")
+        target_compile_options(${_aegis_test_target} PRIVATE -UNDEBUG)
+    endif()
+endforeach()
+
 # ── Benchmarks ──────────────────────────────────────────────────────────
 if(AEGIS_BUILD_BENCH AND NOT EXISTS "${PROJECT_SOURCE_DIR}/benchmarks/bench_scheduler.c")
     message(STATUS "Benchmark sources not found (benchmarks/); skipping benchmarks")

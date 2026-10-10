@@ -74,6 +74,7 @@ int main(void)
     st                          = backend.complete(backend.user, &req, token, &out);
     assert(st == AEGIS_ERR_CANCELLED && out == NULL);
 
+    aegis_message_destroy(user);
     aegis_message_list_destroy(msgs);
     aegis_cancellation_token_destroy(token);
     aegis_anthropic_model_destroy(ctx);

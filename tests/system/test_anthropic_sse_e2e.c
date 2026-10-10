@@ -376,6 +376,7 @@ int main(void)
     st = backend.stream(backend.user, &req, NULL, collect_event, &evs);
     assert(st == AEGIS_ERR_PROVIDER);
 
+    aegis_message_destroy(user);
     aegis_message_list_destroy(msgs);
     aegis_anthropic_model_destroy(ctx);
     fxt.status_code = 0;
