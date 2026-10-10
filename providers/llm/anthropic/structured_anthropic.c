@@ -810,6 +810,13 @@ static aegis_status_t structured_stream(void* user, const aegis_model_request_t*
         }
     }
     aegis_sse_free(&state.sse);
+    /* Free any per-block tool_arg buffers accumulated during the stream.
+     * append_tool_args() grows these via realloc(); they are owned by the
+     * (stack-allocated) state and must be released before the function
+     * returns to avoid leaking heap memory across streaming tool-use content blocks. */
+    for (int i = 0; i < 16; ++i) {
+        free(state.tool_args[i]);
+    }
     curl_slist_free_all(headers);
     curl_easy_cleanup(curl);
     free(body);

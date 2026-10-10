@@ -221,6 +221,12 @@ static aegis_json_value_t* args_to_json_object(const mcp_tool_blob_t*   blob,
         }
         st = aegis_json_object_insert(obj, &key, &val);
         free(key.str); /* object_insert deep-copies the key */
+        /* object_insert also deep-copies val via copy_value(), which re-strdups
+         * JSON_STRING payloads. Release the local STRING/BYTES strdup() we made
+         * in the switch above so ownership stays only with the stored copy. */
+        if (val.type == AEGIS_JSON_STRING) {
+            free(val.str);
+        }
         if (st != AEGIS_OK) {
             aegis_json_value_destroy(obj);
             return NULL;
@@ -383,10 +389,16 @@ void aegis_mcp_client_destroy(aegis_mcp_client_t* c)
     }
     if (c->tools != NULL) {
         /* Free owned per-tool blob state. input_schema borrows from
-         * c->schema_dom (freed below), so it is not freed here. */
+         * c->schema_dom (freed below), so it is not freed here.
+         * build_param_specs() mallocs ->params[i].name and ->params[i].description
+         * via strdup(); destroy them before freeing the params array itself. */
         for (size_t i = 0; i < c->tool_count; ++i) {
             mcp_tool_blob_t* blob = c->blobs[i];
             if (blob != NULL) {
+                for (size_t p = 0; p < blob->param_count; ++p) {
+                    free(blob->params[p].name);
+                    free(blob->params[p].description);
+                }
                 free(blob->params);
                 free(blob);
             }
@@ -538,6 +550,10 @@ aegis_status_t aegis_mcp_register_tools(aegis_mcp_client_t* c, aegis_tool_regist
 
         st = aegis_tool_registry_register(reg, &def);
         if (st != AEGIS_OK) {
+            for (size_t p = 0; p < blob->param_count; ++p) {
+                free(blob->params[p].name);
+                free(blob->params[p].description);
+            }
             free(blob->params);
             free(blob);
             return st;
